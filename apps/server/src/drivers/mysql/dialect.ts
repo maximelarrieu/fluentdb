@@ -1,0 +1,31 @@
+import type { Dialect } from '../types.js';
+
+export const mysqlDialect: Dialect = {
+  name: 'MySQL',
+  cmDialect: 'mysql',
+  quoteIdent: (name) => `\`${name.replaceAll('`', '``')}\``,
+  placeholder: () => '?',
+  typeNames: [
+    'tinyint',
+    'smallint',
+    'int',
+    'bigint',
+    'decimal(10,2)',
+    'float',
+    'double',
+    'bit',
+    'boolean',
+    'char(10)',
+    'varchar(255)',
+    'text',
+    'mediumtext',
+    'longtext',
+    'date',
+    'time',
+    'datetime',
+    'timestamp',
+    'json',
+    'blob',
+    'binary(16)',
+  ],
+};

@@ -1,0 +1,32 @@
+import type { Dialect } from '../types.js';
+
+export const postgresDialect: Dialect = {
+  name: 'PostgreSQL',
+  cmDialect: 'postgres',
+  quoteIdent: (name) => `"${name.replaceAll('"', '""')}"`,
+  placeholder: (i) => `$${i}`,
+  typeNames: [
+    'smallint',
+    'integer',
+    'bigint',
+    'numeric',
+    'real',
+    'double precision',
+    'serial',
+    'bigserial',
+    'boolean',
+    'text',
+    'varchar(255)',
+    'char(10)',
+    'uuid',
+    'date',
+    'time',
+    'timestamp',
+    'timestamptz',
+    'interval',
+    'json',
+    'jsonb',
+    'bytea',
+    'inet',
+  ],
+};
