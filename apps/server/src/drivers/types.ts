@@ -35,6 +35,8 @@ export interface DriverCapabilities {
   transactionalDdl: boolean;
   /** Whether ALTER COLUMN type/nullability/default is supported */
   alterColumn: boolean;
+  /** Whether estimateRows() can return a meaningful estimate */
+  estimateRows: boolean;
 }
 
 export interface RunQueryOptions {
@@ -66,6 +68,12 @@ export interface Driver {
   runQuery(sql: string, opts: RunQueryOptions): Promise<QueryResultSet[]>;
   /** Returns true if a running query was found and a cancel was issued. */
   cancelQuery(queryId: string): Promise<boolean>;
+
+  /**
+   * Estimate how many rows a statement would affect, via a dry-run EXPLAIN
+   * that does NOT execute it. Returns null when unsupported or on failure.
+   */
+  estimateRows(sql: string): Promise<number | null>;
 
   selectRows(ref: TableRef, q: RowQuery): Promise<PageResult>;
   mutateRows(ref: TableRef, changes: RowChanges): Promise<MutationResult>;

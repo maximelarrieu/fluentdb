@@ -32,6 +32,30 @@ import { buildPostgresDdl } from './ddl.js';
 
 const DEFAULT_SCHEMA = 'public';
 
+interface PgPlanNode {
+  'Node Type'?: string;
+  'Plan Rows'?: number;
+  Plans?: PgPlanNode[];
+}
+
+/**
+ * Pull the affected-row estimate from an EXPLAIN plan tree. For writes the
+ * top ModifyTable node reports 0 rows (unless RETURNING); the real estimate
+ * lives on its scan child, so we descend through ModifyTable nodes.
+ */
+function estimateFromPlan(plan: PgPlanNode | undefined): number | null {
+  if (!plan) return null;
+  if (
+    plan['Node Type'] === 'ModifyTable' &&
+    plan.Plans &&
+    plan.Plans.length > 0
+  ) {
+    return estimateFromPlan(plan.Plans[0]);
+  }
+  const rows = plan['Plan Rows'];
+  return typeof rows === 'number' ? Math.round(rows) : null;
+}
+
 export class PostgresDriver implements Driver {
   readonly engine = 'postgres' as const;
   readonly dialect = postgresDialect;
@@ -41,6 +65,7 @@ export class PostgresDriver implements Driver {
     cancelQuery: true,
     transactionalDdl: true,
     alterColumn: true,
+    estimateRows: true,
   };
 
   private pool: pg.Pool | null = null;
@@ -307,6 +332,17 @@ export class PostgresDriver implements Driver {
       return true;
     } finally {
       await side.end().catch(() => {});
+    }
+  }
+
+  async estimateRows(sql: string): Promise<number | null> {
+    // EXPLAIN plans the statement without executing it (safe for writes).
+    try {
+      const res = await this.db().query(`EXPLAIN (FORMAT JSON) ${sql}`);
+      const plan = (res.rows[0]?.['QUERY PLAN'] ?? res.rows[0])?.[0]?.Plan;
+      return estimateFromPlan(plan);
+    } catch {
+      return null;
     }
   }
 

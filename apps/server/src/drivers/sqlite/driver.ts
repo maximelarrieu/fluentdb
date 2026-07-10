@@ -50,6 +50,7 @@ export class SqliteDriver implements Driver {
     cancelQuery: false,
     transactionalDdl: true,
     alterColumn: false,
+    estimateRows: false,
   };
 
   private db: Database.Database | null = null;
@@ -259,6 +260,11 @@ export class SqliteDriver implements Driver {
 
   async cancelQuery(): Promise<boolean> {
     return false;
+  }
+
+  async estimateRows(): Promise<number | null> {
+    // SQLite's EXPLAIN QUERY PLAN gives no row-count estimate.
+    return null;
   }
 
   private exec(built: BuiltQuery): { rows: unknown[][]; columns: string[] } {

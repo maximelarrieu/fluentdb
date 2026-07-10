@@ -44,6 +44,7 @@ export class ConnectionManager {
       cancelQuery: driver.capabilities.cancelQuery,
       transactionalDdl: driver.capabilities.transactionalDdl,
       alterColumn: driver.capabilities.alterColumn,
+      estimateRows: driver.capabilities.estimateRows,
       serverVersion: version,
     };
   }

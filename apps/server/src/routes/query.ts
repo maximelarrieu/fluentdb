@@ -1,6 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { queryRequestSchema } from '@fluentdb/shared';
+import {
+  queryPlanRequestSchema,
+  queryRequestSchema,
+  type StatementPlan,
+} from '@fluentdb/shared';
+import { analyzeScript } from '../sql/analyze.js';
 import type { AppContext } from '../context.js';
 
 const idParams = z.object({ id: z.string() });
@@ -14,6 +19,23 @@ export function registerQueryRoutes(
     const { id } = idParams.parse(req.params);
     const body = queryRequestSchema.parse(req.body);
     const config = ctx.manager.getConfig(id);
+
+    // Read-only connections never execute writes or DDL, even from the free
+    // SQL editor — the safe-by-design guardrail, enforced server-side.
+    if (config?.isReadOnly) {
+      const offending = analyzeScript(body.sql).find(
+        (s) => s.kind === 'write' || s.kind === 'ddl',
+      );
+      if (offending) {
+        throw Object.assign(
+          new Error(
+            `Connection is read-only — ${offending.operation} is not allowed`,
+          ),
+          { statusCode: 403 },
+        );
+      }
+    }
+
     const driver = await ctx.manager.getDriver(id, body.database);
     return ctx.runner.run(driver, body.sql, {
       maxRows: body.maxRows,
@@ -22,6 +44,41 @@ export function registerQueryRoutes(
       database: body.database ?? config?.database ?? null,
       queryId: body.queryId,
     });
+  });
+
+  /**
+   * Analyze a script without executing it: classify each statement, flag
+   * dangerous patterns and estimate affected rows for writes (dry-run
+   * EXPLAIN). Powers the confirmation dialog before risky executions.
+   */
+  app.post('/api/connections/:id/query/plan', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const body = queryPlanRequestSchema.parse(req.body);
+    const driver = await ctx.manager.getDriver(id, body.database);
+
+    const analyses = analyzeScript(body.sql);
+    const statements: StatementPlan[] = await Promise.all(
+      analyses.map(async (a) => {
+        let estimatedRows: number | null = null;
+        if (a.kind === 'write' && driver.capabilities.estimateRows) {
+          estimatedRows = await driver.estimateRows(a.sql).catch(() => null);
+        }
+        return {
+          sql: a.sql,
+          kind: a.kind,
+          operation: a.operation,
+          warnings: a.warnings,
+          estimatedRows,
+        };
+      }),
+    );
+
+    return {
+      statements,
+      requiresConfirmation: statements.some(
+        (s) => s.kind === 'write' || s.kind === 'ddl',
+      ),
+    };
   });
 
   app.post('/api/queries/:queryId/cancel', async (req) => {

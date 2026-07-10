@@ -184,6 +184,37 @@ describe('schema, data, query, ddl, export over sqlite', () => {
     expect(body.resultSets[1].truncated).toBe(false);
   });
 
+  it('analyzes a script via /query/plan', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${id}/query/plan`,
+      payload: {
+        sql: 'SELECT * FROM albums; DELETE FROM albums; DROP TABLE albums',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.requiresConfirmation).toBe(true);
+    expect(body.statements.map((s: { kind: string }) => s.kind)).toEqual([
+      'read',
+      'write',
+      'ddl',
+    ]);
+    // DELETE without WHERE carries a warning
+    expect(body.statements[1].warnings.length).toBeGreaterThan(0);
+    // SQLite cannot estimate rows
+    expect(body.statements[1].estimatedRows).toBeNull();
+  });
+
+  it('does not require confirmation for pure reads', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${id}/query/plan`,
+      payload: { sql: 'SELECT 1' },
+    });
+    expect(res.json().requiresConfirmation).toBe(false);
+  });
+
   it('returns cancelled:false for an unknown query id', async () => {
     const res = await t.app.inject({
       method: 'POST',
@@ -315,5 +346,21 @@ describe('schema, data, query, ddl, export over sqlite', () => {
       },
     });
     expect(res.statusCode).toBe(403);
+
+    // the free SQL editor path is guarded too
+    const write = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${roId}/query`,
+      payload: { sql: "INSERT INTO artists (name) VALUES ('X')" },
+    });
+    expect(write.statusCode).toBe(403);
+
+    // reads still work on a read-only connection
+    const read = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${roId}/query`,
+      payload: { sql: 'SELECT COUNT(*) FROM artists' },
+    });
+    expect(read.statusCode).toBe(200);
   });
 });

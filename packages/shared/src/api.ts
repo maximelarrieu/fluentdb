@@ -21,6 +21,29 @@ export const exportRequestSchema = z.object({
 });
 export type ExportRequest = z.infer<typeof exportRequestSchema>;
 
+export const queryPlanRequestSchema = z.object({
+  sql: z.string().min(1),
+  database: z.string().optional(),
+});
+export type QueryPlanRequest = z.infer<typeof queryPlanRequestSchema>;
+
+export type StatementKind = 'read' | 'write' | 'ddl' | 'other';
+
+export interface StatementPlan {
+  sql: string;
+  kind: StatementKind;
+  operation: string;
+  warnings: string[];
+  /** null when the engine can't estimate (e.g. SQLite) or on EXPLAIN failure */
+  estimatedRows: number | null;
+}
+
+export interface QueryPlanResponse {
+  statements: StatementPlan[];
+  /** true if any statement writes data or changes structure */
+  requiresConfirmation: boolean;
+}
+
 export interface ApiError {
   error: string;
   detail?: string;
