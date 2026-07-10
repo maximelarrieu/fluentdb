@@ -71,7 +71,10 @@ lie le socket sur `127.0.0.1` et sert l'UI en production. Les tests utilisent
   schéma courants, onglets ouverts, ouverture du panneau IA.
 - **Rendu** : composants « shadcn-style » (primitives Radix + Tailwind) dans
   `components/ui/` ; fonctionnalités isolées par domaine dans `features/`
-  (`connections`, `schema-tree`, `data-grid`, `sql-editor`, `structure`, `ai`).
+  (`connections`, `schema-tree`, `data-grid`, `sql-editor`, `structure`, `erd`, `ai`).
+  Le diagramme **ERD** (`features/erd`) rend le schéma via React Flow + un
+  layout dagre ; le SQL généré pour l'export **DBML** est une fonction pure
+  (`features/erd/dbml.ts`), testée en unitaire.
 - **Grille** : **TanStack Table** (headless) + **TanStack Virtual** — on contrôle
   entièrement le markup (édition inline, cellules dirty, renderers NULL/JSON) et
   on virtualise les grands jeux de résultats.

@@ -17,6 +17,13 @@ export default defineConfig({
           include: ['apps/server/test-integration/**/*.test.ts'],
         },
       },
+      {
+        test: {
+          name: 'web',
+          environment: 'node',
+          include: ['apps/web/src/**/*.test.ts'],
+        },
+      },
     ],
   },
 });

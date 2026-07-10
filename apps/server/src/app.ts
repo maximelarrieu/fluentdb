@@ -19,6 +19,7 @@ import { registerDdlRoutes } from './routes/ddl.js';
 import { registerExportRoutes } from './routes/export.js';
 import { registerDockerRoutes } from './routes/docker.js';
 import { registerAiRoutes } from './routes/ai.js';
+import { registerErdRoutes } from './routes/erd.js';
 
 export interface BuildAppOptions {
   dataDir: string;
@@ -79,6 +80,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   registerExportRoutes(app, ctx);
   registerDockerRoutes(app, ctx);
   registerAiRoutes(app, ctx);
+  registerErdRoutes(app, ctx);
 
   app.addHook('onClose', async () => {
     await manager.disconnectAll();

@@ -7,6 +7,7 @@ import {
   Search,
   RefreshCw,
   Columns3,
+  Workflow,
 } from 'lucide-react';
 import type { TableInfo } from '@fluentdb/shared';
 import { api } from '../../api/client.js';
@@ -25,6 +26,7 @@ export function SchemaTree() {
     setSchema,
     openTable,
     openStructure,
+    openErd,
     schemaVersion,
   } = useWorkspace();
   const [filter, setFilter] = useState('');
@@ -95,6 +97,14 @@ export function SchemaTree() {
             className="pl-7 h-7"
           />
         </div>
+        <Button
+          size="sm"
+          variant="subtle"
+          className="w-full justify-center"
+          onClick={openErd}
+        >
+          <Workflow size={13} /> Diagramme ERD
+        </Button>
       </div>
 
       <div className="flex-1 overflow-auto py-1">

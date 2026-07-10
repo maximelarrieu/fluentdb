@@ -9,6 +9,7 @@ import type {
   DdlPreview,
   DetectedDbContainer,
   DockerStatus,
+  ErdSchema,
   HistoryEntry,
   MutationResult,
   PageResult,
@@ -169,6 +170,10 @@ export const api = {
       statements,
       database,
     }),
+
+  // erd
+  erd: (id: string, database?: string, schema?: string) =>
+    request<ErdSchema>('GET', `/api/connections/${id}/erd${scope(database, schema)}`),
 
   // docker
   dockerStatus: () => request<DockerStatus>('GET', '/api/docker/status'),

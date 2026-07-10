@@ -80,6 +80,23 @@ Toute modification passe par un **aperçu du SQL** : FluentDB montre exactement 
 instructions qui seront exécutées (avec d'éventuels avertissements, par ex. les
 limites d'`ALTER TABLE` sous SQLite) et ne les applique qu'après **validation**.
 
+## 5 bis. Diagramme ERD
+
+Bouton **« Diagramme ERD »** dans l'en-tête de l'explorateur : ouvre un schéma
+visuel vivant de la base connectée.
+
+- **Tables** rendues en cartes (colonnes, ★ clé primaire, marqueur de clé
+  étrangère, type) ; **relations** dessinées entre colonnes.
+- **Auto-agencement** : disposition automatique lisible dès l'ouverture, bouton
+  **« Ré-agencer »**.
+- **Mode focus** : un clic sur une table estompe les tables non liées et
+  surligne ses relations directes (utile sur les gros schémas) ; « Quitter le
+  focus » revient à la vue complète.
+- **Recherche** d'une table (centre et zoome dessus).
+- **Pan / zoom** + minimap.
+- **Export** en un clic : **PNG**, **SVG** (pour docs et présentations) et
+  **DBML** (format dbdiagram.io, texte portable ré-importable ailleurs).
+
 ## 6. Éditeur SQL
 
 - **Onglets multiples** ; nouvel onglet via le `+` de la barre d'onglets.
