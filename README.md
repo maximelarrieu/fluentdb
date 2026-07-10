@@ -92,6 +92,19 @@ npm run e2e         # parcours navigateur (Playwright)
 TEST_PG_URL=postgres://user:pw@127.0.0.1:5432/db npx vitest run --project integration
 ```
 
+## Documentation
+
+Toute la documentation est dans [`docs/`](docs/README.md) :
+
+- [Plan projet](docs/PLAN.md) — vision, décisions, jalons, feuille de route.
+- [Architecture](docs/ARCHITECTURE.md) — structure du code et choix techniques.
+- [Documentation technique](docs/TECHNICAL.md) — installation, API HTTP, extension.
+- [Documentation fonctionnelle](docs/FUNCTIONAL.md) — le produit vu par l'utilisateur.
+- [Présentation](docs/PRESENTATION.md) — présentation orientée client.
+
+Voir aussi [`CONTRIBUTING.md`](CONTRIBUTING.md) (conventions de commits, PR,
+changelog) et [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Licence
 
 MIT
