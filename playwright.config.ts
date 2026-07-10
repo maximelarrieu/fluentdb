@@ -14,7 +14,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      use: {
+        browserName: 'chromium',
+        // Use the browser preinstalled in this environment instead of
+        // downloading one (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD is set).
+        launchOptions: process.env.FLUENTDB_CHROMIUM
+          ? { executablePath: process.env.FLUENTDB_CHROMIUM }
+          : undefined,
+      },
     },
   ],
 });
