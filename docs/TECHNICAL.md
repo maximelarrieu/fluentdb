@@ -83,6 +83,8 @@ alterColumn, serverVersion }` — pilote l'UI selon le moteur.
 - `GET /tables` → tables + vues (avec estimation de lignes).
 - `GET /tables/:table/structure` → colonnes, PK, index, clés étrangères.
 - `GET /autocomplete` → `{ catalog, dialect, typeNames }` pour CodeMirror.
+- `GET /erd` → `{ tables[], relations[], truncated? }` — schéma pour le diagramme
+  ERD (tables, colonnes avec PK/FK, relations), assemblé depuis l'introspection.
 
 ### Données
 

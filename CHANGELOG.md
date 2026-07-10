@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Diagrammes ERD** : un onglet « Diagramme ERD » affiche un schéma visuel
+  vivant de la base connectée (tables, colonnes, clés primaires et étrangères,
+  relations), auto-agencé. Fonctions : recherche de table, ré-agencement,
+  **mode focus** (clic sur une table → estompe les tables non liées et surligne
+  ses relations), pan/zoom + minimap, et **export en PNG, SVG et DBML**
+  (format dbdiagram.io, ré-importable).
 - **Assistant IA « safe by design » — garde-fous avant exécution** : toute
   requête d'écriture ou de structure (INSERT/UPDATE/DELETE, DDL) ouvre un
   dialogue de confirmation montrant, par instruction, son type, le SQL exact,

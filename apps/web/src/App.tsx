@@ -9,6 +9,7 @@ import { TabBar } from './features/workspace/TabBar.js';
 import { TableView } from './features/data-grid/TableView.js';
 import { QueryEditor } from './features/sql-editor/QueryEditor.js';
 import { StructureView } from './features/structure/StructureView.js';
+import { ErdView } from './features/erd/ErdView.js';
 import { AssistantPanel } from './features/ai/AssistantPanel.js';
 
 export function App() {
@@ -73,6 +74,8 @@ function Workspace() {
               table={activeTab.table}
               schema={activeTab.schema}
             />
+          ) : activeTab.kind === 'erd' ? (
+            <ErdView key={activeTab.id} />
           ) : (
             <QueryEditor
               key={activeTab.id}

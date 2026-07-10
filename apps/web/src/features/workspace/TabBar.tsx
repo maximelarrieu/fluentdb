@@ -1,4 +1,4 @@
-import { Table2, FileCode2, Columns3, X, Plus } from 'lucide-react';
+import { Table2, FileCode2, Columns3, Workflow, X, Plus } from 'lucide-react';
 import { useWorkspace, type Tab } from '../../stores/workspace.js';
 import { cn } from '../../lib/cn.js';
 
@@ -6,6 +6,7 @@ const icons: Record<Tab['kind'], React.ReactNode> = {
   table: <Table2 size={13} className="text-accent" />,
   query: <FileCode2 size={13} className="text-green" />,
   structure: <Columns3 size={13} className="text-amber" />,
+  erd: <Workflow size={13} className="text-purple-400" />,
 };
 
 export function TabBar() {
