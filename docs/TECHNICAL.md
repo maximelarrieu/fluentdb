@@ -102,6 +102,12 @@ Filtres : `op` ∈ `eq, neq, gt, gte, lt, lte, contains, starts_with, is_null, n
 - `POST /api/queries/:queryId/cancel` → `{ cancelled }`. Annule la requête en
   vol (PostgreSQL, MySQL) ; `cancelled:false` si l'id est inconnu ou le moteur
   ne le supporte pas (SQLite).
+- `POST /api/connections/:id/query/plan` — `{ sql, database? }` →
+  `{ statements: [{ sql, kind, operation, warnings[], estimatedRows|null }], requiresConfirmation }`.
+  Analyse sans exécuter : classifie chaque instruction (`read`/`write`/`ddl`/`other`),
+  signale les patterns dangereux et estime les lignes affectées des écritures via
+  un dry-run `EXPLAIN`. Alimente le dialogue de confirmation. Une connexion en
+  lecture seule fait échouer un `write`/`ddl` envoyé à `/query` avec un **403**.
 - `GET /api/history?connectionId=&search=` → historique (réussites et échecs).
 - `DELETE /api/history/:id` · `DELETE /api/history?connectionId=`
 

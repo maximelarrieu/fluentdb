@@ -145,6 +145,27 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(catalog.it_tracks).toContain('title');
   });
 
+  it('estimates affected rows without executing (dry-run EXPLAIN)', async () => {
+    // Collect statistics so the planner has a realistic row estimate.
+    await driver.runQuery('ANALYZE it_bands', { queryId: 'analyze', maxRows: 1 });
+    const before = await driver.runQuery('SELECT COUNT(*) FROM it_bands', {
+      queryId: 'before',
+      maxRows: 1,
+    });
+    const countBefore = Number(before[0]?.rows[0]?.[0]);
+
+    const estimate = await driver.estimateRows('UPDATE it_bands SET country = country');
+    expect(estimate).not.toBeNull();
+    expect(estimate!).toBeGreaterThan(0);
+
+    // EXPLAIN must not have executed anything — row count is unchanged
+    const after = await driver.runQuery('SELECT COUNT(*) FROM it_bands', {
+      queryId: 'after',
+      maxRows: 1,
+    });
+    expect(Number(after[0]?.rows[0]?.[0])).toBe(countBefore);
+  });
+
   it('cancels a long-running query in flight', async () => {
     const queryId = 'cancel-me';
     // Capture the rejection immediately so no unhandled rejection can slip

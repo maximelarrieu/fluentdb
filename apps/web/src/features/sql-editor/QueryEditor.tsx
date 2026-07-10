@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Play, Square, Sparkles, WandSparkles } from 'lucide-react';
-import type { QueryResponse } from '@fluentdb/shared';
+import type { QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
@@ -10,9 +10,11 @@ import { useWorkspace } from '../../stores/workspace.js';
 import { nanoid } from '../../lib/nanoid.js';
 import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
+import { ConfirmExecutionDialog } from './ConfirmExecutionDialog.js';
 
 export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
-  const { active, database, setTabSql, toggleAi } = useWorkspace();
+  const { active, database, setTabSql, toggleAi, skipExecConfirm, setSkipExecConfirm } =
+    useWorkspace();
   const toast = useToast();
   const connId = active!.id;
   const canCancel = active!.capabilities.cancelQuery;
@@ -23,6 +25,11 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   // id of the query currently in flight, so the Cancel button can target it
   const runningQueryId = useRef<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // write/DDL awaiting confirmation before it runs
+  const [pending, setPending] = useState<{ plan: QueryPlanResponse; sql: string } | null>(
+    null,
+  );
+  const [analyzing, setAnalyzing] = useState(false);
 
   const meta = useQuery({
     queryKey: ['autocomplete', connId, database],
@@ -65,13 +72,34 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
     }
   };
 
-  const runAll = () => {
-    if (sql.trim()) run.mutate(sql);
+  // Safe-by-design gate: analyze first; run reads immediately, but hold
+  // writes/DDL behind the confirmation dialog (unless muted for the session).
+  const requestRun = async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    if (skipExecConfirm) {
+      run.mutate(q);
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const plan = await api.queryPlan(connId, q, database);
+      if (plan.requiresConfirmation) {
+        setPending({ plan, sql: q });
+      } else {
+        run.mutate(q);
+      }
+    } catch {
+      // if analysis fails, fall back to executing (server still guards writes)
+      run.mutate(q);
+    } finally {
+      setAnalyzing(false);
+    }
   };
-  const runSelection = (selection: string) => {
-    const q = selection.trim() || sql.trim();
-    if (q) run.mutate(q);
-  };
+
+  const runAll = () => void requestRun(sql);
+  const runSelection = (selection: string) =>
+    void requestRun(selection.trim() || sql);
 
   const exportData = async (format: 'csv' | 'json') => {
     const res = await fetch(api.exportUrl(connId), {
@@ -108,9 +136,13 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           size="sm"
           variant="primary"
           onClick={runAll}
-          disabled={run.isPending || !sql.trim()}
+          disabled={run.isPending || analyzing || !sql.trim()}
         >
-          {run.isPending ? <Spinner className="text-white" /> : <Play size={13} />}
+          {run.isPending || analyzing ? (
+            <Spinner className="text-white" />
+          ) : (
+            <Play size={13} />
+          )}
           Exécuter
         </Button>
         {run.isPending && canCancel && (
@@ -153,6 +185,19 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           <ResultsPane result={result} error={error} onExport={exportData} />
         </div>
       </div>
+
+      {pending && (
+        <ConfirmExecutionDialog
+          plan={pending.plan}
+          onCancel={() => setPending(null)}
+          onSkipSession={(skip) => setSkipExecConfirm(skip)}
+          onConfirm={() => {
+            const q = pending.sql;
+            setPending(null);
+            run.mutate(q);
+          }}
+        />
+      )}
     </div>
   );
 }

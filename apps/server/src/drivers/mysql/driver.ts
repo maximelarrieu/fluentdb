@@ -50,6 +50,7 @@ export class MysqlDriver implements Driver {
     cancelQuery: true,
     transactionalDdl: false,
     alterColumn: true,
+    estimateRows: true,
   };
 
   private pool: mysql.Pool | null = null;
@@ -320,6 +321,28 @@ export class MysqlDriver implements Driver {
       return true;
     } finally {
       await side.end().catch(() => {});
+    }
+  }
+
+  async estimateRows(sql: string): Promise<number | null> {
+    // EXPLAIN plans without executing. The classic format exposes a `rows`
+    // estimate per access; we take the product across rows as a rough total.
+    try {
+      const [rows] = await this.db().query(`EXPLAIN ${sql}`);
+      const plan = rows as { rows?: number | string | null }[];
+      if (!Array.isArray(plan) || plan.length === 0) return null;
+      let total = 1;
+      let seen = false;
+      for (const step of plan) {
+        const n = step.rows == null ? null : Number(step.rows);
+        if (n != null && Number.isFinite(n)) {
+          total *= n;
+          seen = true;
+        }
+      }
+      return seen ? total : null;
+    } catch {
+      return null;
     }
   }
 

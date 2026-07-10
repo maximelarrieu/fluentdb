@@ -52,6 +52,9 @@ interface WorkspaceState {
   setActiveTab: (id: string) => void;
   toggleAi: (open?: boolean) => void;
   bumpSchema: () => void;
+  /** Skip the write/DDL confirmation dialog for the rest of the session */
+  skipExecConfirm: boolean;
+  setSkipExecConfirm: (skip: boolean) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set, get) => ({
@@ -62,6 +65,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   activeTabId: null,
   aiOpen: false,
   schemaVersion: 0,
+  skipExecConfirm: false,
 
   setActive: (conn) =>
     set({
@@ -135,4 +139,5 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   setActiveTab: (id) => set({ activeTabId: id }),
   toggleAi: (open) => set((s) => ({ aiOpen: open ?? !s.aiOpen })),
   bumpSchema: () => set((s) => ({ schemaVersion: s.schemaVersion + 1 })),
+  setSkipExecConfirm: (skip) => set({ skipExecConfirm: skip }),
 }));

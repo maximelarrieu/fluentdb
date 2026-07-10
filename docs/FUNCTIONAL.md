@@ -90,6 +90,13 @@ limites d'`ALTER TABLE` sous SQLite) et ne les applique qu'après **validation**
 - **Annuler** : pendant l'exécution, un bouton « Annuler » interrompt la requête
   en cours (moteurs qui le supportent : PostgreSQL, MySQL ; SQLite s'exécute de
   façon synchrone et n'est pas annulable).
+- **Garde-fous avant écriture (safe by design)** : une requête qui modifie des
+  données ou la structure (INSERT/UPDATE/DELETE, DDL) ouvre un dialogue de
+  confirmation qui montre, pour chaque instruction, son type, le SQL exact, une
+  estimation du nombre de lignes affectées et des avertissements sur les
+  patterns dangereux (`UPDATE`/`DELETE` sans `WHERE`, `DROP`/`TRUNCATE`). Les
+  lectures pures s'exécutent directement. Option « ne plus demander pour cette
+  session ». Sur une connexion en lecture seule, les écritures sont refusées.
 - **Résultats** : grille en dessous ; durée, nombre de lignes, indicateur de
   troncature, nombre de lignes affectées pour les écritures ; onglets par jeu de
   résultats.

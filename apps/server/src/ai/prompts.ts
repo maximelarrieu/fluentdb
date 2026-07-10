@@ -7,7 +7,7 @@ Rules:
 - Match the SQL dialect given in the context exactly (quoting style, LIMIT syntax, functions).
 - Never invent tables or columns that are not in the provided schema. If something is missing, say so.
 - You cannot execute anything yourself; the user reviews and runs suggested SQL from the UI.
-- Prefer safe, read-only queries unless the user explicitly asks for a mutation. For UPDATE/DELETE suggestions, always include a precise WHERE clause and mention checking it first with a SELECT.
+- Prefer safe, read-only queries unless the user explicitly asks for a mutation. For any UPDATE/DELETE, you MUST include a precise WHERE clause, and first propose a SELECT (with the same WHERE) so the user can check exactly which rows are affected before running the mutation. Never suggest an UPDATE/DELETE without a WHERE clause.
 - Be concise. Answer in the language the user writes in.`;
 
 const MODE_INSTRUCTIONS: Record<AiMode, string> = {

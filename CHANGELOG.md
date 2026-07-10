@@ -9,16 +9,31 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Assistant IA « safe by design » — garde-fous avant exécution** : toute
+  requête d'écriture ou de structure (INSERT/UPDATE/DELETE, DDL) ouvre un
+  dialogue de confirmation montrant, par instruction, son type, le SQL exact,
+  une **estimation du nombre de lignes affectées** (dry-run `EXPLAIN`, sur les
+  moteurs qui le supportent) et des **avertissements** sur les patterns
+  dangereux (`UPDATE`/`DELETE` sans `WHERE`, `DROP`/`TRUNCATE`). Les lectures
+  pures s'exécutent sans friction ; une option « ne plus demander pour cette
+  session » est disponible.
 - **Annulation de requête depuis l'éditeur SQL** : un bouton « Annuler » apparaît
   pendant l'exécution et interrompt la requête en cours (moteurs qui le
   supportent : PostgreSQL, MySQL). L'identifiant de requête est généré côté
   client, ce qui permet l'annulation avant même le retour de la réponse.
+- Feuille de route priorisée post-v1 dans `docs/PLAN.md`.
 - Documentation projet dans `docs/` : plan, architecture, documentation
   technique, documentation fonctionnelle et présentation client.
 - Guide de contribution (`CONTRIBUTING.md`) : Conventional Commits, workflow de
   branches et de pull requests, tenue du changelog.
 - Template de pull request (`.github/pull_request_template.md`).
 - Ce changelog.
+
+### Sécurité
+
+- Les connexions **en lecture seule** refusent désormais aussi les écritures
+  lancées depuis l'éditeur SQL libre (endpoint `/query`), pas seulement l'édition
+  de la grille.
 
 ## [0.1.0] - 2026-07-10
 
