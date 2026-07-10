@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Play, Sparkles, WandSparkles } from 'lucide-react';
+import { Play, Square, Sparkles, WandSparkles } from 'lucide-react';
 import type { QueryResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { nanoid } from '../../lib/nanoid.js';
 import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
 
@@ -14,10 +15,14 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const { active, database, setTabSql, toggleAi } = useWorkspace();
   const toast = useToast();
   const connId = active!.id;
+  const canCancel = active!.capabilities.cancelQuery;
 
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSql, setLastSql] = useState('');
+  // id of the query currently in flight, so the Cancel button can target it
+  const runningQueryId = useRef<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const meta = useQuery({
     queryKey: ['autocomplete', connId, database],
@@ -27,7 +32,9 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const run = useMutation({
     mutationFn: (query: string) => {
       setLastSql(query);
-      return api.query(connId, { sql: query, database, maxRows: 1000 });
+      const queryId = nanoid(12);
+      runningQueryId.current = queryId;
+      return api.query(connId, { sql: query, database, maxRows: 1000, queryId });
     },
     onSuccess: (r) => {
       setResult(r);
@@ -37,7 +44,26 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
       setError(e.detail ? `${e.message}\n${e.detail}` : e.message);
       setResult(null);
     },
+    onSettled: () => {
+      runningQueryId.current = null;
+      setCancelling(false);
+    },
   });
+
+  const cancel = async () => {
+    const id = runningQueryId.current;
+    if (!id) return;
+    setCancelling(true);
+    try {
+      const { cancelled } = await api.cancelQuery(id);
+      toast.push(
+        cancelled ? 'info' : 'error',
+        cancelled ? 'Annulation demandée' : "La requête n'a pas pu être annulée",
+      );
+    } catch {
+      toast.push('error', "Échec de l'annulation");
+    }
+  };
 
   const runAll = () => {
     if (sql.trim()) run.mutate(sql);
@@ -87,6 +113,16 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           {run.isPending ? <Spinner className="text-white" /> : <Play size={13} />}
           Exécuter
         </Button>
+        {run.isPending && canCancel && (
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={cancel}
+            disabled={cancelling}
+          >
+            <Square size={12} /> {cancelling ? 'Annulation…' : 'Annuler'}
+          </Button>
+        )}
         <span className="text-[11px] text-muted ml-1">
           ⌘/Ctrl+↵ tout · ⇧⌘/Ctrl+↵ sélection
         </span>

@@ -20,6 +20,7 @@ export function registerQueryRoutes(
       connectionId: id,
       connectionName: config?.name ?? id,
       database: body.database ?? config?.database ?? null,
+      queryId: body.queryId,
     });
   });
 

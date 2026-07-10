@@ -144,4 +144,22 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     const catalog = await driver.getAutocompleteCatalog();
     expect(catalog.it_tracks).toContain('title');
   });
+
+  it('cancels a long-running query in flight', async () => {
+    const queryId = 'cancel-me';
+    // Capture the rejection immediately so no unhandled rejection can slip
+    // through the window before we await it.
+    const running = driver
+      .runQuery('SELECT pg_sleep(30)', { queryId, maxRows: 1 })
+      .then(() => null)
+      .catch((e: Error) => e);
+    // give the backend a moment to register the running query
+    await new Promise((r) => setTimeout(r, 400));
+    const cancelled = await driver.cancelQuery(queryId);
+    expect(cancelled).toBe(true);
+    // the query should reject (statement cancelled) rather than sleep 30s
+    const err = await running;
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/cancel/i);
+  });
 });

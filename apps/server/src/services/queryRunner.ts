@@ -24,9 +24,11 @@ export class QueryRunner {
       connectionId: string;
       connectionName: string;
       database: string | null;
+      /** Client-supplied id for in-flight cancellation; generated if absent. */
+      queryId?: string;
     },
   ): Promise<QueryResponse> {
-    const queryId = nanoid(12);
+    const queryId = opts.queryId ?? nanoid(12);
     this.running.set(queryId, { driver });
     const started = performance.now();
     try {
