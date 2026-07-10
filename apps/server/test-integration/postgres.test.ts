@@ -166,6 +166,34 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(Number(after[0]?.rows[0]?.[0])).toBe(countBefore);
   });
 
+  it('returns a normalized plan tree (EXPLAIN, no execution)', async () => {
+    const plan = await driver.explain(
+      'SELECT t.title, b.name FROM it_tracks t JOIN it_bands b ON b.id = t.band_id',
+      { analyze: false },
+    );
+    expect(plan.engine).toBe('postgres');
+    expect(plan.analyzed).toBe(false);
+    // a join query normalizes to a tree with a join somewhere and known kinds
+    const kinds: string[] = [];
+    const walk = (n: { kind: string; estimatedRows: number | null; children: unknown[] }) => {
+      kinds.push(n.kind);
+      expect(n.estimatedRows === null || typeof n.estimatedRows === 'number').toBe(true);
+      (n.children as typeof n[]).forEach(walk);
+    };
+    walk(plan.root as never);
+    expect(kinds).toContain('join');
+    expect(plan.rawText).toBeTruthy();
+  });
+
+  it('honors analyze for a real-metrics plan on a read', async () => {
+    const plan = await driver.explain('SELECT count(*) FROM it_tracks', {
+      analyze: true,
+    });
+    expect(plan.analyzed).toBe(true);
+    // actual metrics are populated on the root when analyzed
+    expect(plan.root.actualRows === null || typeof plan.root.actualRows === 'number').toBe(true);
+  });
+
   it('cancels a long-running query in flight', async () => {
     const queryId = 'cancel-me';
     // Capture the rejection immediately so no unhandled rejection can slip

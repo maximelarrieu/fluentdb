@@ -13,6 +13,7 @@ import type {
   HistoryEntry,
   MutationResult,
   PageResult,
+  QueryPlan,
   QueryPlanResponse,
   QueryRequest,
   QueryResponse,
@@ -147,6 +148,16 @@ export const api = {
     request<QueryPlanResponse>('POST', `/api/connections/${id}/query/plan`, {
       sql,
       database,
+    }),
+  explain: (
+    id: string,
+    sql: string,
+    opts: { database?: string; analyze?: boolean } = {},
+  ) =>
+    request<QueryPlan>('POST', `/api/connections/${id}/query/explain`, {
+      sql,
+      database: opts.database,
+      analyze: opts.analyze,
     }),
   cancelQuery: (queryId: string) =>
     request<{ cancelled: boolean }>('POST', `/api/queries/${queryId}/cancel`),

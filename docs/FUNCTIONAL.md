@@ -120,6 +120,13 @@ visuel vivant de la base connectée.
 - **Export** des résultats en **CSV** ou **JSON**.
 - **Expliquer** : envoie la requête courante à l'assistant IA.
 - **Historique** : chaque exécution (réussie ou en erreur) est enregistrée.
+- **Analyser (plan d'exécution)** : le bouton « Analyser » affiche le plan
+  d'exécution de la requête en **arbre visuel** — chaque étape (parcours de
+  table/index, jointure, tri), avec les lignes estimées, la part de coût et les
+  étapes coûteuses en rouge. Les parcours complets de table sont signalés
+  (candidats à un index). Pour un `SELECT`, « Mesurer (ANALYZE) » exécute la
+  requête pour des métriques réelles (PostgreSQL) ; sinon l'estimation
+  n'exécute rien. Une vue « brut » montre la sortie native d'EXPLAIN.
 
 ## 7. Assistant IA
 

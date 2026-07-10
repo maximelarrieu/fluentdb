@@ -7,6 +7,7 @@ import type {
   DdlPreview,
   MutationResult,
   PageResult,
+  QueryPlan,
   QueryResultSet,
   RowChanges,
   RowQuery,
@@ -29,6 +30,7 @@ import {
 } from '../sqlBuilder.js';
 import { mysqlDialect } from './dialect.js';
 import { buildMysqlDdl } from './ddl.js';
+import { normalizeMysqlPlan } from './explain.js';
 
 const SYSTEM_DBS = new Set([
   'mysql',
@@ -51,6 +53,8 @@ export class MysqlDriver implements Driver {
     transactionalDdl: false,
     alterColumn: true,
     estimateRows: true,
+    explain: true,
+    explainAnalyze: false,
   };
 
   private pool: mysql.Pool | null = null;
@@ -343,6 +347,23 @@ export class MysqlDriver implements Driver {
       return seen ? total : null;
     } catch {
       return null;
+    }
+  }
+
+  async explain(sql: string): Promise<QueryPlan> {
+    try {
+      const [rows] = await this.db().query(`EXPLAIN FORMAT=JSON ${sql}`);
+      // mysql2 returns rows with an EXPLAIN column holding the JSON string.
+      const first = (rows as Record<string, unknown>[])[0] ?? {};
+      const raw = (first.EXPLAIN ?? Object.values(first)[0]) as string;
+      return {
+        engine: 'mysql',
+        analyzed: false,
+        root: normalizeMysqlPlan(raw),
+        rawText: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2),
+      };
+    } catch (err) {
+      throw new DriverError((err as Error).message);
     }
   }
 

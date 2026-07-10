@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  explainRequestSchema,
   queryPlanRequestSchema,
   queryRequestSchema,
   type StatementPlan,
 } from '@fluentdb/shared';
-import { analyzeScript } from '../sql/analyze.js';
+import { analyzeScript, classifyStatement } from '../sql/analyze.js';
+import { splitSqlStatements } from '../drivers/sqlSplit.js';
 import type { AppContext } from '../context.js';
 
 const idParams = z.object({ id: z.string() });
@@ -79,6 +81,26 @@ export function registerQueryRoutes(
         (s) => s.kind === 'write' || s.kind === 'ddl',
       ),
     };
+  });
+
+  /**
+   * Return a normalized execution-plan tree for the first statement.
+   * `analyze` runs the query for real metrics — only honored for reads, so a
+   * write is never executed by the plan viewer.
+   */
+  app.post('/api/connections/:id/query/explain', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const body = explainRequestSchema.parse(req.body);
+    const driver = await ctx.manager.getDriver(id, body.database);
+
+    const statement = splitSqlStatements(body.sql)[0] ?? body.sql;
+    const isRead = classifyStatement(statement).kind === 'read';
+    const analyze =
+      body.analyze === true &&
+      isRead &&
+      driver.capabilities.explainAnalyze;
+
+    return driver.explain(statement, { analyze });
   });
 
   app.post('/api/queries/:queryId/cancel', async (req) => {

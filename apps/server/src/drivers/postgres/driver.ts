@@ -7,6 +7,7 @@ import type {
   DdlPreview,
   MutationResult,
   PageResult,
+  QueryPlan,
   QueryResultSet,
   RowChanges,
   RowQuery,
@@ -29,6 +30,7 @@ import {
 } from '../sqlBuilder.js';
 import { postgresDialect } from './dialect.js';
 import { buildPostgresDdl } from './ddl.js';
+import { normalizePgPlan } from './explain.js';
 
 const DEFAULT_SCHEMA = 'public';
 
@@ -66,6 +68,8 @@ export class PostgresDriver implements Driver {
     transactionalDdl: true,
     alterColumn: true,
     estimateRows: true,
+    explain: true,
+    explainAnalyze: true,
   };
 
   private pool: pg.Pool | null = null;
@@ -343,6 +347,25 @@ export class PostgresDriver implements Driver {
       return estimateFromPlan(plan);
     } catch {
       return null;
+    }
+  }
+
+  async explain(sql: string, opts: { analyze: boolean }): Promise<QueryPlan> {
+    const options = ['FORMAT JSON'];
+    if (opts.analyze) options.push('ANALYZE', 'BUFFERS');
+    try {
+      const res = await this.db().query(
+        `EXPLAIN (${options.join(', ')}) ${sql}`,
+      );
+      const entry = (res.rows[0]?.['QUERY PLAN'] ?? res.rows[0])?.[0];
+      return {
+        engine: 'postgres',
+        analyzed: opts.analyze,
+        root: normalizePgPlan(entry, opts.analyze),
+        rawText: JSON.stringify(entry, null, 2),
+      };
+    } catch (err) {
+      throw new DriverError((err as Error).message);
     }
   }
 

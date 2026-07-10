@@ -74,7 +74,10 @@ lie le socket sur `127.0.0.1` et sert l'UI en production. Les tests utilisent
   (`connections`, `schema-tree`, `data-grid`, `sql-editor`, `structure`, `erd`, `ai`).
   Le diagramme **ERD** (`features/erd`) rend le schéma via React Flow + un
   layout dagre ; le SQL généré pour l'export **DBML** est une fonction pure
-  (`features/erd/dbml.ts`), testée en unitaire.
+  (`features/erd/dbml.ts`), testée en unitaire. Le **plan d'exécution**
+  (`features/plan`) réutilise React Flow ; la normalisation du plan (
+  `drivers/<moteur>/explain.ts`) est une fonction pure par dialecte, testée en
+  unitaire, produisant un `PlanNode` uniforme (kind, lignes, coût, warnings).
 - **Grille** : **TanStack Table** (headless) + **TanStack Virtual** — on contrôle
   entièrement le markup (édition inline, cellules dirty, renderers NULL/JSON) et
   on virtualise les grands jeux de résultats.
