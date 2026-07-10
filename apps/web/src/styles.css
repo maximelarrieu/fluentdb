@@ -1,0 +1,67 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0d0f14;
+  --color-panel: #14171f;
+  --color-panel-2: #1a1e28;
+  --color-border: #262b38;
+  --color-border-soft: #1f2430;
+  --color-text: #e4e7ee;
+  --color-muted: #8b93a7;
+  --color-accent: #6d8bff;
+  --color-accent-strong: #4f6bff;
+  --color-green: #3fb884;
+  --color-red: #f2555a;
+  --color-amber: #f0b429;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family:
+      'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+  * {
+    border-color: var(--color-border);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2b3140;
+    border-radius: 6px;
+    border: 2px solid var(--color-bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #38405260;
+  }
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* CodeMirror fills its pane */
+.cm-editor {
+  height: 100%;
+  font-size: 13px;
+}
+.cm-editor .cm-scroller {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+.cm-editor.cm-focused {
+  outline: none;
+}

@@ -1,0 +1,399 @@
+import pg from 'pg';
+import type {
+  AutocompleteCatalog,
+  ConnectionConfig,
+  DatabaseInfo,
+  DdlChange,
+  DdlPreview,
+  MutationResult,
+  PageResult,
+  QueryResultSet,
+  RowChanges,
+  RowQuery,
+  SchemaInfo,
+  TableInfo,
+  TableRef,
+  TableStructure,
+} from '@fluentdb/shared';
+import {
+  DriverError,
+  normalizeCell,
+  type Driver,
+  type DriverCapabilities,
+  type RunQueryOptions,
+} from '../types.js';
+import {
+  buildCount,
+  buildMutations,
+  buildSelectPage,
+} from '../sqlBuilder.js';
+import { postgresDialect } from './dialect.js';
+import { buildPostgresDdl } from './ddl.js';
+
+const DEFAULT_SCHEMA = 'public';
+
+export class PostgresDriver implements Driver {
+  readonly engine = 'postgres' as const;
+  readonly dialect = postgresDialect;
+  readonly capabilities: DriverCapabilities = {
+    multipleDatabases: true,
+    schemas: true,
+    cancelQuery: true,
+    transactionalDdl: true,
+    alterColumn: true,
+  };
+
+  private pool: pg.Pool | null = null;
+  private readonly config: ConnectionConfig;
+  private readonly database: string | undefined;
+  /** queryId -> backend PID of the client executing it */
+  private readonly running = new Map<string, number>();
+
+  constructor(config: ConnectionConfig, database?: string) {
+    this.config = config;
+    this.database = database ?? config.database;
+  }
+
+  private poolConfig(): pg.PoolConfig {
+    return {
+      host: this.config.host ?? 'localhost',
+      port: this.config.port ?? 5432,
+      user: this.config.user,
+      password: this.config.password ?? '',
+      database: this.database || 'postgres',
+      ssl: this.config.ssl ? { rejectUnauthorized: false } : undefined,
+      max: 5,
+      connectionTimeoutMillis: 8000,
+    };
+  }
+
+  private db(): pg.Pool {
+    if (!this.pool) throw new DriverError('Not connected', 500);
+    return this.pool;
+  }
+
+  async connect(): Promise<void> {
+    this.pool = new pg.Pool(this.poolConfig());
+    // surface pool-level errors (dropped connections) instead of crashing
+    this.pool.on('error', () => {});
+    await this.ping();
+  }
+
+  async disconnect(): Promise<void> {
+    await this.pool?.end();
+    this.pool = null;
+  }
+
+  async ping(): Promise<void> {
+    await this.db().query('SELECT 1');
+  }
+
+  async serverVersion(): Promise<string> {
+    const res = await this.db().query('SHOW server_version');
+    return `PostgreSQL ${res.rows[0]?.server_version ?? '?'}`;
+  }
+
+  async listDatabases(): Promise<DatabaseInfo[]> {
+    const res = await this.db().query(
+      `SELECT datname AS name FROM pg_database
+       WHERE datistemplate = false ORDER BY datname`,
+    );
+    return res.rows.map((r) => ({
+      name: r.name,
+      isDefault: r.name === this.database,
+    }));
+  }
+
+  async listSchemas(): Promise<SchemaInfo[]> {
+    const res = await this.db().query(
+      `SELECT nspname AS name FROM pg_namespace
+       WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema'
+       ORDER BY nspname`,
+    );
+    return res.rows.map((r) => ({
+      name: r.name,
+      isDefault: r.name === DEFAULT_SCHEMA,
+    }));
+  }
+
+  async listTables(schema = DEFAULT_SCHEMA): Promise<TableInfo[]> {
+    const res = await this.db().query(
+      `SELECT c.relname AS name,
+              n.nspname AS schema,
+              CASE WHEN c.relkind IN ('v', 'm') THEN 'view' ELSE 'table' END AS kind,
+              CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::bigint END AS row_estimate,
+              obj_description(c.oid, 'pg_class') AS comment
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname = $1
+       ORDER BY c.relname`,
+      [schema],
+    );
+    return res.rows.map((r) => ({
+      name: r.name,
+      schema: r.schema,
+      kind: r.kind,
+      rowEstimate: r.row_estimate === null ? null : Number(r.row_estimate),
+      comment: r.comment,
+    }));
+  }
+
+  async getTableStructure(ref: TableRef): Promise<TableStructure> {
+    const schema = ref.schema ?? DEFAULT_SCHEMA;
+    const db = this.db();
+
+    const colsRes = await db.query(
+      `SELECT column_name, data_type, udt_name, is_nullable, column_default,
+              is_identity, ordinal_position
+       FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = $2
+       ORDER BY ordinal_position`,
+      [schema, ref.name],
+    );
+    if (colsRes.rows.length === 0) {
+      throw new DriverError(`Table not found: ${schema}.${ref.name}`, 404);
+    }
+
+    const pkRes = await db.query(
+      `SELECT a.attname AS name
+       FROM pg_index ix
+       JOIN pg_class t ON t.oid = ix.indrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       JOIN unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+       JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+       WHERE ix.indisprimary AND t.relname = $1 AND n.nspname = $2
+       ORDER BY k.ord`,
+      [ref.name, schema],
+    );
+    const pk = pkRes.rows.map((r) => r.name as string);
+    const pkSet = new Set(pk);
+
+    const columns = colsRes.rows.map((r, i) => ({
+      name: r.column_name as string,
+      dataType:
+        r.data_type === 'USER-DEFINED' || r.data_type === 'ARRAY'
+          ? (r.udt_name as string)
+          : (r.data_type as string),
+      nullable: r.is_nullable === 'YES',
+      defaultValue: r.column_default as string | null,
+      isPrimaryKey: pkSet.has(r.column_name),
+      isAutoIncrement:
+        r.is_identity === 'YES' ||
+        (typeof r.column_default === 'string' &&
+          r.column_default.startsWith('nextval(')),
+      ordinal: i,
+    }));
+
+    const idxRes = await db.query(
+      `SELECT i.relname AS name,
+              ix.indisunique AS is_unique,
+              ix.indisprimary AS is_primary,
+              array_agg(COALESCE(a.attname, '(expr)') ORDER BY k.ord) AS columns
+       FROM pg_index ix
+       JOIN pg_class i ON i.oid = ix.indexrelid
+       JOIN pg_class t ON t.oid = ix.indrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       JOIN unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+       LEFT JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum AND k.attnum > 0
+       WHERE t.relname = $1 AND n.nspname = $2
+       GROUP BY i.relname, ix.indisunique, ix.indisprimary
+       ORDER BY i.relname`,
+      [ref.name, schema],
+    );
+
+    const fkRes = await db.query(
+      `SELECT con.conname AS name,
+              (SELECT array_agg(a.attname ORDER BY k.ord)
+               FROM unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
+               JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum) AS columns,
+              rn.nspname AS ref_schema,
+              rt.relname AS ref_table,
+              (SELECT array_agg(a.attname ORDER BY k.ord)
+               FROM unnest(con.confkey) WITH ORDINALITY AS k(attnum, ord)
+               JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum) AS ref_columns
+       FROM pg_constraint con
+       JOIN pg_class t ON t.oid = con.conrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       JOIN pg_class rt ON rt.oid = con.confrelid
+       JOIN pg_namespace rn ON rn.oid = rt.relnamespace
+       WHERE con.contype = 'f' AND t.relname = $1 AND n.nspname = $2`,
+      [ref.name, schema],
+    );
+
+    const tables = await this.listTables(schema);
+    const table = tables.find((t) => t.name === ref.name) ?? {
+      name: ref.name,
+      schema,
+      kind: 'table' as const,
+    };
+
+    return {
+      table,
+      columns,
+      primaryKey: pk,
+      indexes: idxRes.rows.map((r) => ({
+        name: r.name,
+        columns: r.columns,
+        unique: r.is_unique,
+        primary: r.is_primary,
+      })),
+      foreignKeys: fkRes.rows.map((r) => ({
+        name: r.name,
+        columns: r.columns,
+        referencedTable: r.ref_table,
+        referencedSchema: r.ref_schema,
+        referencedColumns: r.ref_columns,
+      })),
+    };
+  }
+
+  async getAutocompleteCatalog(): Promise<AutocompleteCatalog> {
+    const res = await this.db().query(
+      `SELECT table_schema, table_name, array_agg(column_name::text ORDER BY ordinal_position) AS columns
+       FROM information_schema.columns
+       WHERE table_schema NOT LIKE 'pg\\_%' AND table_schema <> 'information_schema'
+       GROUP BY table_schema, table_name`,
+    );
+    const catalog: AutocompleteCatalog = {};
+    for (const r of res.rows) {
+      const key =
+        r.table_schema === DEFAULT_SCHEMA
+          ? r.table_name
+          : `${r.table_schema}.${r.table_name}`;
+      catalog[key] = r.columns;
+    }
+    return catalog;
+  }
+
+  async runQuery(sql: string, opts: RunQueryOptions): Promise<QueryResultSet[]> {
+    const client = await this.db().connect();
+    const pid = (client as unknown as { processID: number }).processID;
+    this.running.set(opts.queryId, pid);
+    try {
+      const result = await client.query({ text: sql, rowMode: 'array' });
+      const list = Array.isArray(result) ? result : [result];
+      return list.map((res) => {
+        const isSelect = (res.fields?.length ?? 0) > 0;
+        const raw = (res.rows ?? []) as unknown[][];
+        const truncated = raw.length > opts.maxRows;
+        return {
+          columns: (res.fields ?? []).map((f: pg.FieldDef) => ({
+            name: f.name,
+          })),
+          rows: (truncated ? raw.slice(0, opts.maxRows) : raw).map((r) =>
+            r.map(normalizeCell),
+          ),
+          rowCount: truncated ? opts.maxRows : raw.length,
+          truncated,
+          affectedRows: isSelect ? undefined : (res.rowCount ?? 0),
+          statement: res.command,
+        };
+      });
+    } catch (err) {
+      throw new DriverError((err as Error).message);
+    } finally {
+      this.running.delete(opts.queryId);
+      client.release();
+    }
+  }
+
+  async cancelQuery(queryId: string): Promise<boolean> {
+    const pid = this.running.get(queryId);
+    if (pid === undefined) return false;
+    const side = new pg.Client(this.poolConfig());
+    try {
+      await side.connect();
+      await side.query('SELECT pg_cancel_backend($1)', [pid]);
+      return true;
+    } finally {
+      await side.end().catch(() => {});
+    }
+  }
+
+  async selectRows(ref: TableRef, q: RowQuery): Promise<PageResult> {
+    const structure = await this.getTableStructure(ref);
+    const known = new Set(structure.columns.map((c) => c.name));
+    const scoped = { ...ref, schema: ref.schema ?? DEFAULT_SCHEMA };
+
+    const page = buildSelectPage(this.dialect, scoped, q, known);
+    const count = buildCount(this.dialect, scoped, q.filters, known);
+    const db = this.db();
+    const [pageRes, countRes] = await Promise.all([
+      db.query({ text: page.sql, values: page.params, rowMode: 'array' }),
+      db.query({ text: count.sql, values: count.params }),
+    ]);
+
+    return {
+      columns: structure.columns.map((c) => ({
+        name: c.name,
+        dataType: c.dataType,
+      })),
+      rows: (pageRes.rows as unknown[][]).map((r) => r.map(normalizeCell)),
+      total: Number(countRes.rows[0]?.n ?? 0),
+      pkColumns: structure.primaryKey,
+    };
+  }
+
+  async mutateRows(ref: TableRef, changes: RowChanges): Promise<MutationResult> {
+    const structure = await this.getTableStructure(ref);
+    const known = new Set(structure.columns.map((c) => c.name));
+    const scoped = { ...ref, schema: ref.schema ?? DEFAULT_SCHEMA };
+    const stmts = buildMutations(
+      this.dialect,
+      scoped,
+      changes,
+      known,
+      structure.primaryKey,
+    );
+
+    const client = await this.db().connect();
+    const result: MutationResult = { inserted: 0, updated: 0, deleted: 0 };
+    try {
+      await client.query('BEGIN');
+      for (const s of stmts.inserts) {
+        const r = await client.query(s.sql, s.params);
+        result.inserted += r.rowCount ?? 0;
+      }
+      for (const s of stmts.updates) {
+        const r = await client.query(s.sql, s.params);
+        if ((r.rowCount ?? 0) === 0) {
+          throw new DriverError(
+            'Update matched no row (row may have been modified elsewhere)',
+            409,
+          );
+        }
+        result.updated += r.rowCount ?? 0;
+      }
+      for (const s of stmts.deletes) {
+        const r = await client.query(s.sql, s.params);
+        result.deleted += r.rowCount ?? 0;
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (err instanceof DriverError) throw err;
+      throw new DriverError((err as Error).message);
+    } finally {
+      client.release();
+    }
+    return result;
+  }
+
+  buildDdl(change: DdlChange): DdlPreview {
+    return buildPostgresDdl(change);
+  }
+
+  async applyDdl(statements: string[]): Promise<void> {
+    const client = await this.db().connect();
+    try {
+      await client.query('BEGIN');
+      for (const s of statements) await client.query(s);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw new DriverError((err as Error).message);
+    } finally {
+      client.release();
+    }
+  }
+}

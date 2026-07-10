@@ -1,0 +1,31 @@
+{
+  "name": "fluentdb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modern database management studio with a built-in AI assistant",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web npm:dev:server npm:dev:web",
+    "dev:server": "npm run dev -w apps/server",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web && npm run build -w apps/server",
+    "start": "node apps/server/dist/index.js",
+    "typecheck": "npm run typecheck -w packages/shared -w apps/server -w apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^22.15.0",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
