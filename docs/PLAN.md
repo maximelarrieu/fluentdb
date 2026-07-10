@@ -47,13 +47,38 @@ courants, avec un assistant IA conscient du schéma et une intégration Docker.
 
 ## 5. Feuille de route (post-v1)
 
-Pistes identifiées, non engagées :
+Priorisation issue de la recherche sur les frictions des outils existants
+(DBeaver, pgAdmin, Beekeeper : lenteur sur gros volumes, écritures accidentelles,
+UI datée, ERD absent/payant). L'axe **IA sécurisée + web-native** est celui où
+FluentDB peut réellement innover, là où les concurrents desktop sont faibles.
 
+### Court terme (fort impact / faible effort)
+
+- **Assistant IA « safe by design »** *(en cours)* : avant toute écriture, montrer
+  le SQL + l'estimation du nombre de lignes touchées (dry-run `EXPLAIN`) et alerter
+  sur les patterns dangereux (`UPDATE`/`DELETE` sans `WHERE`, `DROP`/`TRUNCATE`).
+  Le vrai problème du NL→SQL n'est pas la syntaxe mais les résultats/écritures
+  silencieusement faux.
+- **Mode « prod » renforcé** : connexions read-only par défaut, confirmations
+  renforcées, repère visuel (on a déjà couleur + lecture seule à durcir).
+- **Ergonomie manquante ailleurs** : exécuter la requête sous le curseur,
+  ouvrir/sauver des `.sql`, palette de commandes, dropdown ENUM à l'édition.
+
+### Moyen terme (différenciant)
+
+- **Diagrammes ERD** *(planifié)* : vivant (base connectée), auto-agencé, mode
+  focus, **export PNG/SVG/DBML**. La fonctionnalité la plus réclamée partout.
+- **`EXPLAIN` visualisé + suggestion d'index par l'IA** applicable en un clic.
+- **Streaming des gros result sets** pour écraser le grief n°1 (performance).
 - **Provider Ollama** pour un assistant 100 % local (l'abstraction est prête).
-- **Packaging desktop Tauri** (app native légère).
-- Éditeur de relations / diagramme du schéma.
-- Gestion des vues, fonctions, migrations.
-- Onglets et connexions persistés entre sessions.
+
+### Long terme (paris structurellement hors de portée du desktop)
+
+- **Collaboration temps réel** (partage de connexion/onglet par lien, curseurs,
+  snippets d'équipe) — rendu possible par le choix « web ».
+- **Time-travel** : historique versionné local + diff visuel du schéma.
+- Packaging desktop **Tauri**, gestion des vues/fonctions/migrations, persistance
+  des onglets et connexions entre sessions.
 
 ## 6. Qualité et vérification
 
