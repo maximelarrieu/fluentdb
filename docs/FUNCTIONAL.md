@@ -87,6 +87,9 @@ limites d'`ALTER TABLE` sous SQLite) et ne les applique qu'après **validation**
   colonnes de la base connectée, mots-clés du dialecte).
 - **Exécuter** : `⌘/Ctrl + Entrée` pour tout le contenu, `⇧ ⌘/Ctrl + Entrée` pour
   la sélection. Le multi-statements est géré.
+- **Annuler** : pendant l'exécution, un bouton « Annuler » interrompt la requête
+  en cours (moteurs qui le supportent : PostgreSQL, MySQL ; SQLite s'exécute de
+  façon synchrone et n'est pas annulable).
 - **Résultats** : grille en dessous ; durée, nombre de lignes, indicateur de
   troncature, nombre de lignes affectées pour les écritures ; onglets par jeu de
   résultats.

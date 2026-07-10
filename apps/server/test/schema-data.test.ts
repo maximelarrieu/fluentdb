@@ -184,6 +184,30 @@ describe('schema, data, query, ddl, export over sqlite', () => {
     expect(body.resultSets[1].truncated).toBe(false);
   });
 
+  it('returns cancelled:false for an unknown query id', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/queries/does-not-exist/cancel',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ cancelled: false });
+  });
+
+  it('accepts a client-supplied queryId on execution', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${id}/query`,
+      payload: { sql: 'SELECT 1', queryId: 'client-abc' },
+    });
+    expect(res.statusCode).toBe(200);
+    // SQLite is synchronous so it is already done; cancel is a no-op (false)
+    const cancel = await t.app.inject({
+      method: 'POST',
+      url: '/api/queries/client-abc/cancel',
+    });
+    expect(cancel.json()).toEqual({ cancelled: false });
+  });
+
   it('records query history including failures', async () => {
     await t.app.inject({
       method: 'POST',

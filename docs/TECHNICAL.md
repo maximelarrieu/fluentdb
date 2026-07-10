@@ -95,10 +95,13 @@ Filtres : `op` ∈ `eq, neq, gt, gte, lt, lte, contains, starts_with, is_null, n
 
 ### Requêtes SQL
 
-- `POST /api/connections/:id/query` — `{ sql, database?, maxRows? }`
+- `POST /api/connections/:id/query` — `{ sql, database?, maxRows?, queryId? }`
   → `{ queryId, resultSets[], durationMs }`. Multi-statements ; `truncated` par
-  jeu de résultats ; `affectedRows` pour les écritures.
-- `POST /api/queries/:queryId/cancel` → `{ cancelled }`.
+  jeu de résultats ; `affectedRows` pour les écritures. Un `queryId` fourni par
+  le client permet de cibler l'annulation avant même le retour de la réponse.
+- `POST /api/queries/:queryId/cancel` → `{ cancelled }`. Annule la requête en
+  vol (PostgreSQL, MySQL) ; `cancelled:false` si l'id est inconnu ou le moteur
+  ne le supporte pas (SQLite).
 - `GET /api/history?connectionId=&search=` → historique (réussites et échecs).
 - `DELETE /api/history/:id` · `DELETE /api/history?connectionId=`
 

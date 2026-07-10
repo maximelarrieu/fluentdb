@@ -50,9 +50,6 @@ courants, avec un assistant IA conscient du schéma et une intégration Docker.
 Pistes identifiées, non engagées :
 
 - **Provider Ollama** pour un assistant 100 % local (l'abstraction est prête).
-- **Annulation de requête depuis l'UI** : la capacité existe côté drivers
-  (`pg_cancel_backend`, `KILL QUERY`) ; il reste à exposer un `queryId` généré
-  côté client pour pouvoir annuler en vol.
 - **Packaging desktop Tauri** (app native légère).
 - Éditeur de relations / diagramme du schéma.
 - Gestion des vues, fonctions, migrations.

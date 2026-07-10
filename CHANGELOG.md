@@ -9,6 +9,10 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Annulation de requête depuis l'éditeur SQL** : un bouton « Annuler » apparaît
+  pendant l'exécution et interrompt la requête en cours (moteurs qui le
+  supportent : PostgreSQL, MySQL). L'identifiant de requête est généré côté
+  client, ce qui permet l'annulation avant même le retour de la réponse.
 - Documentation projet dans `docs/` : plan, architecture, documentation
   technique, documentation fonctionnelle et présentation client.
 - Guide de contribution (`CONTRIBUTING.md`) : Conventional Commits, workflow de
