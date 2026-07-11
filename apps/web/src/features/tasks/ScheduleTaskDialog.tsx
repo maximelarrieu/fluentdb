@@ -25,6 +25,7 @@ export function ScheduleTaskDialog({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
+  const [db, setDb] = useState(database ?? '');
   const [schedule, setSchedule] = useState<ScheduleForm>({
     kind: 'daily',
     time: '09:00',
@@ -36,7 +37,7 @@ export function ScheduleTaskDialog({
       api.createTask({
         name: name.trim(),
         connectionId: active!.id,
-        database: database ?? null,
+        database: db.trim() || null,
         sql: sql.trim(),
         schedule: formToSchedule(schedule),
         enabled: true,
@@ -68,6 +69,20 @@ export function ScheduleTaskDialog({
             onChange={(e) => setName(e.target.value)}
             placeholder="Taille des tables"
           />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-muted">
+            Base de données <span className="text-muted/60">(optionnel)</span>
+          </span>
+          <Input
+            value={db}
+            onChange={(e) => setDb(e.target.value)}
+            placeholder="par défaut de la connexion"
+          />
+          <span className="text-[11px] text-muted/70">
+            Cible la requête et regroupe la tâche par base dans l'onglet.
+          </span>
         </label>
 
         <ScheduleFields value={schedule} onChange={setSchedule} />

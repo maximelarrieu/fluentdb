@@ -21,6 +21,8 @@ const MODE_INSTRUCTIONS: Record<AiMode, string> = {
     'Task: explain the database object described below (a table, view or materialized view) to the user. Say in plain language what it represents (what one row means), the role of its key columns, and how it relates to other tables (foreign keys, or — for a view/materialized view — what its definition computes and which tables it reads from). Be concrete and concise; do not dump the raw SQL back. Do not propose changes unless asked.',
   index_advice:
     "Task: you are an index advisor. Given the query, its execution-plan summary and the schema, propose the index(es) that would speed it up. Reply with each CREATE INDEX in its own ```sql block, using the exact dialect. Briefly justify each one (which scan/filter/join it targets). Only suggest indexes that match columns present in the schema. Always warn in one sentence that an index speeds up reads but slows down writes and uses disk space, so it should be weighed. If no index would help, say so plainly.",
+  chartable_sql:
+    'Task: the user wants to chart this query as a time trend, but it returns no plottable numeric column — values are formatted as text (e.g. sizes via pg_size_pretty like "1234 MB", percentages with a "%" sign, durations as text). Rewrite the query so at least one column is a raw number suitable for plotting: return sizes as a plain number (e.g. pg_total_relation_size(relid) / 1024.0 / 1024 / 1024 AS size_gb), strip units and formatting, and KEEP a short text label column (e.g. the table name) so each row can become its own series. Preserve the same ordering and dialect. Reply with one sentence on what you changed, then the adapted query in a ```sql block.',
 };
 
 export function buildSystemPrompt(

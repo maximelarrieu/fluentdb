@@ -58,7 +58,9 @@ export function AssistantPanel() {
           ? 'Explique cette requête SQL.'
           : detail.mode === 'index_advice'
             ? 'Propose un ou des index pour accélérer cette requête.'
-            : 'Corrige cette requête SQL.';
+            : detail.mode === 'chartable_sql'
+              ? 'Adapte cette requête pour qu’elle renvoie au moins une valeur numérique traçable dans un graphique de tendance (garde une colonne de libellé pour les séries).'
+              : 'Corrige cette requête SQL.';
       send(prompt, detail.mode, {
         currentSql: detail.sql,
         planSummary: detail.planSummary,

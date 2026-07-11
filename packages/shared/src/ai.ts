@@ -7,6 +7,7 @@ export const aiModes = [
   'fix',
   'index_advice',
   'explain_object',
+  'chartable_sql',
 ] as const;
 export type AiMode = (typeof aiModes)[number];
 
