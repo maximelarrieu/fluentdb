@@ -15,7 +15,9 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
   pilote) au lieu d'un tableau, et `columns.join()` échouait. Même correctif que
   pour les clés étrangères : `array_agg(... ::text)`. Les vues n'ayant pas
   d'index n'étaient pas touchées — d'où le symptôme « ne marche que sur les
-  vues ».
+  vues ». Filet de sécurité définitif : un parseur de type est enregistré pour
+  `name[]` côté pilote, si bien que toute colonne de type `name[]` (présente ou
+  future) arrive comme un tableau JS, indépendamment des casts dans les requêtes.
 
 ### Ajouté
 
