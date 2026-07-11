@@ -14,7 +14,7 @@ import { Button } from '../../components/ui/Button.js';
 import { Spinner, EmptyState, Badge } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { DataGrid } from '../data-grid/DataGrid.js';
-import { useTaskSeen } from './notifications.js';
+import { useTaskSeen, TASKS_POLL_MS } from './notifications.js';
 
 export function scheduleLabel(s: TaskSchedule): string {
   return s.kind === 'daily'
@@ -36,7 +36,7 @@ export function TasksView() {
   const tasks = useQuery({
     queryKey: ['tasks'],
     queryFn: api.tasks,
-    refetchInterval: 30_000,
+    refetchInterval: TASKS_POLL_MS,
   });
 
   const list = tasks.data ?? [];
@@ -158,6 +158,8 @@ function TaskDetail({
   const snapshots = useQuery({
     queryKey: ['task-snapshots', task.id],
     queryFn: () => api.taskSnapshots(task.id),
+    // Keep the history live while the tab is open.
+    refetchInterval: TASKS_POLL_MS,
   });
   const snaps = snapshots.data ?? [];
   const current: TaskSnapshot | undefined =

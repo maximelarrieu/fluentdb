@@ -1,7 +1,12 @@
 import { create } from 'zustand';
+import { useQuery } from '@tanstack/react-query';
 import type { ScheduledTask } from '@fluentdb/shared';
+import { api } from '../../api/client.js';
 
 const KEY = 'fluentdb.tasks.seen';
+
+/** How often the task list is polled while the app is open. */
+export const TASKS_POLL_MS = 10_000;
 
 function load(): Record<string, number> {
   try {
@@ -36,4 +41,19 @@ export function unseenTasks(
   return tasks.filter(
     (t) => t.lastSnapshotId != null && t.lastSnapshotId > (seen[t.id] ?? 0),
   );
+}
+
+/**
+ * Live count of executed-but-unconsulted tasks. Reads the shared (polled)
+ * task-list cache and the seen store, so every badge using it updates both as
+ * runs land and as results are consulted.
+ */
+export function useUnseenTaskCount(): number {
+  const seen = useTaskSeen((s) => s.seen);
+  const tasks = useQuery({
+    queryKey: ['tasks'],
+    queryFn: api.tasks,
+    refetchInterval: TASKS_POLL_MS,
+  });
+  return unseenTasks(tasks.data ?? [], seen).length;
 }

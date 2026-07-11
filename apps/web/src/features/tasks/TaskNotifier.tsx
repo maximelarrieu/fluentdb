@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
 import { useToast } from '../../components/ui/Toast.js';
+import { TASKS_POLL_MS } from './notifications.js';
 
 /**
  * Polls scheduled tasks and shows an in-app toast when a task produces a new
@@ -15,7 +16,7 @@ export function TaskNotifier() {
   const tasks = useQuery({
     queryKey: ['tasks'],
     queryFn: api.tasks,
-    refetchInterval: 30_000,
+    refetchInterval: TASKS_POLL_MS,
   });
 
   useEffect(() => {

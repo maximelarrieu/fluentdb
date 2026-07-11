@@ -13,7 +13,7 @@ import {
   WandSparkles,
   Clock,
 } from 'lucide-react';
-import { useTaskSeen, unseenTasks } from '../tasks/notifications.js';
+import { useUnseenTaskCount } from '../tasks/notifications.js';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Input, Select } from '../../components/ui/Input.js';
@@ -38,15 +38,13 @@ export function SchemaTree() {
     schemaVersion,
     toggleAi,
   } = useWorkspace();
-  const seen = useTaskSeen((s) => s.seen);
+  const unseenCount = useUnseenTaskCount();
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
 
   const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
-  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: api.tasks });
-  const unseenCount = unseenTasks(tasksQuery.data ?? [], seen).length;
 
   const explainObject = (t: TableInfo) => {
     toggleAi(true);
