@@ -40,6 +40,38 @@ describe('toDbml', () => {
     expect(toDbml(schema)).toContain('Ref: albums.artist_id > artists.id');
   });
 
+  it('excludes views, materialized views and lineage edges', () => {
+    const dbml = toDbml({
+      tables: [
+        {
+          name: 'orders',
+          kind: 'table',
+          columns: [
+            { name: 'id', dataType: 'INTEGER', isPrimaryKey: true, isForeignKey: false, nullable: false },
+          ],
+        },
+        {
+          name: 'orders_summary',
+          kind: 'matview',
+          columns: [
+            { name: 'total', dataType: 'NUMERIC', isPrimaryKey: false, isForeignKey: false, nullable: true },
+          ],
+        },
+      ],
+      relations: [
+        {
+          name: 'lineage:orders_summary->orders',
+          kind: 'lineage',
+          from: { table: 'orders_summary', columns: [] },
+          to: { table: 'orders', columns: [] },
+        },
+      ],
+    });
+    expect(dbml).toContain('Table orders {');
+    expect(dbml).not.toContain('orders_summary');
+    expect(dbml).not.toContain('Ref:');
+  });
+
   it('quotes non-word identifiers', () => {
     const dbml = toDbml({
       tables: [

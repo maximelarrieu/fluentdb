@@ -193,6 +193,13 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     });
     expect(refreshed.concurrent).toBe(true);
 
+    // Lineage: the matview depends on both source tables it reads from.
+    const deps = await driver.listViewDependencies();
+    const sources = deps
+      .filter((d) => d.dependent.name === 'it_band_track_counts')
+      .map((d) => d.source.name);
+    expect(sources).toEqual(expect.arrayContaining(['it_bands', 'it_tracks']));
+
     await driver.runQuery(
       'DROP MATERIALIZED VIEW IF EXISTS it_band_track_counts',
       { queryId: 'mv-teardown', maxRows: 1 },

@@ -543,4 +543,34 @@ export class PostgresDriver implements Driver {
     );
     return { concurrent };
   }
+
+  async listViewDependencies(
+    schema = DEFAULT_SCHEMA,
+  ): Promise<Array<{ dependent: TableRef; source: TableRef }>> {
+    // A view's rule (pg_rewrite) depends on every relation it reads. This
+    // catches both plain and materialized views, which information_schema's
+    // view_table_usage misses for matviews.
+    const res = await this.db().query(
+      `SELECT DISTINCT
+              dv.relname AS dep_name, dn.nspname AS dep_schema,
+              sv.relname AS src_name, sn.nspname AS src_schema
+       FROM pg_depend d
+       JOIN pg_rewrite r ON r.oid = d.objid
+       JOIN pg_class dv ON dv.oid = r.ev_class
+       JOIN pg_namespace dn ON dn.oid = dv.relnamespace
+       JOIN pg_class sv ON sv.oid = d.refobjid
+       JOIN pg_namespace sn ON sn.oid = sv.relnamespace
+       WHERE d.classid = 'pg_rewrite'::regclass
+         AND d.refclassid = 'pg_class'::regclass
+         AND dv.relkind IN ('v', 'm')
+         AND sv.relkind IN ('r', 'p', 'v', 'm')
+         AND dv.oid <> sv.oid
+         AND dn.nspname = $1`,
+      [schema],
+    );
+    return res.rows.map((r) => ({
+      dependent: { name: r.dep_name, schema: r.dep_schema },
+      source: { name: r.src_name, schema: r.src_schema },
+    }));
+  }
 }

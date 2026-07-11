@@ -9,6 +9,17 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Lineage dans le diagramme ERD** : les vues et vues matérialisées
+  apparaissent désormais dans l'ERD (icône et libellé distincts selon le type),
+  reliées par des **arêtes de lineage en pointillé** aux tables et vues dont
+  elles tirent leurs données (PostgreSQL, via `pg_depend`). On voit d'un coup
+  d'œil « d'où viennent les données » d'une vue. L'export DBML reste limité aux
+  tables physiques et à leurs clés étrangères.
+- **« Enregistrer en vue » depuis l'éditeur SQL** : un bouton transforme la
+  requête courante en **vue** (ou en **vue matérialisée** sur PostgreSQL) en un
+  clic ; un dialogue demande le nom, montre le `CREATE VIEW … AS …` généré, puis
+  l'exécute (bloqué sur connexion en lecture seule). La nouvelle vue apparaît
+  aussitôt dans l'arbre de schéma.
 - **Vues matérialisées (PostgreSQL)** : elles apparaissent désormais dans une
   section dédiée « Vues matérialisées » de l'arbre de schéma, avec une icône
   distincte et un indicateur « vide » quand la vue n'est pas peuplée. On peut

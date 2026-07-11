@@ -108,6 +108,15 @@ export interface Driver {
    * Only defined by engines whose capabilities.materializedViews is true.
    */
   refreshMaterializedView?(ref: TableRef): Promise<{ concurrent: boolean }>;
+
+  /**
+   * Data lineage: for each view / materialized view, the tables and views it
+   * reads from. Powers the lineage edges in the ERD. Only defined by engines
+   * that can resolve it (PostgreSQL); absent elsewhere.
+   */
+  listViewDependencies?(
+    schema?: string,
+  ): Promise<Array<{ dependent: TableRef; source: TableRef }>>;
 }
 
 export type DriverFactory = (config: ConnectionConfig, database?: string) => Driver;

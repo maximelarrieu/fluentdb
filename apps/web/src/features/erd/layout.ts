@@ -66,16 +66,27 @@ export function layoutErd(schema: ErdSchema): {
   const edges: Edge[] = schema.relations.map((rel, i) => {
     const source = tableKey(rel.from.schema, rel.from.table);
     const target = tableKey(rel.to.schema, rel.to.table);
+    const lineage = rel.kind === 'lineage';
+    // FK edges attach at the specific column rows; lineage edges (no columns)
+    // attach at the node level and are drawn dashed in the matview accent.
+    const color = lineage ? '#3fb884' : '#6d8bff';
     return {
       id: `e${i}-${rel.name}`,
       source,
       target,
-      // handles per column so the edge attaches at the FK column row
-      sourceHandle: `${source}::${rel.from.columns[0]}::source`,
-      targetHandle: `${target}::${rel.to.columns[0]}::target`,
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#6d8bff' },
-      style: { stroke: '#6d8bff', strokeWidth: 1.5 },
-      data: { source, target },
+      sourceHandle: lineage
+        ? undefined
+        : `${source}::${rel.from.columns[0]}::source`,
+      targetHandle: lineage
+        ? undefined
+        : `${target}::${rel.to.columns[0]}::target`,
+      markerEnd: { type: MarkerType.ArrowClosed, color },
+      style: {
+        stroke: color,
+        strokeWidth: 1.5,
+        ...(lineage ? { strokeDasharray: '5 4' } : {}),
+      },
+      data: { source, target, kind: rel.kind ?? 'fk' },
     };
   });
 

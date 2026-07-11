@@ -1,7 +1,15 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
-import { Play, Square, Sparkles, WandSparkles, Gauge, ChevronDown } from 'lucide-react';
+import {
+  Play,
+  Square,
+  Sparkles,
+  WandSparkles,
+  Gauge,
+  ChevronDown,
+  Save,
+} from 'lucide-react';
 import type { QueryPlan, QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
@@ -12,6 +20,7 @@ import { nanoid } from '../../lib/nanoid.js';
 import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
 import { ConfirmExecutionDialog } from './ConfirmExecutionDialog.js';
+import { SaveAsViewDialog } from './SaveAsViewDialog.js';
 import { PlanView } from '../plan/PlanView.js';
 import { summarizePlan } from '../plan/summary.js';
 
@@ -23,6 +32,7 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const canCancel = active!.capabilities.cancelQuery;
   const canExplain = active!.capabilities.explain;
   const canAnalyze = active!.capabilities.explainAnalyze;
+  const canMatview = active!.capabilities.materializedViews;
 
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +48,10 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
     null,
   );
   const [analyzing, setAnalyzing] = useState(false);
+  // "save as view" dialog: null when closed, else the preselected view kind
+  const [saveView, setSaveView] = useState<{ materialized: boolean } | null>(
+    null,
+  );
 
   const meta = useQuery({
     queryKey: ['autocomplete', connId, database],
@@ -192,6 +206,22 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           ⌘/Ctrl+↵ tout · ⇧⌘/Ctrl+↵ sélection
         </span>
         <div className="ml-auto flex items-center gap-1.5">
+          {canMatview ? (
+            <SaveViewButton
+              disabled={!sql.trim()}
+              onView={() => setSaveView({ materialized: false })}
+              onMatview={() => setSaveView({ materialized: true })}
+            />
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSaveView({ materialized: false })}
+              disabled={!sql.trim()}
+            >
+              <Save size={13} /> Enregistrer en vue
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={explain} disabled={!sql.trim()}>
             <WandSparkles size={13} /> Expliquer
           </Button>
@@ -236,6 +266,16 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           )}
         </div>
       </div>
+
+      {saveView && meta.data && (
+        <SaveAsViewDialog
+          sql={sql}
+          materialized={saveView.materialized}
+          canMaterialized={canMatview}
+          dialect={meta.data.dialect}
+          onClose={() => setSaveView(null)}
+        />
+      )}
 
       {pending && (
         <ConfirmExecutionDialog
@@ -318,6 +358,69 @@ function AnalyzeButton({
           </Dropdown.Portal>
         </Dropdown.Root>
       )}
+    </div>
+  );
+}
+
+/** "Enregistrer" split button: view by default, matview from the menu. */
+function SaveViewButton({
+  disabled,
+  onView,
+  onMatview,
+}: {
+  disabled: boolean;
+  onView: () => void;
+  onMatview: () => void;
+}) {
+  return (
+    <div className="flex items-center">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onView}
+        disabled={disabled}
+        className="rounded-r-none"
+      >
+        <Save size={13} /> Enregistrer en vue
+      </Button>
+      <Dropdown.Root>
+        <Dropdown.Trigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            className="rounded-l-none border-l border-border px-1.5"
+          >
+            <ChevronDown size={13} />
+          </Button>
+        </Dropdown.Trigger>
+        <Dropdown.Portal>
+          <Dropdown.Content
+            align="end"
+            sideOffset={4}
+            className="z-50 min-w-[240px] rounded-lg border border-border bg-panel-2 p-1 shadow-xl"
+          >
+            <Dropdown.Item
+              onSelect={onView}
+              className="flex flex-col rounded px-2 py-1.5 text-[13px] cursor-pointer outline-none data-[highlighted]:bg-panel"
+            >
+              Vue
+              <span className="text-[11px] text-muted">
+                Recalculée à chaque lecture
+              </span>
+            </Dropdown.Item>
+            <Dropdown.Item
+              onSelect={onMatview}
+              className="flex flex-col rounded px-2 py-1.5 text-[13px] cursor-pointer outline-none data-[highlighted]:bg-panel"
+            >
+              Vue matérialisée
+              <span className="text-[11px] text-muted">
+                Stocke le résultat ; à rafraîchir
+              </span>
+            </Dropdown.Item>
+          </Dropdown.Content>
+        </Dropdown.Portal>
+      </Dropdown.Root>
     </div>
   );
 }

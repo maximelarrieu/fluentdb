@@ -1,11 +1,20 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { KeyRound, Link2 } from 'lucide-react';
+import { KeyRound, Link2, Table2, Eye, Layers } from 'lucide-react';
 import type { TableNode as TableNodeType } from './layout.js';
 import { cn } from '../../lib/cn.js';
 
+const KIND_ICON = { table: Table2, view: Eye, matview: Layers };
+const KIND_COLOR = {
+  table: 'text-accent',
+  view: 'text-amber',
+  matview: 'text-green',
+};
+
 function TableNodeImpl({ id, data, selected }: NodeProps<TableNodeType>) {
   const { table, dimmed, highlighted } = data;
+  const kind = table.kind ?? 'table';
+  const KindIcon = KIND_ICON[kind];
   return (
     <div
       className={cn(
@@ -17,9 +26,17 @@ function TableNodeImpl({ id, data, selected }: NodeProps<TableNodeType>) {
       )}
     >
       <div className="px-2.5 h-[34px] flex items-center gap-1.5 bg-panel-2 border-b border-border-soft">
+        <KindIcon size={12} className={cn(KIND_COLOR[kind], 'shrink-0')} />
         <span className="text-[13px] font-semibold truncate">{table.name}</span>
+        {kind !== 'table' && (
+          <span className="text-[9px] uppercase tracking-wide text-muted shrink-0">
+            {kind === 'matview' ? 'mat' : 'vue'}
+          </span>
+        )}
         {table.schema && table.schema !== 'public' && (
-          <span className="text-[10px] text-muted truncate">{table.schema}</span>
+          <span className="text-[10px] text-muted truncate ml-auto">
+            {table.schema}
+          </span>
         )}
       </div>
       <div>
