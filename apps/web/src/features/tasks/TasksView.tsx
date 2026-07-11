@@ -9,8 +9,14 @@ import {
   Power,
   Table as TableIcon,
   LineChart,
+  BellRing,
 } from 'lucide-react';
-import type { ScheduledTask, TaskSchedule, TaskSnapshot } from '@fluentdb/shared';
+import {
+  alertOpSymbol,
+  type ScheduledTask,
+  type TaskSchedule,
+  type TaskSnapshot,
+} from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Select } from '../../components/ui/Input.js';
@@ -20,6 +26,7 @@ import { DataGrid } from '../data-grid/DataGrid.js';
 import { useTaskSeen, TASKS_POLL_MS } from './notifications.js';
 import { TrendChart } from './TrendChart.js';
 import { buildTrend, numericColumns, textColumns } from './trend.js';
+import { AlertDialog } from './AlertDialog.js';
 
 export function scheduleLabel(s: TaskSchedule): string {
   return s.kind === 'daily'
@@ -149,6 +156,7 @@ function TrendView({
   onValue,
   onLabel,
   trend,
+  threshold,
 }: {
   numeric: string[];
   texts: string[];
@@ -157,6 +165,7 @@ function TrendView({
   onValue: (c: string) => void;
   onLabel: (c: string) => void;
   trend: ReturnType<typeof buildTrend>;
+  threshold?: number;
 }) {
   if (numeric.length === 0) {
     return (
@@ -194,7 +203,7 @@ function TrendView({
       </div>
       <div className="flex-1 min-h-0 p-2">
         {trend.hasData ? (
-          <TrendChart trend={trend} />
+          <TrendChart trend={trend} threshold={threshold} />
         ) : (
           <div className="h-full flex items-center justify-center text-muted text-sm px-6 text-center">
             Pas assez d'historique pour tracer une tendance — il faut au moins
@@ -210,10 +219,17 @@ function StatusDot({ task }: { task: ScheduledTask }) {
   const color =
     task.lastStatus === 'error'
       ? 'bg-red'
-      : task.lastStatus === 'ok'
-        ? 'bg-green'
-        : 'bg-muted/40';
-  return <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} />;
+      : task.lastAlert
+        ? 'bg-amber'
+        : task.lastStatus === 'ok'
+          ? 'bg-green'
+          : 'bg-muted/40';
+  return (
+    <span
+      className={`w-2 h-2 rounded-full shrink-0 ${color}`}
+      title={task.lastAlert ?? undefined}
+    />
+  );
 }
 
 function TaskDetail({
@@ -231,6 +247,7 @@ function TaskDetail({
 }) {
   const [snapId, setSnapId] = useState<number | null>(null);
   const [view, setView] = useState<'result' | 'trend'>('result');
+  const [alertOpen, setAlertOpen] = useState(false);
   const [valueSel, setValueSel] = useState('');
   const [labelSel, setLabelSel] = useState<'AUTO' | string>('AUTO');
 
@@ -281,8 +298,25 @@ function TaskDetail({
           </button>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
+          {task.alert && (
+            <span
+              className="text-[11px] px-1.5 py-0.5 rounded bg-amber/15 text-amber mono"
+              title="Seuil d'alerte configuré"
+            >
+              {task.alert.column} {alertOpSymbol[task.alert.op]}{' '}
+              {task.alert.threshold}
+            </span>
+          )}
           <Button size="sm" variant="default" onClick={onRun} disabled={running}>
             {running ? <Spinner /> : <Play size={13} />} Exécuter
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setAlertOpen(true)}
+            className={task.alert ? 'text-amber' : undefined}
+          >
+            <BellRing size={13} /> Alerte
           </Button>
           <Button size="sm" variant="ghost" onClick={onToggle}>
             <Power size={13} /> {task.enabled ? 'Mettre en pause' : 'Activer'}
@@ -292,6 +326,14 @@ function TaskDetail({
           </Button>
         </div>
       </div>
+
+      {alertOpen && (
+        <AlertDialog
+          task={task}
+          numericCols={numeric}
+          onClose={() => setAlertOpen(false)}
+        />
+      )}
 
       <div className="flex-1 flex min-h-0">
         <div className="w-56 shrink-0 border-r border-border overflow-auto">
@@ -306,10 +348,16 @@ function TaskDetail({
                 current?.id === s.id ? 'bg-panel-2' : 'hover:bg-panel-2/50'
               }`}
             >
-              {s.status === 'ok' ? (
-                <CheckCircle2 size={13} className="text-green shrink-0" />
-              ) : (
+              {s.status === 'error' ? (
                 <AlertTriangle size={13} className="text-red shrink-0" />
+              ) : s.alert ? (
+                <AlertTriangle
+                  size={13}
+                  className="text-amber shrink-0"
+                  aria-label="Seuil dépassé"
+                />
+              ) : (
+                <CheckCircle2 size={13} className="text-green shrink-0" />
               )}
               <span className="text-[12px] truncate flex-1">{fmt(s.ranAt)}</span>
               <span className="text-[10px] text-muted">
@@ -334,6 +382,11 @@ function TaskDetail({
               onValue={setValueSel}
               onLabel={setLabelSel}
               trend={trend}
+              threshold={
+                task.alert && task.alert.column === valueCol
+                  ? task.alert.threshold
+                  : undefined
+              }
             />
           ) : !current ? (
             <div className="h-full flex items-center justify-center text-muted text-sm">

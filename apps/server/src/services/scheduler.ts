@@ -1,10 +1,54 @@
-import type { ScheduledTask, TaskSchedule, TaskSnapshot } from '@fluentdb/shared';
+import {
+  alertOpSymbol,
+  type AlertOp,
+  type CellValue,
+  type QueryColumn,
+  type ScheduledTask,
+  type TaskSchedule,
+  type TaskSnapshot,
+} from '@fluentdb/shared';
 import type { TasksStore } from '../store/tasksStore.js';
 import type { ConnectionManager } from './connectionManager.js';
 import { analyzeScript } from '../sql/analyze.js';
 
 const TICK_MS = 30_000;
 const MAX_ROWS = 1000;
+
+function breaches(value: number, op: AlertOp, threshold: number): boolean {
+  switch (op) {
+    case 'gt':
+      return value > threshold;
+    case 'gte':
+      return value >= threshold;
+    case 'lt':
+      return value < threshold;
+    case 'lte':
+      return value <= threshold;
+  }
+}
+
+/**
+ * Evaluate a task's threshold against a run's rows. Returns a short breach
+ * summary (e.g. "3 ligne(s) > 1000 sur « size »") or null when nothing breaches.
+ */
+function evaluateAlert(
+  task: ScheduledTask,
+  columns: QueryColumn[],
+  rows: CellValue[][],
+): string | null {
+  const rule = task.alert;
+  if (!rule) return null;
+  const idx = columns.findIndex((c) => c.name === rule.column);
+  if (idx < 0) return null;
+  let count = 0;
+  for (const row of rows) {
+    const raw = row[idx];
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    if (Number.isFinite(n) && breaches(n, rule.op, rule.threshold)) count++;
+  }
+  if (count === 0) return null;
+  return `${count} ligne(s) ${alertOpSymbol[rule.op]} ${rule.threshold} sur « ${rule.column} »`;
+}
 
 /**
  * Fires scheduled tasks while the server is running. A single ticker checks
@@ -87,6 +131,7 @@ export class Scheduler {
           rows: [],
           truncated: false,
           error: `Seules les requêtes de lecture sont planifiables (${offending.operation} refusé).`,
+          alert: null,
         });
       }
 
@@ -113,6 +158,7 @@ export class Scheduler {
         rows: result?.rows ?? [],
         truncated: result?.truncated ?? false,
         error: null,
+        alert: evaluateAlert(task, result?.columns ?? [], result?.rows ?? []),
       });
     } catch (err) {
       return this.store.recordSnapshot(task.id, {
@@ -123,6 +169,7 @@ export class Scheduler {
         rows: [],
         truncated: false,
         error: (err as Error).message,
+        alert: null,
       });
     } finally {
       this.runningIds.delete(task.id);

@@ -19,6 +19,7 @@ function snap(
     rows,
     truncated: false,
     error: null,
+    alert: null,
   };
 }
 
