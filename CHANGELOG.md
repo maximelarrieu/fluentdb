@@ -16,10 +16,14 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
   renseignée. Les variables déjà présentes dans l'environnement gardent la
   priorité.
 - **Détection Docker** : en l'absence de `DOCKER_HOST`, le serveur sonde
-  plusieurs emplacements de socket (socket système, Docker Desktop
-  `~/.docker/run/docker.sock`, Docker rootless `$XDG_RUNTIME_DIR/docker.sock`)
-  au lieu du seul `/var/run/docker.sock`. Les bases conteneurisées sont donc
-  détectées sur macOS/Windows et en mode rootless sans configuration manuelle.
+  automatiquement les emplacements usuels au lieu du seul
+  `/var/run/docker.sock`. Sous **Windows**, il utilise le *named pipe* de
+  Docker Desktop (`\\.\pipe\docker_engine`) — c'est ce qui manquait pour la
+  détection sous Windows. Sous macOS/Linux : socket système, Docker Desktop
+  (`~/.docker/run/docker.sock`), Docker rootless (`$XDG_RUNTIME_DIR/docker.sock`),
+  Colima, OrbStack et Rancher Desktop. Les schémas `npipe://`, `unix://`,
+  `tcp://` de `DOCKER_HOST` sont reconnus. Les bases conteneurisées sont donc
+  détectées sans configuration manuelle.
 
 ### Ajouté
 
