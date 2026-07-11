@@ -70,6 +70,7 @@ export class PostgresDriver implements Driver {
     estimateRows: true,
     explain: true,
     explainAnalyze: true,
+    materializedViews: true,
   };
 
   private pool: pg.Pool | null = null;
@@ -149,8 +150,13 @@ export class PostgresDriver implements Driver {
     const res = await this.db().query(
       `SELECT c.relname AS name,
               n.nspname AS schema,
-              CASE WHEN c.relkind IN ('v', 'm') THEN 'view' ELSE 'table' END AS kind,
+              CASE c.relkind
+                WHEN 'm' THEN 'matview'
+                WHEN 'v' THEN 'view'
+                ELSE 'table'
+              END AS kind,
               CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::bigint END AS row_estimate,
+              CASE WHEN c.relkind = 'm' THEN c.relispopulated ELSE NULL END AS is_populated,
               obj_description(c.oid, 'pg_class') AS comment
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -163,6 +169,7 @@ export class PostgresDriver implements Driver {
       schema: r.schema,
       kind: r.kind,
       rowEstimate: r.row_estimate === null ? null : Number(r.row_estimate),
+      isPopulated: r.is_populated,
       comment: r.comment,
     }));
   }
@@ -179,7 +186,30 @@ export class PostgresDriver implements Driver {
        ORDER BY ordinal_position`,
       [schema, ref.name],
     );
-    if (colsRes.rows.length === 0) {
+    // Materialized views are absent from information_schema — fall back to
+    // pg_catalog so their columns (and data browsing) still work.
+    let colRows = colsRes.rows;
+    if (colRows.length === 0) {
+      const pgCat = await db.query(
+        `SELECT a.attname AS column_name,
+                format_type(a.atttypid, a.atttypmod) AS data_type,
+                NULL AS udt_name,
+                CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
+                pg_get_expr(d.adbin, d.adrelid) AS column_default,
+                'NO' AS is_identity,
+                a.attnum AS ordinal_position
+         FROM pg_attribute a
+         JOIN pg_class c ON c.oid = a.attrelid
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+         WHERE n.nspname = $1 AND c.relname = $2
+           AND a.attnum > 0 AND NOT a.attisdropped
+         ORDER BY a.attnum`,
+        [schema, ref.name],
+      );
+      colRows = pgCat.rows;
+    }
+    if (colRows.length === 0) {
       throw new DriverError(`Table not found: ${schema}.${ref.name}`, 404);
     }
 
@@ -197,7 +227,7 @@ export class PostgresDriver implements Driver {
     const pk = pkRes.rows.map((r) => r.name as string);
     const pkSet = new Set(pk);
 
-    const columns = colsRes.rows.map((r, i) => ({
+    const columns = colRows.map((r, i) => ({
       name: r.column_name as string,
       dataType:
         r.data_type === 'USER-DEFINED' || r.data_type === 'ARRAY'
@@ -278,10 +308,21 @@ export class PostgresDriver implements Driver {
 
   async getAutocompleteCatalog(): Promise<AutocompleteCatalog> {
     const res = await this.db().query(
+      // information_schema covers tables and (plain) views; the UNION adds
+      // materialized views, which information_schema does not expose.
       `SELECT table_schema, table_name, array_agg(column_name::text ORDER BY ordinal_position) AS columns
        FROM information_schema.columns
        WHERE table_schema NOT LIKE 'pg\\_%' AND table_schema <> 'information_schema'
-       GROUP BY table_schema, table_name`,
+       GROUP BY table_schema, table_name
+       UNION ALL
+       SELECT n.nspname AS table_schema, c.relname AS table_name,
+              array_agg(a.attname::text ORDER BY a.attnum) AS columns
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+       WHERE c.relkind = 'm' AND n.nspname NOT LIKE 'pg\\_%'
+         AND n.nspname <> 'information_schema'
+       GROUP BY n.nspname, c.relname`,
     );
     const catalog: AutocompleteCatalog = {};
     for (const r of res.rows) {
@@ -454,5 +495,52 @@ export class PostgresDriver implements Driver {
     } finally {
       client.release();
     }
+  }
+
+  async getViewDefinition(ref: TableRef): Promise<string | null> {
+    const schema = ref.schema ?? DEFAULT_SCHEMA;
+    const res = await this.db().query(
+      `SELECT pg_get_viewdef(c.oid, true) AS def
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind IN ('v', 'm')`,
+      [schema, ref.name],
+    );
+    return (res.rows[0]?.def as string | undefined) ?? null;
+  }
+
+  async refreshMaterializedView(
+    ref: TableRef,
+  ): Promise<{ concurrent: boolean }> {
+    const schema = ref.schema ?? DEFAULT_SCHEMA;
+    const db = this.db();
+    const meta = await db.query(
+      `SELECT c.relispopulated AS populated,
+              EXISTS (
+                SELECT 1 FROM pg_index i
+                WHERE i.indrelid = c.oid AND i.indisunique
+              ) AS has_unique
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = 'm'`,
+      [schema, ref.name],
+    );
+    if (meta.rows.length === 0) {
+      throw new DriverError(
+        `Materialized view not found: ${schema}.${ref.name}`,
+        404,
+      );
+    }
+    // CONCURRENTLY avoids locking readers but requires the view to be already
+    // populated and to carry at least one unique index.
+    const concurrent = Boolean(
+      meta.rows[0].populated && meta.rows[0].has_unique,
+    );
+    const q = this.dialect.quoteIdent;
+    const ident = `${q(schema)}.${q(ref.name)}`;
+    await db.query(
+      `REFRESH MATERIALIZED VIEW ${concurrent ? 'CONCURRENTLY ' : ''}${ident}`,
+    );
+    return { concurrent };
   }
 }

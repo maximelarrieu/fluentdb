@@ -47,6 +47,7 @@ export class ConnectionManager {
       estimateRows: driver.capabilities.estimateRows,
       explain: driver.capabilities.explain,
       explainAnalyze: driver.capabilities.explainAnalyze,
+      materializedViews: driver.capabilities.materializedViews,
       serverVersion: version,
     };
   }

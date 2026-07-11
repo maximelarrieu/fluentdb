@@ -40,6 +40,16 @@ export function registerSchemaRoutes(
     return driver.getTableStructure({ name: table, schema });
   });
 
+  app.get('/api/connections/:id/tables/:table/definition', async (req) => {
+    const { id, table } = tableParams.parse(req.params);
+    const { database, schema } = scopeQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    const definition = driver.getViewDefinition
+      ? await driver.getViewDefinition({ name: table, schema })
+      : null;
+    return { definition };
+  });
+
   app.get('/api/connections/:id/autocomplete', async (req) => {
     const { id } = idParams.parse(req.params);
     const { database } = scopeQuery.parse(req.query);

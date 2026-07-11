@@ -7,6 +7,21 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+
+- **Vues matérialisées (PostgreSQL)** : elles apparaissent désormais dans une
+  section dédiée « Vues matérialisées » de l'arbre de schéma, avec une icône
+  distincte et un indicateur « vide » quand la vue n'est pas peuplée. On peut
+  explorer leurs données, voir leur structure, consulter leur **définition SQL**
+  et les **rafraîchir** en un clic (`REFRESH MATERIALIZED VIEW`, en
+  `CONCURRENTLY` automatiquement lorsque la vue est peuplée et possède un index
+  unique, pour ne pas bloquer les lectures). Auparavant les vues matérialisées
+  étaient confondues avec les vues classiques et leur ouverture échouait
+  (absentes d'`information_schema`) ; l'introspection passe maintenant par
+  `pg_catalog`. Le rafraîchissement respecte le mode lecture seule. Un bouton
+  « Voir la définition » est aussi disponible sur les vues classiques (tous
+  moteurs).
+
 ### Corrigé
 
 - **Chargement du fichier `.env`** : le serveur lit désormais le `.env` au
