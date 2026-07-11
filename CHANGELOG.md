@@ -9,6 +9,14 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Créer une surveillance en langage naturel (IA)** : depuis l'onglet
+  « Tableau de bord » ou « Tâches planifiées », décrire une surveillance en
+  français (« la taille de chaque table du schéma public chaque jour à 9h,
+  alerte au-dessus de 10 Go ») et laisser l'assistant proposer une **tâche
+  planifiée complète** — requête **de lecture**, planification et seuil
+  d'alerte. La proposition est **relue et éditable** avant création (rien n'est
+  créé ni exécuté sans validation) et la requête est garantie en lecture seule
+  côté serveur (endpoint `POST /api/ai/monitor`).
 - **Valeur-clé + variation (tâches planifiées)** : la dernière valeur d'une
   tâche (somme de sa colonne numérique, ou nombre de lignes à défaut) est mise
   en évidence avec sa **variation par rapport à l'exécution précédente**

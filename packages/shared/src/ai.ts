@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { taskScheduleSchema, taskAlertSchema } from './tasks.js';
 
 export const aiModes = [
   'chat',
@@ -54,3 +55,25 @@ export interface AiStatus {
   provider: string | null;
   model: string | null;
 }
+
+/** Turn a natural-language monitoring wish into a scheduled-task proposal. */
+export const monitorRequestSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().optional(),
+  description: z.string().min(1).max(2000),
+});
+export type MonitorRequest = z.infer<typeof monitorRequestSchema>;
+
+/**
+ * A reviewable proposal the user confirms before anything is created. The SQL
+ * is validated read-only server-side; the user can still edit every field.
+ */
+export const monitorProposalSchema = z.object({
+  name: z.string().min(1).max(120),
+  sql: z.string().min(1),
+  schedule: taskScheduleSchema,
+  alert: taskAlertSchema.nullable().default(null),
+  /** One-sentence, human-facing explanation of what was proposed. */
+  notes: z.string().default(''),
+});
+export type MonitorProposal = z.infer<typeof monitorProposalSchema>;

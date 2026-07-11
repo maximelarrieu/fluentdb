@@ -1,12 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import {
   aiChatRequestSchema,
+  monitorRequestSchema,
+  monitorProposalSchema,
   type AiChatRequest,
   type AiStreamEvent,
 } from '@fluentdb/shared';
-import { buildSystemPrompt } from '../ai/prompts.js';
+import { buildSystemPrompt, buildMonitorPrompt } from '../ai/prompts.js';
 import { buildSchemaDigest } from '../ai/schemaContext.js';
-import { extractSqlBlocks } from '../ai/types.js';
+import { extractSqlBlocks, extractJson, collectStream } from '../ai/types.js';
+import { analyzeScript } from '../sql/analyze.js';
 import type { Driver } from '../drivers/types.js';
 import type { AppContext } from '../context.js';
 
@@ -84,6 +87,54 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     provider: ctx.ai?.id ?? null,
     model: ctx.ai?.model ?? null,
   }));
+
+  app.post('/api/ai/monitor', async (req, reply) => {
+    const body = monitorRequestSchema.parse(req.body);
+    if (!ctx.ai) {
+      return reply.code(503).send({
+        error:
+          'No AI provider configured — set GEMINI_API_KEY and restart the server',
+      });
+    }
+
+    let schemaDigest: string | null = null;
+    let dialectInfo: string | null = null;
+    if (ctx.manager.isConnected(body.connectionId)) {
+      try {
+        const driver = await ctx.manager.getDriver(
+          body.connectionId,
+          body.database,
+        );
+        dialectInfo = `${driver.dialect.name} (${await driver.serverVersion()})`;
+        schemaDigest = await buildSchemaDigest(driver, []);
+      } catch {
+        // schema context is best-effort
+      }
+    }
+
+    const text = await collectStream(
+      ctx.ai.chatStream({
+        system: buildMonitorPrompt(schemaDigest, dialectInfo),
+        messages: [{ role: 'user', content: body.description }],
+      }),
+    );
+
+    const parsed = monitorProposalSchema.safeParse(extractJson(text));
+    if (!parsed.success) {
+      return reply.code(422).send({
+        error:
+          "L'assistant n'a pas pu produire une proposition exploitable. Reformule la demande.",
+      });
+    }
+    // Guardrail: the proposed query must be read-only, like any scheduled task.
+    const offending = analyzeScript(parsed.data.sql).find((s) => s.kind !== 'read');
+    if (offending) {
+      return reply.code(422).send({
+        error: `La requête proposée n'est pas en lecture seule (${offending.operation}). Reformule la demande.`,
+      });
+    }
+    return parsed.data;
+  });
 
   app.post('/api/ai/chat', async (req, reply) => {
     const body = aiChatRequestSchema.parse(req.body);

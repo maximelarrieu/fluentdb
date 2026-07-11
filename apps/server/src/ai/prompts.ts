@@ -25,6 +25,41 @@ const MODE_INSTRUCTIONS: Record<AiMode, string> = {
     'Task: the user wants to chart this query as a time trend, but it returns no plottable numeric column — values are formatted as text (e.g. sizes via pg_size_pretty like "1234 MB", percentages with a "%" sign, durations as text). Rewrite the query so at least one column is a raw number suitable for plotting: return sizes as a plain number (e.g. pg_total_relation_size(relid) / 1024.0 / 1024 / 1024 AS size_gb), strip units and formatting, and KEEP a short text label column (e.g. the table name) so each row can become its own series. Preserve the same ordering and dialect. Reply with one sentence on what you changed, then the adapted query in a ```sql block.',
 };
 
+/**
+ * System prompt for the one-shot NL → scheduled-task proposal. The model must
+ * answer with a single JSON object (no prose), read-only SQL only.
+ */
+export function buildMonitorPrompt(
+  schemaDigest: string | null,
+  dialectInfo: string | null,
+): string {
+  const parts = [
+    BASE,
+    `Task: turn the user's monitoring wish (in natural language) into ONE scheduled read-only check. Answer with a SINGLE JSON object and nothing else (no prose, no markdown fences needed), with this exact shape:
+{
+  "name": string,                       // short, human name for the task
+  "sql": string,                        // ONE read-only SELECT, matching the dialect; no trailing semicolon needed
+  "schedule": { "kind": "daily", "hour": 0-23, "minute": 0-59 }
+             | { "kind": "interval", "everyMinutes": integer >= 1 },
+  "alert": null
+         | { "column": string, "op": "gt"|"gte"|"lt"|"lte", "threshold": number },
+  "notes": string                       // one sentence, in the user's language, explaining the check
+}
+Rules for this task:
+- The SQL MUST be read-only (SELECT / WITH … SELECT). Never write.
+- If the user gives a time like "9h" use a daily schedule; "toutes les N minutes/heures" → interval.
+- Set "alert" only if the user asked to be warned past a threshold; put it on the numeric column the SQL returns. Convert units to match the column (e.g. a size threshold in GB when the column is bytes). Otherwise "alert": null.
+- Only reference tables/columns present in the schema below. If you cannot, still return your best SELECT and explain the assumption in "notes".`,
+  ];
+  if (dialectInfo) parts.push(`SQL dialect: ${dialectInfo}`);
+  parts.push(
+    schemaDigest
+      ? `Connected database schema:\n${schemaDigest}`
+      : 'No schema available — infer reasonable table/column names and note the assumption.',
+  );
+  return parts.join('\n\n');
+}
+
 export function buildSystemPrompt(
   req: AiChatRequest,
   schemaDigest: string | null,

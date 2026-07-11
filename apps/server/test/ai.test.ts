@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { AiStreamEvent } from '@fluentdb/shared';
-import { extractSqlBlocks } from '../src/ai/types.js';
+import type { AiStreamEvent, MonitorProposal } from '@fluentdb/shared';
+import { extractSqlBlocks, extractJson } from '../src/ai/types.js';
 import {
   FakeAiProvider,
   closeTestApp,
@@ -150,6 +150,82 @@ describe('AI chat endpoint', () => {
     // sqlite getViewDefinition returns the CREATE VIEW statement
     expect(captured).toContain('Definition:');
     expect(captured.toLowerCase()).toContain('create view');
+    await closeTestApp(app);
+  });
+});
+
+describe('extractJson', () => {
+  it('parses a fenced json block', () => {
+    expect(extractJson('bla\n```json\n{"a":1}\n```\nfin')).toEqual({ a: 1 });
+  });
+  it('parses a bare object', () => {
+    expect(extractJson('voici {"a":2} voilà')).toEqual({ a: 2 });
+  });
+  it('returns null on garbage', () => {
+    expect(extractJson('pas de json ici')).toBeNull();
+  });
+});
+
+describe('AI monitor endpoint (NL → scheduled task)', () => {
+  const proposal = JSON.stringify({
+    name: "Nombre d'albums",
+    sql: 'SELECT COUNT(*) AS n FROM albums',
+    schedule: { kind: 'daily', hour: 9, minute: 0 },
+    alert: { column: 'n', op: 'gt', threshold: 100 },
+    notes: 'Compte les albums chaque jour à 9h.',
+  });
+
+  it('returns a validated read-only proposal', async () => {
+    const app = await makeTestApp({
+      ai: new FakeAiProvider([`Voici :\n\`\`\`json\n${proposal}\n\`\`\``]),
+    });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/monitor',
+      payload: {
+        connectionId: id,
+        description: 'compte les albums chaque jour à 9h, alerte au-dessus de 100',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const p = res.json() as MonitorProposal;
+    expect(p.name).toBe("Nombre d'albums");
+    expect(p.schedule).toEqual({ kind: 'daily', hour: 9, minute: 0 });
+    expect(p.alert).toEqual({ column: 'n', op: 'gt', threshold: 100 });
+    await closeTestApp(app);
+  });
+
+  it('rejects a proposal that is not read-only', async () => {
+    const bad = JSON.stringify({
+      name: 'suppression',
+      sql: 'DELETE FROM albums',
+      schedule: { kind: 'interval', everyMinutes: 60 },
+      alert: null,
+      notes: '',
+    });
+    const app = await makeTestApp({ ai: new FakeAiProvider([bad]) });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/monitor',
+      payload: { connectionId: id, description: 'efface les albums' },
+    });
+    expect(res.statusCode).toBe(422);
+    await closeTestApp(app);
+  });
+
+  it('returns 422 when the model does not produce usable JSON', async () => {
+    const app = await makeTestApp({
+      ai: new FakeAiProvider(['désolé, je ne peux pas']),
+    });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/monitor',
+      payload: { connectionId: id, description: 'quelque chose' },
+    });
+    expect(res.statusCode).toBe(422);
     await closeTestApp(app);
   });
 });
