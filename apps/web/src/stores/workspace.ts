@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { ConnectCapabilities } from '@fluentdb/shared';
 import { nanoid } from '../lib/nanoid.js';
 
@@ -80,12 +81,19 @@ interface WorkspaceState {
   toggleAi: (open?: boolean) => void;
   toggleSidebar: (collapsed?: boolean) => void;
   bumpSchema: () => void;
+  /**
+   * Refresh the active connection's capabilities after re-establishing it on
+   * startup, WITHOUT clearing the restored tabs (unlike setActive).
+   */
+  reconnectActive: (capabilities: ConnectCapabilities) => void;
   /** Skip the write/DDL confirmation dialog for the rest of the session */
   skipExecConfirm: boolean;
   setSkipExecConfirm: (skip: boolean) => void;
 }
 
-export const useWorkspace = create<WorkspaceState>((set, get) => ({
+export const useWorkspace = create<WorkspaceState>()(
+  persist(
+    (set, get) => ({
   active: null,
   database: undefined,
   schema: undefined,
@@ -205,5 +213,21 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   toggleSidebar: (collapsed) =>
     set((s) => ({ sidebarCollapsed: collapsed ?? !s.sidebarCollapsed })),
   bumpSchema: () => set((s) => ({ schemaVersion: s.schemaVersion + 1 })),
+  reconnectActive: (capabilities) =>
+    set((s) => ({ active: s.active ? { ...s.active, capabilities } : null })),
   setSkipExecConfirm: (skip) => set({ skipExecConfirm: skip }),
-}));
+    }),
+    {
+      name: 'fluentdb.workspace',
+      // Persist only the workspace layout — the live connection is
+      // re-established on startup, and session-only flags stay in memory.
+      partialize: (s) => ({
+        active: s.active,
+        database: s.database,
+        schema: s.schema,
+        tabs: s.tabs,
+        activeTabId: s.activeTabId,
+      }),
+    },
+  ),
+);

@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Database, FileCode2, Sparkles } from 'lucide-react';
 import { ToastProvider } from './components/ui/Toast.js';
 import { Button } from './components/ui/Button.js';
 import { EmptyState } from './components/ui/misc.js';
+import { api } from './api/client.js';
 import { useWorkspace } from './stores/workspace.js';
 import { ConnectionSidebar } from './features/connections/ConnectionSidebar.js';
 import { SchemaTree } from './features/schema-tree/SchemaTree.js';
@@ -16,7 +19,36 @@ import { TasksView } from './features/tasks/TasksView.js';
 import { DashboardView } from './features/tasks/DashboardView.js';
 import { TaskNotifier } from './features/tasks/TaskNotifier.js';
 
+/**
+ * Re-establish the persisted active connection on startup: the workspace
+ * layout (tabs, active connection) is restored from localStorage, but the
+ * server-side connection is not, so we reconnect once and refresh capabilities.
+ * If it can't be reconnected (deleted or unreachable), clear the workspace.
+ */
+function useRestoreConnection() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const { active, setActive, reconnectActive } = useWorkspace.getState();
+    if (!active) return;
+    let cancelled = false;
+    api
+      .connect(active.id)
+      .then((r) => {
+        if (cancelled) return;
+        reconnectActive(r.capabilities);
+        qc.invalidateQueries();
+      })
+      .catch(() => {
+        if (!cancelled) setActive(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [qc]);
+}
+
 export function App() {
+  useRestoreConnection();
   return (
     <ToastProvider>
       <div className="h-full flex overflow-hidden">
