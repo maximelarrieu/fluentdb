@@ -1,6 +1,10 @@
 import fastifyStatic from '@fastify/static';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { loadDotEnv } from './env.js';
+
+// Load `.env` before anything reads process.env (config, AI provider, secrets).
+const envFile = loadDotEnv();
 
 const config = loadConfig();
 const { app } = buildApp({ dataDir: config.dataDir, logger: true });
@@ -23,6 +27,9 @@ try {
   await app.listen({ port: config.port, host: config.host });
   const url = `http://127.0.0.1:${config.port}`;
   app.log.info(`FluentDB ready on ${url}`);
+  if (envFile) {
+    app.log.info(`Loaded environment from ${envFile}`);
+  }
   if (!config.webDistDir) {
     app.log.info(
       'Web UI not built — run `npm run dev:web` and open http://localhost:5173',

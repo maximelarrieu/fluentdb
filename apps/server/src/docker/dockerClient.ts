@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { Client } from 'undici';
 
 export interface DockerPort {
@@ -30,19 +32,40 @@ export interface DockerEndpoint {
   port?: number;
 }
 
-/** Resolve the Docker endpoint from DOCKER_HOST or the default socket. */
-export function resolveDockerEndpoint(env = process.env): DockerEndpoint {
+/**
+ * Ordered list of Docker endpoints to probe.
+ *
+ * `DOCKER_HOST` wins and pins a single endpoint. Otherwise we try the common
+ * socket locations in turn — the classic system socket, then the ones Docker
+ * Desktop (macOS/Windows) and rootless Docker (Linux) use — so detection works
+ * without the user setting `DOCKER_HOST` by hand.
+ */
+export function candidateDockerEndpoints(env = process.env): DockerEndpoint[] {
   const dockerHost = env.DOCKER_HOST;
   if (dockerHost) {
     if (dockerHost.startsWith('unix://')) {
-      return { socketPath: dockerHost.slice('unix://'.length) };
+      return [{ socketPath: dockerHost.slice('unix://'.length) }];
     }
     if (dockerHost.startsWith('tcp://') || dockerHost.startsWith('http://')) {
       const url = new URL(dockerHost.replace('tcp://', 'http://'));
-      return { host: url.hostname, port: Number(url.port || 2375) };
+      return [{ host: url.hostname, port: Number(url.port || 2375) }];
     }
+    // Unknown scheme — treat the value as a raw socket path.
+    return [{ socketPath: dockerHost }];
   }
-  return { socketPath: '/var/run/docker.sock' };
+
+  const home = env.HOME || env.USERPROFILE || os.homedir();
+  const candidates: DockerEndpoint[] = [{ socketPath: '/var/run/docker.sock' }];
+  if (env.XDG_RUNTIME_DIR) {
+    candidates.push({
+      socketPath: path.join(env.XDG_RUNTIME_DIR, 'docker.sock'),
+    });
+  }
+  candidates.push(
+    { socketPath: path.join(home, '.docker', 'run', 'docker.sock') },
+    { socketPath: path.join(home, '.docker', 'desktop', 'docker.sock') },
+  );
+  return candidates;
 }
 
 /**
@@ -50,23 +73,56 @@ export function resolveDockerEndpoint(env = process.env): DockerEndpoint {
  * detection feature needs, over undici (unix socket or tcp).
  */
 export class DockerClient {
-  private readonly endpoint: DockerEndpoint;
+  private readonly candidates: DockerEndpoint[];
+  private resolved: DockerEndpoint | null = null;
 
-  constructor(endpoint?: DockerEndpoint) {
-    this.endpoint = endpoint ?? resolveDockerEndpoint();
+  constructor(endpoint?: DockerEndpoint | DockerEndpoint[]) {
+    this.candidates = endpoint
+      ? Array.isArray(endpoint)
+        ? endpoint
+        : [endpoint]
+      : candidateDockerEndpoints();
   }
 
-  private makeClient(): Client {
-    if (this.endpoint.socketPath) {
+  private makeClient(endpoint: DockerEndpoint): Client {
+    if (endpoint.socketPath) {
       return new Client('http://localhost', {
-        socketPath: this.endpoint.socketPath,
+        socketPath: endpoint.socketPath,
       });
     }
-    return new Client(`http://${this.endpoint.host}:${this.endpoint.port}`);
+    return new Client(`http://${endpoint.host}:${endpoint.port}`);
+  }
+
+  /** First candidate whose `/_ping` succeeds, memoized for later calls. */
+  private async resolve(): Promise<DockerEndpoint | null> {
+    if (this.resolved) return this.resolved;
+    for (const candidate of this.candidates) {
+      const client = this.makeClient(candidate);
+      try {
+        const res = await client.request({
+          method: 'GET',
+          path: '/_ping',
+          headersTimeout: 3000,
+          bodyTimeout: 5000,
+        });
+        await res.body.text();
+        if (res.statusCode < 400) {
+          this.resolved = candidate;
+          return candidate;
+        }
+      } catch {
+        // try the next candidate
+      } finally {
+        await client.close().catch(() => {});
+      }
+    }
+    return null;
   }
 
   private async getText(path: string): Promise<string> {
-    const client = this.makeClient();
+    const endpoint = await this.resolve();
+    if (!endpoint) throw new Error('Docker socket not reachable');
+    const client = this.makeClient(endpoint);
     try {
       const res = await client.request({
         method: 'GET',
@@ -89,13 +145,7 @@ export class DockerClient {
   }
 
   async ping(): Promise<boolean> {
-    try {
-      // `/_ping` answers plain-text "OK", not JSON
-      await this.getText('/_ping');
-      return true;
-    } catch {
-      return false;
-    }
+    return (await this.resolve()) !== null;
   }
 
   async listContainers(all = true): Promise<DockerContainer[]> {

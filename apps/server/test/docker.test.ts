@@ -1,7 +1,10 @@
 import http from 'node:http';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DockerClient } from '../src/docker/dockerClient.js';
+import {
+  DockerClient,
+  candidateDockerEndpoints,
+} from '../src/docker/dockerClient.js';
 import {
   detectDatabaseContainers,
   engineForImage,
@@ -98,6 +101,31 @@ describe('docker detection (fake unix-socket daemon)', () => {
     expect(engineForImage('redis:7')).toBeNull();
   });
 
+  it('probes Docker Desktop and rootless socket locations by default', () => {
+    const paths = candidateDockerEndpoints({
+      HOME: '/home/me',
+      XDG_RUNTIME_DIR: '/run/user/1000',
+    } as NodeJS.ProcessEnv).map((e) => e.socketPath);
+
+    expect(paths).toContain('/var/run/docker.sock');
+    expect(paths).toContain('/run/user/1000/docker.sock');
+    expect(paths).toContain('/home/me/.docker/run/docker.sock');
+  });
+
+  it('pins the endpoint from DOCKER_HOST when set', () => {
+    expect(
+      candidateDockerEndpoints({
+        DOCKER_HOST: 'unix:///custom/docker.sock',
+      } as NodeJS.ProcessEnv),
+    ).toEqual([{ socketPath: '/custom/docker.sock' }]);
+
+    expect(
+      candidateDockerEndpoints({
+        DOCKER_HOST: 'tcp://127.0.0.1:2375',
+      } as NodeJS.ProcessEnv),
+    ).toEqual([{ host: '127.0.0.1', port: 2375 }]);
+  });
+
   it('pings the daemon', async () => {
     const client = new DockerClient({ socketPath });
     expect(await client.ping()).toBe(true);
@@ -106,6 +134,16 @@ describe('docker detection (fake unix-socket daemon)', () => {
   it('reports unreachable daemons gracefully', async () => {
     const client = new DockerClient({ socketPath: '/nonexistent.sock' });
     expect(await client.ping()).toBe(false);
+  });
+
+  it('falls back to the first reachable socket candidate', async () => {
+    const client = new DockerClient([
+      { socketPath: '/nonexistent.sock' },
+      { socketPath },
+    ]);
+    expect(await client.ping()).toBe(true);
+    // Subsequent API calls use the resolved endpoint, not the dead one.
+    expect(await client.listContainers()).toHaveLength(CONTAINERS.length);
   });
 
   it('detects database containers with credentials and ports', async () => {

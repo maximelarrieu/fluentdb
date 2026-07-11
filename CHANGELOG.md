@@ -7,6 +7,20 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Corrigé
+
+- **Chargement du fichier `.env`** : le serveur lit désormais le `.env` au
+  démarrage (recherche en remontant depuis le dossier courant, sans dépendance
+  externe). Auparavant `GEMINI_API_KEY` et les autres variables du `.env`
+  étaient ignorées — l'assistant IA restait « non configuré » malgré une clé
+  renseignée. Les variables déjà présentes dans l'environnement gardent la
+  priorité.
+- **Détection Docker** : en l'absence de `DOCKER_HOST`, le serveur sonde
+  plusieurs emplacements de socket (socket système, Docker Desktop
+  `~/.docker/run/docker.sock`, Docker rootless `$XDG_RUNTIME_DIR/docker.sock`)
+  au lieu du seul `/var/run/docker.sock`. Les bases conteneurisées sont donc
+  détectées sur macOS/Windows et en mode rootless sans configuration manuelle.
+
 ### Ajouté
 
 - **Suggestions d'index par l'IA** : depuis le plan d'exécution, un bouton
