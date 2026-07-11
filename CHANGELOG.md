@@ -7,6 +7,16 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Corrigé
+
+- **Structure d'une table (PostgreSQL)** : ouvrir la structure d'une table
+  faisait planter la page (écran blanc). Les colonnes d'index étaient renvoyées
+  comme une chaîne `"{col}"` (tableau PostgreSQL de type `name` non parsé par le
+  pilote) au lieu d'un tableau, et `columns.join()` échouait. Même correctif que
+  pour les clés étrangères : `array_agg(... ::text)`. Les vues n'ayant pas
+  d'index n'étaient pas touchées — d'où le symptôme « ne marche que sur les
+  vues ».
+
 ### Ajouté
 
 - **Recherche globale (palette ⌘/Ctrl+K)** : une palette de commande cherche

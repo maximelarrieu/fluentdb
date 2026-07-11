@@ -84,7 +84,12 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(Array.isArray(s.foreignKeys[0]?.columns)).toBe(true);
     expect(s.foreignKeys[0]?.columns).toEqual(['band_id']);
     expect(s.foreignKeys[0]?.referencedColumns).toEqual(['id']);
-    expect(s.indexes.some((i) => i.name === 'it_tracks_title_idx')).toBe(true);
+    const idx = s.indexes.find((i) => i.name === 'it_tracks_title_idx');
+    expect(idx).toBeTruthy();
+    // index columns must be a real array too — StructureView calls
+    // columns.join(), which throws on a raw '{title}' string.
+    expect(Array.isArray(idx!.columns)).toBe(true);
+    expect(idx!.columns).toEqual(['title']);
   });
 
   it('selects rows with filters/sort/pagination', async () => {
