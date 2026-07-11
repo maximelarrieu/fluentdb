@@ -1,51 +1,44 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ScheduledTask } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Dialog } from '../../components/ui/Dialog.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
-import { useWorkspace } from '../../stores/workspace.js';
 import {
   ScheduleFields,
   formToSchedule,
-  type ScheduleForm,
+  scheduleToForm,
 } from './ScheduleFields.js';
 
-/** Turn the current query into a recurring, read-only scheduled task. */
-export function ScheduleTaskDialog({
-  sql,
+/** Edit an existing scheduled task in place (name, schedule, query). */
+export function TaskEditDialog({
+  task,
   onClose,
 }: {
-  sql: string;
+  task: ScheduledTask;
   onClose: () => void;
 }) {
-  const { active, database, openTasks } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [schedule, setSchedule] = useState<ScheduleForm>({
-    kind: 'daily',
-    time: '09:00',
-    everyMinutes: 60,
-  });
+  const [name, setName] = useState(task.name);
+  const [sql, setSql] = useState(task.sql);
+  const [schedule, setSchedule] = useState(scheduleToForm(task.schedule));
 
-  const create = useMutation({
+  const save = useMutation({
     mutationFn: () =>
-      api.createTask({
+      api.updateTask(task.id, {
         name: name.trim(),
-        connectionId: active!.id,
-        database: database ?? null,
         sql: sql.trim(),
         schedule: formToSchedule(schedule),
-        enabled: true,
       }),
     onSuccess: () => {
-      toast.push('success', 'Tâche planifiée créée');
+      toast.push('success', 'Tâche mise à jour');
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-snapshots', task.id] });
       onClose();
-      openTasks();
     },
     onError: (err) =>
       toast.push('error', err instanceof ApiError ? err.message : String(err)),
@@ -55,8 +48,8 @@ export function ScheduleTaskDialog({
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title="Planifier cette requête"
-      description="Exécution automatique tant que FluentDB tourne (lecture seule)."
+      title="Modifier la tâche"
+      description="Change le nom, la planification ou la requête (lecture seule)."
       className="w-[600px]"
     >
       <div className="flex flex-col gap-4">
@@ -72,12 +65,16 @@ export function ScheduleTaskDialog({
 
         <ScheduleFields value={schedule} onChange={setSchedule} />
 
-        <div>
+        <label className="flex flex-col gap-1">
           <span className="text-xs text-muted">Requête</span>
-          <pre className="mt-1 text-[12px] mono whitespace-pre-wrap bg-panel-2 rounded-lg p-3 max-h-[32vh] overflow-auto">
-            {sql.trim()}
-          </pre>
-        </div>
+          <textarea
+            value={sql}
+            onChange={(e) => setSql(e.target.value)}
+            spellCheck={false}
+            rows={8}
+            className="text-[12px] mono whitespace-pre bg-bg border border-border rounded-lg p-3 max-h-[32vh] overflow-auto outline-none focus:border-accent focus:ring-1 focus:ring-accent/40 resize-y"
+          />
+        </label>
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -85,10 +82,10 @@ export function ScheduleTaskDialog({
           </Button>
           <Button
             variant="primary"
-            disabled={!name.trim() || create.isPending}
-            onClick={() => create.mutate()}
+            disabled={!name.trim() || !sql.trim() || save.isPending}
+            onClick={() => save.mutate()}
           >
-            {create.isPending && <Spinner className="text-white" />} Planifier
+            {save.isPending && <Spinner className="text-white" />} Enregistrer
           </Button>
         </div>
       </div>
