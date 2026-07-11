@@ -99,6 +99,34 @@ Suite priorisée après le socle ERD / vues :
    aperçu + confirmation (jamais auto-exécuté). À découper en jalons : diff
    lecture seule → génération DDL → application assistée.
 
+### Prochaine série (ordre d'exécution acté)
+
+Constat : la brique **tâches planifiées → snapshots → tendances → alertes** a
+fait glisser FluentDB du simple client SQL vers un **outil léger de monitoring /
+d'insights planifiés** — un angle sans équivalent chez les clients desktop
+(TablePlus, DBeaver, pgAdmin). Les évolutions suivantes assument ce virage, tout
+en récupérant deux points de sûreté/confort déjà repérés. Une PR par item.
+
+1. **Tableau de bord (mur de tuiles)** — un onglet d'accueil qui agrège toutes
+   les tâches planifiées : une tuile par tâche avec la dernière valeur, un
+   sparkline de tendance et l'état d'alerte, cliquable pour ouvrir le détail.
+   Donne enfin une vue d'ensemble à toute la donnée déjà collectée.
+2. **Valeur-clé + delta** — pour une tâche mono-valeur (ex. un `COUNT`),
+   afficher le grand chiffre et sa variation par rapport à l'exécution
+   précédente (« ↑ 12 % depuis hier ») dans la liste et le détail. Faible
+   effort, fort effet ; alimente aussi les tuiles du tableau de bord.
+3. **NL → tâche planifiée** — décrire une surveillance en langage naturel
+   (« la taille des tables chaque jour à 9h, alerte au-dessus de 10 Go ») et
+   laisser l'IA générer la requête **+** la planification **+** le seuil d'un
+   coup. Capitalise sur le NL→SQL et sur tout ce qui vient d'être construit.
+4. **Écritures « safe »** — avant d'exécuter un `UPDATE`/`DELETE`, un dry-run
+   (`EXPLAIN` / `SELECT count(*)` du même `WHERE`) affiche le nombre de lignes
+   touchées et confirme, avec alerte forte sur `UPDATE`/`DELETE` sans `WHERE`
+   et `DROP`/`TRUNCATE`. Concrétise l'axe « safe by design » du court terme.
+5. **Persistance des onglets et connexions entre sessions** — retrouver son
+   espace de travail (onglets ouverts, connexion active) au redémarrage.
+   Confort attendu dès l'usage quotidien.
+
 ## 6. Qualité et vérification
 
 - Tests unitaires + API (vitest via `fastify.inject()`), fixture SQLite universelle.
