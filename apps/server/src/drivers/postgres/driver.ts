@@ -35,6 +35,15 @@ import { normalizePgPlan } from './explain.js';
 
 const DEFAULT_SCHEMA = 'public';
 
+// node-pg has no parser for the `name[]` type (OID 1003) and returns the raw
+// '{a,b}' string instead of a JS array. Catalog introspection aggregates
+// identifier names (index/FK/column lists), so an unparsed name[] silently
+// becomes a string and breaks every `.join()`/`[0]` on it (ERD edges, table
+// structure…). Reuse node-pg's own text[] parser (OID 1009) so any name[]
+// always arrives as an array — a process-wide guard against that whole class
+// of bug, in addition to the explicit ::text casts in the queries below.
+pg.types.setTypeParser(1003, pg.types.getTypeParser(1009));
+
 interface PgPlanNode {
   'Node Type'?: string;
   'Plan Rows'?: number;
