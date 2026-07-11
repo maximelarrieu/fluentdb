@@ -49,6 +49,7 @@ interface WorkspaceState {
   tabs: Tab[];
   activeTabId: string | null;
   aiOpen: boolean;
+  sidebarCollapsed: boolean;
   schemaVersion: number;
 
   setActive: (conn: ActiveConnection | null) => void;
@@ -63,6 +64,7 @@ interface WorkspaceState {
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   toggleAi: (open?: boolean) => void;
+  toggleSidebar: (collapsed?: boolean) => void;
   bumpSchema: () => void;
   /** Skip the write/DDL confirmation dialog for the rest of the session */
   skipExecConfirm: boolean;
@@ -76,6 +78,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   tabs: [],
   activeTabId: null,
   aiOpen: false,
+  sidebarCollapsed: false,
   schemaVersion: 0,
   skipExecConfirm: false,
 
@@ -172,6 +175,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
 
   setActiveTab: (id) => set({ activeTabId: id }),
   toggleAi: (open) => set((s) => ({ aiOpen: open ?? !s.aiOpen })),
+  toggleSidebar: (collapsed) =>
+    set((s) => ({ sidebarCollapsed: collapsed ?? !s.sidebarCollapsed })),
   bumpSchema: () => set((s) => ({ schemaVersion: s.schemaVersion + 1 })),
   setSkipExecConfirm: (skip) => set({ skipExecConfirm: skip }),
 }));

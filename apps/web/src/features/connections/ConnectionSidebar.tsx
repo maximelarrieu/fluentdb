@@ -10,6 +10,8 @@ import {
   Power,
   PowerOff,
   Circle,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import {
   engineLabels,
@@ -36,7 +38,7 @@ const COLOR_HEX: Record<string, string> = {
 export function ConnectionSidebar() {
   const toast = useToast();
   const qc = useQueryClient();
-  const { active, setActive } = useWorkspace();
+  const { active, setActive, sidebarCollapsed, toggleSidebar } = useWorkspace();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ConnectionSummary | null>(null);
   const [initial, setInitial] = useState<Partial<ConnectionInput> | undefined>();
@@ -85,15 +87,41 @@ export function ConnectionSidebar() {
     setFormOpen(true);
   };
 
+  // Collapsed: a thin rail keeping just the expand button reachable.
+  if (sidebarCollapsed) {
+    return (
+      <div className="w-9 shrink-0 flex flex-col items-center border-r border-border bg-panel h-full pt-2">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => toggleSidebar(false)}
+          title="Afficher les connexions"
+        >
+          <PanelLeftOpen size={16} />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-64 shrink-0 flex flex-col border-r border-border bg-panel h-full">
       <div className="flex items-center justify-between px-3 h-11 border-b border-border">
         <span className="text-[13px] font-semibold flex items-center gap-2">
           <Database size={15} className="text-accent" /> FluentDB
         </span>
-        <Button size="icon" variant="ghost" onClick={() => openNew()} title="Nouvelle connexion">
-          <Plus size={16} />
-        </Button>
+        <div className="flex items-center">
+          <Button size="icon" variant="ghost" onClick={() => openNew()} title="Nouvelle connexion">
+            <Plus size={16} />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => toggleSidebar(true)}
+            title="Masquer le panneau"
+          >
+            <PanelLeftClose size={16} />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">

@@ -26,6 +26,10 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Panneau latéral repliable** : le panneau de gauche (connexions + encart
+  Docker) se masque et se réaffiche via un bouton. Replié, il laisse un fin
+  rail avec un bouton pour le rouvrir, libérant de la place pour l'espace de
+  travail. L'état est conservé pendant la session.
 - **Tâches planifiées — réactivité** : le nombre de tâches exécutées non
   consultées s'affiche en **badge** à la fois sur le bouton « Tâches
   planifiées » de l'arbre et à côté du **titre de l'onglet**. Le badge
