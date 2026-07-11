@@ -8,6 +8,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useWorkspace, type Tab } from '../../stores/workspace.js';
+import { useUnseenTaskCount } from '../tasks/notifications.js';
 import { cn } from '../../lib/cn.js';
 
 const icons: Record<Tab['kind'], React.ReactNode> = {
@@ -21,6 +22,7 @@ const icons: Record<Tab['kind'], React.ReactNode> = {
 export function TabBar() {
   const { tabs, activeTabId, setActiveTab, closeTab, openQuery } =
     useWorkspace();
+  const unseenTasks = useUnseenTaskCount();
 
   return (
     <div className="flex items-stretch h-9 bg-panel border-b border-border overflow-x-auto">
@@ -39,6 +41,11 @@ export function TabBar() {
           <span className="text-[13px] max-w-[180px] truncate">
             {tab.title}
           </span>
+          {tab.kind === 'tasks' && unseenTasks > 0 && (
+            <span className="min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] flex items-center justify-center">
+              {unseenTasks}
+            </span>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
