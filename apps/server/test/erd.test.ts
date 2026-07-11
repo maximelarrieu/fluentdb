@@ -30,8 +30,12 @@ describe('ERD endpoint over sqlite', () => {
     const names = erd.tables.map((t) => t.name);
     expect(names).toContain('artists');
     expect(names).toContain('albums');
-    // views are excluded from the diagram
-    expect(names).not.toContain('recent_albums');
+    // views now appear in the diagram (as lineage nodes), tagged by kind
+    expect(names).toContain('recent_albums');
+    expect(erd.tables.find((t) => t.name === 'recent_albums')?.kind).toBe(
+      'view',
+    );
+    expect(erd.tables.find((t) => t.name === 'albums')?.kind).toBe('table');
 
     const albums = erd.tables.find((t) => t.name === 'albums')!;
     const artistId = albums.columns.find((c) => c.name === 'artist_id')!;
@@ -43,6 +47,7 @@ describe('ERD endpoint over sqlite', () => {
       (r) => r.from.table === 'albums' && r.to.table === 'artists',
     );
     expect(rel).toBeTruthy();
+    expect(rel!.kind).toBe('fk');
     expect(rel!.from.columns).toContain('artist_id');
     expect(rel!.to.columns).toContain('id');
   });

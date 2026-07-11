@@ -19,7 +19,14 @@ function qualify(schema: string | undefined, table: string, column: string): str
 export function toDbml(schema: ErdSchema): string {
   const blocks: string[] = [];
 
-  for (const table of schema.tables) {
+  // dbdiagram.io models physical tables and FKs — skip views/matviews and the
+  // lineage edges, keeping the export valid and re-importable.
+  const tables = schema.tables.filter(
+    (t) => t.kind !== 'view' && t.kind !== 'matview',
+  );
+  const relations = schema.relations.filter((r) => r.kind !== 'lineage');
+
+  for (const table of tables) {
     const name = table.schema
       ? `${dbmlIdent(table.schema)}.${dbmlIdent(table.name)}`
       : dbmlIdent(table.name);
@@ -33,7 +40,7 @@ export function toDbml(schema: ErdSchema): string {
     blocks.push(`Table ${name} {\n${lines.join('\n')}\n}`);
   }
 
-  for (const rel of schema.relations) {
+  for (const rel of relations) {
     // one Ref per column pair (handles composite foreign keys)
     for (let i = 0; i < rel.from.columns.length; i++) {
       const fromCol = rel.from.columns[i]!;

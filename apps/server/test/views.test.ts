@@ -57,4 +57,34 @@ describe('view definition and materialized-view routes (sqlite)', () => {
     };
     expect(capabilities.materializedViews).toBe(false);
   });
+
+  it('creates a view from a query via the DDL endpoint (save-as-view path)', async () => {
+    const create = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${id}/ddl/apply`,
+      payload: {
+        statements: [
+          'CREATE VIEW "top_artists" AS\nSELECT id, name FROM artists WHERE country = \'FR\'',
+        ],
+      },
+    });
+    expect(create.statusCode).toBe(200);
+
+    const tables = await t.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/tables`,
+    });
+    const created = (tables.json() as { name: string; kind: string }[]).find(
+      (v) => v.name === 'top_artists',
+    );
+    expect(created?.kind).toBe('view');
+
+    const def = await t.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/tables/top_artists/definition`,
+    });
+    expect((def.json() as { definition: string | null }).definition).toMatch(
+      /top_artists/i,
+    );
+  });
 });

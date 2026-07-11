@@ -18,9 +18,9 @@ export function registerErdRoutes(app: FastifyInstance, ctx: AppContext): void {
     const { database, schema } = scope.parse(req.query);
     const driver = await ctx.manager.getDriver(id, database);
 
-    const all = (await driver.listTables(schema)).filter(
-      (t) => t.kind === 'table',
-    );
+    // Tables plus views and materialized views — the latter become lineage
+    // nodes linked to the relations they read from.
+    const all = await driver.listTables(schema);
     const truncated = Math.max(0, all.length - MAX_TABLES);
     if (truncated > 0) {
       app.log.warn(
@@ -43,6 +43,7 @@ export function registerErdRoutes(app: FastifyInstance, ctx: AppContext): void {
       erdTables.push({
         name: t.name,
         schema: t.schema,
+        kind: t.kind,
         columns: structure.columns.map((c) => ({
           name: c.name,
           dataType: c.dataType,
@@ -54,12 +55,37 @@ export function registerErdRoutes(app: FastifyInstance, ctx: AppContext): void {
       for (const fk of structure.foreignKeys) {
         relations.push({
           name: fk.name,
+          kind: 'fk',
           from: { table: t.name, schema: t.schema, columns: fk.columns },
           to: {
             table: fk.referencedTable,
             schema: fk.referencedSchema,
             columns: fk.referencedColumns,
           },
+        });
+      }
+    }
+
+    // Lineage edges: view/matview -> the relations it reads from. Only kept
+    // when both endpoints are part of the diagram.
+    if (driver.listViewDependencies) {
+      const rendered = new Set(
+        erdTables.map((t) => `${t.schema ?? ''}.${t.name}`),
+      );
+      const deps = await driver.listViewDependencies(schema);
+      for (const d of deps) {
+        const depKey = `${d.dependent.schema ?? ''}.${d.dependent.name}`;
+        const srcKey = `${d.source.schema ?? ''}.${d.source.name}`;
+        if (!rendered.has(depKey) || !rendered.has(srcKey)) continue;
+        relations.push({
+          name: `lineage:${depKey}->${srcKey}`,
+          kind: 'lineage',
+          from: {
+            table: d.dependent.name,
+            schema: d.dependent.schema,
+            columns: [],
+          },
+          to: { table: d.source.name, schema: d.source.schema, columns: [] },
         });
       }
     }
