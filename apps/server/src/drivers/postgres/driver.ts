@@ -261,13 +261,15 @@ export class PostgresDriver implements Driver {
     );
 
     const fkRes = await db.query(
+      // attname is the `name` type; node-pg has no parser for name[] and would
+      // return the raw '{a,b}' string, so cast to text[] which it parses.
       `SELECT con.conname AS name,
-              (SELECT array_agg(a.attname ORDER BY k.ord)
+              (SELECT array_agg(a.attname::text ORDER BY k.ord)
                FROM unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
                JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum) AS columns,
               rn.nspname AS ref_schema,
               rt.relname AS ref_table,
-              (SELECT array_agg(a.attname ORDER BY k.ord)
+              (SELECT array_agg(a.attname::text ORDER BY k.ord)
                FROM unnest(con.confkey) WITH ORDINALITY AS k(attnum, ord)
                JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum) AS ref_columns
        FROM pg_constraint con
