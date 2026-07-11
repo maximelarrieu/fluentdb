@@ -11,10 +11,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 - **Tâches planifiées — réactivité** : le nombre de tâches exécutées non
   consultées s'affiche en **badge** à la fois sur le bouton « Tâches
-  planifiées » de l'arbre et à côté du **titre de l'onglet**. Quand l'onglet est
-  ouvert, la liste et l'**historique se mettent à jour en direct** (sondage
-  ~10 s) à l'arrivée d'un nouveau résultat, et tous les compteurs se
-  décrémentent partout dès qu'un résultat est consulté.
+  planifiées » de l'arbre et à côté du **titre de l'onglet**. Le badge
+  n'est vidé que lorsqu'on **consulte explicitement** la tâche (clic dans la
+  liste, ou exécution manuelle) — un nouveau résultat planifié le fait
+  (ré)apparaître, même quand l'onglet est ouvert. La liste et l'**historique se
+  mettent à jour en direct** (sondage ~10 s) à l'arrivée d'un nouveau résultat.
 
 ### Ajouté
 

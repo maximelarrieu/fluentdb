@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock,
@@ -40,7 +40,9 @@ export function TasksView() {
   });
 
   const list = tasks.data ?? [];
-  const selected = list.find((t) => t.id === selectedId) ?? list[0] ?? null;
+  // No default selection: a task counts as "consulted" only once the user
+  // clicks it, so its unseen badge persists until then.
+  const selected = list.find((t) => t.id === selectedId) ?? null;
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -57,6 +59,8 @@ export function TasksView() {
           ? `Exécutée — ${snap.rowCount} ligne(s)`
           : `Échec : ${snap.error}`,
       );
+      // Running it yourself counts as consulting its result.
+      markSeen(snap.taskId, snap.id);
       invalidate();
     },
     onError: (e) =>
@@ -114,7 +118,7 @@ export function TasksView() {
         ))}
       </div>
 
-      {selected && (
+      {selected ? (
         <TaskDetail
           key={selected.id}
           task={selected}
@@ -122,8 +126,11 @@ export function TasksView() {
           running={run.isPending}
           onToggle={() => toggle.mutate(selected)}
           onDelete={() => remove.mutate(selected.id)}
-          onSeen={() => markSeen(selected.id, selected.lastSnapshotId)}
         />
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-muted text-sm">
+          Sélectionne une tâche pour voir son dernier résultat et son historique.
+        </div>
       )}
     </div>
   );
@@ -145,14 +152,12 @@ function TaskDetail({
   running,
   onToggle,
   onDelete,
-  onSeen,
 }: {
   task: ScheduledTask;
   onRun: () => void;
   running: boolean;
   onToggle: () => void;
   onDelete: () => void;
-  onSeen: () => void;
 }) {
   const [snapId, setSnapId] = useState<number | null>(null);
   const snapshots = useQuery({
@@ -164,12 +169,6 @@ function TaskDetail({
   const snaps = snapshots.data ?? [];
   const current: TaskSnapshot | undefined =
     snaps.find((s) => s.id === snapId) ?? snaps[0];
-
-  // Viewing the task marks its latest result as seen.
-  useEffect(() => {
-    onSeen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task.lastSnapshotId]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
