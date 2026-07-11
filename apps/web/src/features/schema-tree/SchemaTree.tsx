@@ -11,7 +11,9 @@ import {
   Workflow,
   FileCode,
   WandSparkles,
+  Clock,
 } from 'lucide-react';
+import { useTaskSeen, unseenTasks } from '../tasks/notifications.js';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Input, Select } from '../../components/ui/Input.js';
@@ -32,15 +34,19 @@ export function SchemaTree() {
     openTable,
     openStructure,
     openErd,
+    openTasks,
     schemaVersion,
     toggleAi,
   } = useWorkspace();
+  const seen = useTaskSeen((s) => s.seen);
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
 
   const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: api.tasks });
+  const unseenCount = unseenTasks(tasksQuery.data ?? [], seen).length;
 
   const explainObject = (t: TableInfo) => {
     toggleAi(true);
@@ -144,6 +150,19 @@ export function SchemaTree() {
           onClick={openErd}
         >
           <Workflow size={13} /> Diagramme ERD
+        </Button>
+        <Button
+          size="sm"
+          variant="subtle"
+          className="w-full justify-center"
+          onClick={openTasks}
+        >
+          <Clock size={13} /> Tâches planifiées
+          {unseenCount > 0 && (
+            <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] flex items-center justify-center">
+              {unseenCount}
+            </span>
+          )}
         </Button>
       </div>
 

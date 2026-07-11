@@ -27,7 +27,12 @@ export interface ErdTab {
   id: string;
   title: string;
 }
-export type Tab = TableTab | QueryTab | StructureTab | ErdTab;
+export interface TasksTab {
+  kind: 'tasks';
+  id: string;
+  title: string;
+}
+export type Tab = TableTab | QueryTab | StructureTab | ErdTab | TasksTab;
 
 interface ActiveConnection {
   id: string;
@@ -53,6 +58,7 @@ interface WorkspaceState {
   openStructure: (table: string, schema?: string) => void;
   openQuery: (sql?: string) => void;
   openErd: () => void;
+  openTasks: () => void;
   setTabSql: (id: string, sql: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -132,6 +138,17 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       kind: 'erd',
       id: nanoid(),
       title: 'Diagramme ERD',
+    };
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+  },
+
+  openTasks: () => {
+    const existing = get().tabs.find((t) => t.kind === 'tasks');
+    if (existing) return set({ activeTabId: existing.id });
+    const tab: TasksTab = {
+      kind: 'tasks',
+      id: nanoid(),
+      title: 'Tâches planifiées',
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },

@@ -7,6 +7,19 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+
+- **Tâches planifiées (requêtes récurrentes)** : depuis l'éditeur SQL, un bouton
+  « Planifier » transforme une requête **de lecture** en tâche récurrente
+  (chaque jour à une heure donnée, ou toutes les N minutes). Un onglet « Tâches
+  planifiées » liste les tâches (exécuter maintenant, mettre en pause,
+  supprimer) et affiche le dernier résultat en grille + l'historique des
+  exécutions. Une **notification in-app** signale chaque nouveau résultat, avec
+  un badge « non vus » sur le bouton d'accès. L'exécution a lieu **tant que
+  FluentDB tourne**, avec **rattrapage au démarrage** des exécutions manquées.
+  Les tâches sont strictement en lecture seule (jamais d'écriture planifiée) et
+  les résultats sont conservés localement (SQLite).
+
 ### Corrigé
 
 - **Structure d'une table (PostgreSQL)** : ouvrir la structure d'une table

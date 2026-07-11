@@ -12,6 +12,8 @@ import { StructureView } from './features/structure/StructureView.js';
 import { ErdView } from './features/erd/ErdView.js';
 import { AssistantPanel } from './features/ai/AssistantPanel.js';
 import { CommandPalette } from './features/search/CommandPalette.js';
+import { TasksView } from './features/tasks/TasksView.js';
+import { TaskNotifier } from './features/tasks/TaskNotifier.js';
 
 export function App() {
   return (
@@ -21,6 +23,7 @@ export function App() {
         <Workspace />
         <AssistantPanel />
         <CommandPalette />
+        <TaskNotifier />
       </div>
     </ToastProvider>
   );
@@ -78,6 +81,8 @@ function Workspace() {
             />
           ) : activeTab.kind === 'erd' ? (
             <ErdView key={activeTab.id} />
+          ) : activeTab.kind === 'tasks' ? (
+            <TasksView key={activeTab.id} />
           ) : (
             <QueryEditor
               key={activeTab.id}
