@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeScript, classifyStatement } from '../src/sql/analyze.js';
+import {
+  analyzeScript,
+  classifyStatement,
+  affectedCountQuery,
+} from '../src/sql/analyze.js';
 
 describe('classifyStatement', () => {
   it('classifies reads', () => {
@@ -48,5 +52,50 @@ describe('classifyStatement', () => {
       "SELECT 1; UPDATE t SET a=1 WHERE id=2; DROP TABLE old",
     );
     expect(parts.map((p) => p.kind)).toEqual(['read', 'write', 'ddl']);
+  });
+});
+
+describe('affectedCountQuery', () => {
+  it('derives a count for a DELETE with WHERE', () => {
+    expect(affectedCountQuery('DELETE FROM users WHERE id = 3')).toBe(
+      'SELECT count(*) AS affected FROM users WHERE id = 3',
+    );
+  });
+
+  it('derives a count for a DELETE without WHERE (whole table)', () => {
+    expect(affectedCountQuery('DELETE FROM users')).toBe(
+      'SELECT count(*) AS affected FROM users',
+    );
+  });
+
+  it('derives a count for an UPDATE, keeping only its WHERE', () => {
+    expect(
+      affectedCountQuery("UPDATE users SET active = false WHERE country = 'FR'"),
+    ).toBe("SELECT count(*) AS affected FROM users WHERE country = 'FR'");
+  });
+
+  it('keeps a schema-qualified target and strips a trailing semicolon', () => {
+    expect(affectedCountQuery('DELETE FROM app.logs WHERE level = 1;')).toBe(
+      'SELECT count(*) AS affected FROM app.logs WHERE level = 1',
+    );
+  });
+
+  it('is not fooled by WHERE inside a string in the SET clause', () => {
+    expect(
+      affectedCountQuery("UPDATE t SET note = 'x where y' WHERE id = 1"),
+    ).toBe('SELECT count(*) AS affected FROM t WHERE id = 1');
+  });
+
+  it('bails on multi-table forms and non-writes', () => {
+    expect(affectedCountQuery('SELECT * FROM t')).toBeNull();
+    expect(
+      affectedCountQuery('DELETE FROM a USING b WHERE a.id = b.id'),
+    ).toBeNull();
+    expect(
+      affectedCountQuery('UPDATE a SET x = b.y FROM b WHERE a.id = b.id'),
+    ).toBeNull();
+    expect(
+      affectedCountQuery('DELETE FROM a JOIN b ON a.id = b.id'),
+    ).toBeNull();
   });
 });

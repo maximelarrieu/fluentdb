@@ -67,8 +67,14 @@ export function ConfirmExecutionDialog({
                 <Badge tone={KIND_TONE[s.kind]}>{KIND_LABEL[s.kind]}</Badge>
                 <span className="text-xs text-muted mono">{s.operation}</span>
                 {s.estimatedRows != null && (
-                  <span className="ml-auto text-xs text-muted">
-                    ≈ {formatNumber(s.estimatedRows)} ligne(s) estimée(s)
+                  <span
+                    className={`ml-auto text-xs ${
+                      s.exactRows ? 'text-text' : 'text-muted'
+                    }`}
+                  >
+                    {s.exactRows
+                      ? `${formatNumber(s.estimatedRows)} ligne(s) concernée(s)`
+                      : `≈ ${formatNumber(s.estimatedRows)} ligne(s) estimée(s)`}
                   </span>
                 )}
               </div>
