@@ -9,6 +9,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Snippets SQL (favoris)** : depuis l'éditeur, un bouton « Snippets » permet
+  d'enregistrer la requête courante sous un nom et de recharger n'importe quel
+  snippet en un clic. Conservés localement entre les sessions.
+- **Corriger une erreur avec l'IA** : quand une requête échoue, un bouton
+  « Corriger avec l'IA » apparaît sous le message d'erreur et transmet la
+  requête **et l'erreur** à l'assistant, qui propose une version corrigée
+  (visible quand un fournisseur IA est configuré).
 - **Bilan de santé (DBA doctor)** : un onglet « Bilan de santé » interroge les
   catalogues/vues statistiques du moteur (lecture seule) et liste des constats
   classés par catégorie et gravité, avec un SQL de remédiation à relire quand
