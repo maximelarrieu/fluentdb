@@ -252,6 +252,19 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(Number(after[0]?.rows[0]?.[0])).toBe(countBefore);
   });
 
+  it('produces a health report from the catalogs', async () => {
+    const findings = await driver.healthChecks();
+    expect(Array.isArray(findings)).toBe(true);
+    // Connection pressure is always computable on a live server.
+    const conns = findings.find((f) => f.id === 'pg.connections');
+    expect(conns).toBeTruthy();
+    // Every finding is well-formed.
+    for (const f of findings) {
+      expect(f.id).toBeTruthy();
+      expect(['ok', 'info', 'warn', 'critical']).toContain(f.severity);
+    }
+  });
+
   it('returns a normalized plan tree (EXPLAIN, no execution)', async () => {
     const plan = await driver.explain(
       'SELECT t.title, b.name FROM it_tracks t JOIN it_bands b ON b.id = t.band_id',

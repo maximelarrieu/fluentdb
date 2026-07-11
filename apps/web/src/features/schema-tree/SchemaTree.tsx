@@ -13,6 +13,7 @@ import {
   WandSparkles,
   Clock,
   LayoutDashboard,
+  HeartPulse,
 } from 'lucide-react';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
@@ -37,6 +38,7 @@ export function SchemaTree() {
     openErd,
     openTasks,
     openDashboard,
+    openHealth,
     schemaVersion,
     toggleAi,
   } = useWorkspace();
@@ -150,6 +152,14 @@ export function SchemaTree() {
           onClick={openErd}
         >
           <Workflow size={13} /> Diagramme ERD
+        </Button>
+        <Button
+          size="sm"
+          variant="subtle"
+          className="w-full justify-center"
+          onClick={openHealth}
+        >
+          <HeartPulse size={13} /> Bilan de santé
         </Button>
         <Button
           size="sm"

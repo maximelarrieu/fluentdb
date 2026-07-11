@@ -9,6 +9,15 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Bilan de santé (DBA doctor)** : un onglet « Bilan de santé » interroge les
+  catalogues/vues statistiques du moteur (lecture seule) et liste des constats
+  classés par catégorie et gravité, avec un SQL de remédiation à relire quand
+  c'est pertinent. **PostgreSQL** : index jamais utilisés (→ `DROP INDEX`),
+  tables très parcourues sans index (candidats à un index), dette de VACUUM
+  (lignes mortes), requêtes les plus coûteuses (`pg_stat_statements`, avec un
+  rappel si l'extension est absente), tables sans clé primaire, pression sur
+  les connexions. **MySQL** : tables sans clé primaire, connexions. **SQLite** :
+  `integrity_check`, violations de clés étrangères, tables sans clé primaire.
 - **Données de test générées par l'IA (mock data)** : depuis une table, un
   bouton « Données de test » demande à l'assistant de générer N lignes
   réalistes à partir de la **structure** (types respectés, valeurs plausibles

@@ -5,6 +5,7 @@ import type {
   DatabaseInfo,
   DdlChange,
   DdlPreview,
+  HealthFinding,
   MutationResult,
   PageResult,
   QueryPlan,
@@ -451,6 +452,190 @@ export class PostgresDriver implements Driver {
     } catch {
       return null;
     }
+  }
+
+  async healthChecks(): Promise<HealthFinding[]> {
+    const db = this.db();
+    const findings: HealthFinding[] = [];
+    const asTable = (res: pg.QueryResult) => ({
+      columns: res.fields.map((f) => f.name),
+      rows: res.rows.map((r) =>
+        res.fields.map((f) => {
+          const v = r[f.name];
+          return v == null ? null : typeof v === 'number' ? v : String(v);
+        }),
+      ),
+    });
+    const run = async (fn: () => Promise<void>) => {
+      try {
+        await fn();
+      } catch {
+        // best-effort — a failing check never sinks the report
+      }
+    };
+
+    // Unused indexes (never scanned; skip PK/unique).
+    await run(async () => {
+      const res = await db.query(
+        `SELECT s.schemaname AS schema, s.relname AS "table",
+                s.indexrelname AS index,
+                pg_size_pretty(pg_relation_size(s.indexrelid)) AS size
+         FROM pg_stat_user_indexes s
+         JOIN pg_index i ON i.indexrelid = s.indexrelid
+         WHERE s.idx_scan = 0 AND NOT i.indisunique AND NOT i.indisprimary
+         ORDER BY pg_relation_size(s.indexrelid) DESC
+         LIMIT 10`,
+      );
+      if (res.rows.length === 0) return;
+      const drop = res.rows
+        .map((r) => `DROP INDEX ${r.schema}.${r.index};`)
+        .join('\n');
+      findings.push({
+        id: 'pg.unused_indexes',
+        category: 'indexes',
+        severity: 'warn',
+        title: `${res.rows.length} index jamais utilisé(s)`,
+        detail:
+          'Ces index n’ont jamais été scannés (idx_scan = 0) : ils occupent de l’espace et ralentissent les écritures. Vérifie avant de les supprimer (statistiques remises à zéro ? usage saisonnier ?).',
+        remediationSql: drop,
+        table: asTable(res),
+      });
+    });
+
+    // Missing-index candidates (heavy sequential scans).
+    await run(async () => {
+      const res = await db.query(
+        `SELECT relname AS "table", seq_scan, idx_scan, n_live_tup AS rows
+         FROM pg_stat_user_tables
+         WHERE seq_scan > 50 AND seq_scan > COALESCE(idx_scan, 0) * 2
+               AND n_live_tup > 10000
+         ORDER BY seq_scan DESC
+         LIMIT 10`,
+      );
+      if (res.rows.length === 0) return;
+      findings.push({
+        id: 'pg.seq_scans',
+        category: 'indexes',
+        severity: 'warn',
+        title: `${res.rows.length} table(s) souvent parcourue(s) sans index`,
+        detail:
+          'Beaucoup de scans séquentiels par rapport aux scans d’index sur des tables volumineuses — souvent le signe d’un index manquant sur les colonnes de filtre/jointure. Analyse les requêtes concernées (EXPLAIN) pour cibler l’index.',
+        table: asTable(res),
+      });
+    });
+
+    // Bloat / vacuum debt (dead tuples).
+    await run(async () => {
+      const res = await db.query(
+        `SELECT relname AS "table", n_dead_tup AS dead, n_live_tup AS live,
+                round(n_dead_tup * 100.0 / NULLIF(n_live_tup + n_dead_tup, 0), 1) AS dead_pct
+         FROM pg_stat_user_tables
+         WHERE n_dead_tup > 1000 AND n_dead_tup > 0.2 * (n_live_tup + 1)
+         ORDER BY n_dead_tup DESC
+         LIMIT 10`,
+      );
+      if (res.rows.length === 0) return;
+      const vacuum = res.rows
+        .map((r) => `VACUUM (ANALYZE) ${r.table};`)
+        .join('\n');
+      findings.push({
+        id: 'pg.dead_tuples',
+        category: 'maintenance',
+        severity: 'warn',
+        title: `${res.rows.length} table(s) à nettoyer (VACUUM)`,
+        detail:
+          'Forte proportion de lignes mortes : le VACUUM automatique est peut-être en retard. Un VACUUM récupère l’espace et rafraîchit les statistiques.',
+        remediationSql: vacuum,
+        table: asTable(res),
+      });
+    });
+
+    // Slow queries (requires pg_stat_statements).
+    await run(async () => {
+      try {
+        const res = await db.query(
+          `SELECT round(total_exec_time::numeric, 0) AS total_ms,
+                  calls,
+                  round(mean_exec_time::numeric, 1) AS mean_ms,
+                  left(query, 120) AS query
+           FROM pg_stat_statements
+           ORDER BY total_exec_time DESC
+           LIMIT 8`,
+        );
+        if (res.rows.length === 0) return;
+        findings.push({
+          id: 'pg.slow_queries',
+          category: 'performance',
+          severity: 'info',
+          title: 'Requêtes les plus coûteuses',
+          detail:
+            'Classées par temps d’exécution cumulé (extension pg_stat_statements). Cible les premières pour optimiser (index, réécriture).',
+          table: asTable(res),
+        });
+      } catch {
+        findings.push({
+          id: 'pg.stat_statements_off',
+          category: 'performance',
+          severity: 'info',
+          title: 'Analyse des requêtes lentes indisponible',
+          detail:
+            'L’extension pg_stat_statements n’est pas active. Active-la (shared_preload_libraries + CREATE EXTENSION) pour voir les requêtes les plus coûteuses ici.',
+          remediationSql: 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+        });
+      }
+    });
+
+    // Tables without a primary key.
+    await run(async () => {
+      const res = await db.query(
+        `SELECT n.nspname AS schema, c.relname AS "table"
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind = 'r'
+               AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+               AND NOT EXISTS (
+                 SELECT 1 FROM pg_constraint con
+                 WHERE con.conrelid = c.oid AND con.contype = 'p'
+               )
+         ORDER BY 1, 2
+         LIMIT 20`,
+      );
+      if (res.rows.length === 0) return;
+      findings.push({
+        id: 'pg.no_pk',
+        category: 'schema',
+        severity: 'info',
+        title: `${res.rows.length} table(s) sans clé primaire`,
+        detail:
+          'Une clé primaire rend les lignes éditables dans la grille, aide la réplication et les jointures. À ajouter quand c’est pertinent.',
+        table: asTable(res),
+      });
+    });
+
+    // Connection pressure.
+    await run(async () => {
+      const res = await db.query(
+        `SELECT count(*)::int AS used,
+                current_setting('max_connections')::int AS max
+         FROM pg_stat_activity`,
+      );
+      const used = Number(res.rows[0]?.used ?? 0);
+      const max = Number(res.rows[0]?.max ?? 0);
+      if (!max) return;
+      const pct = Math.round((used / max) * 100);
+      findings.push({
+        id: 'pg.connections',
+        category: 'connections',
+        severity: pct >= 80 ? 'warn' : 'ok',
+        title: `Connexions : ${used} / ${max} (${pct} %)`,
+        detail:
+          pct >= 80
+            ? 'Proche de la limite de connexions. Envisage un pooler (PgBouncer) ou de réduire les connexions applicatives.'
+            : 'Utilisation des connexions dans une plage saine.',
+      });
+    });
+
+    return findings;
   }
 
   async explain(sql: string, opts: { analyze: boolean }): Promise<QueryPlan> {

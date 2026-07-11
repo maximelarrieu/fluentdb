@@ -5,6 +5,7 @@ import type {
   DatabaseInfo,
   DdlChange,
   DdlPreview,
+  HealthFinding,
   MutationResult,
   PageResult,
   QueryPlan,
@@ -350,6 +351,72 @@ export class MysqlDriver implements Driver {
     } catch {
       return null;
     }
+  }
+
+  async healthChecks(): Promise<HealthFinding[]> {
+    const db = this.db();
+    const findings: HealthFinding[] = [];
+    const schema = this.database;
+    const run = async (fn: () => Promise<void>) => {
+      try {
+        await fn();
+      } catch {
+        // best-effort
+      }
+    };
+
+    // Tables without a primary key.
+    await run(async () => {
+      if (!schema) return;
+      const [rows] = await db.query(
+        `SELECT t.table_name AS \`table\`
+         FROM information_schema.tables t
+         LEFT JOIN information_schema.table_constraints c
+           ON c.table_schema = t.table_schema
+           AND c.table_name = t.table_name
+           AND c.constraint_type = 'PRIMARY KEY'
+         WHERE t.table_schema = ? AND t.table_type = 'BASE TABLE'
+               AND c.constraint_name IS NULL
+         ORDER BY t.table_name
+         LIMIT 20`,
+        [schema],
+      );
+      const list = rows as { table: string }[];
+      if (list.length === 0) return;
+      findings.push({
+        id: 'mysql.no_pk',
+        category: 'schema',
+        severity: 'info',
+        title: `${list.length} table(s) sans clé primaire`,
+        detail:
+          'Une clé primaire rend les lignes éditables dans la grille et est requise par la réplication basée sur les lignes (InnoDB en crée une cachée sinon).',
+        table: { columns: ['table'], rows: list.map((r) => [r.table]) },
+      });
+    });
+
+    // Connection pressure.
+    await run(async () => {
+      const [used] = await db.query(
+        `SHOW STATUS LIKE 'Threads_connected'`,
+      );
+      const [max] = await db.query(`SHOW VARIABLES LIKE 'max_connections'`);
+      const u = Number((used as { Value?: string }[])[0]?.Value ?? 0);
+      const m = Number((max as { Value?: string }[])[0]?.Value ?? 0);
+      if (!m) return;
+      const pct = Math.round((u / m) * 100);
+      findings.push({
+        id: 'mysql.connections',
+        category: 'connections',
+        severity: pct >= 80 ? 'warn' : 'ok',
+        title: `Connexions : ${u} / ${m} (${pct} %)`,
+        detail:
+          pct >= 80
+            ? 'Proche de la limite de connexions — envisage un pooler ou de réduire les connexions applicatives.'
+            : 'Utilisation des connexions dans une plage saine.',
+      });
+    });
+
+    return findings;
   }
 
   async explain(sql: string): Promise<QueryPlan> {

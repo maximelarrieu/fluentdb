@@ -38,13 +38,19 @@ export interface DashboardTab {
   id: string;
   title: string;
 }
+export interface HealthTab {
+  kind: 'health';
+  id: string;
+  title: string;
+}
 export type Tab =
   | TableTab
   | QueryTab
   | StructureTab
   | ErdTab
   | TasksTab
-  | DashboardTab;
+  | DashboardTab
+  | HealthTab;
 
 interface ActiveConnection {
   id: string;
@@ -75,6 +81,7 @@ interface WorkspaceState {
   openErd: () => void;
   openTasks: (taskId?: string) => void;
   openDashboard: () => void;
+  openHealth: () => void;
   setTabSql: (id: string, sql: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -187,6 +194,17 @@ export const useWorkspace = create<WorkspaceState>()(
       kind: 'dashboard',
       id: nanoid(),
       title: 'Tableau de bord',
+    };
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+  },
+
+  openHealth: () => {
+    const existing = get().tabs.find((t) => t.kind === 'health');
+    if (existing) return set({ activeTabId: existing.id });
+    const tab: HealthTab = {
+      kind: 'health',
+      id: nanoid(),
+      title: 'Bilan de santé',
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },
