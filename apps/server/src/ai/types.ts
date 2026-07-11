@@ -34,16 +34,26 @@ export function extractSqlBlocks(markdown: string): string[] {
 }
 
 /**
- * Parse the first JSON object out of a model answer, whether it came back in a
- * ```json fenced block or as a bare object. Returns null when nothing parses.
+ * Parse the first JSON value (object OR array) out of a model answer, whether
+ * it came back in a ```json fenced block or bare. Returns null when nothing
+ * parses.
  */
 export function extractJson(markdown: string): unknown {
-  const fenced = /```json\s*\n([\s\S]*?)```/i.exec(markdown);
-  const candidate = fenced
-    ? fenced[1]!
-    : markdown.slice(markdown.indexOf('{'), markdown.lastIndexOf('}') + 1);
+  const fenced = /```(?:json)?\s*\n?([\s\S]*?)```/i.exec(markdown);
+  const body = fenced ? fenced[1]! : markdown;
   try {
-    return JSON.parse(candidate);
+    return JSON.parse(body.trim());
+  } catch {
+    // ignore — fall back to slicing out the outermost { … } or [ … ]
+  }
+  const braces = [body.indexOf('{'), body.indexOf('[')].filter((i) => i >= 0);
+  if (braces.length === 0) return null;
+  const start = Math.min(...braces);
+  const closeCh = body[start] === '{' ? '}' : ']';
+  const end = body.lastIndexOf(closeCh);
+  if (end < start) return null;
+  try {
+    return JSON.parse(body.slice(start, end + 1));
   } catch {
     return null;
   }

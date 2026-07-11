@@ -230,6 +230,48 @@ describe('AI monitor endpoint (NL → scheduled task)', () => {
   });
 });
 
+describe('AI mock-data endpoint', () => {
+  it('generates rows restricted to fillable columns', async () => {
+    // artists(id PK auto, name NOT NULL, country) — the model returns an extra
+    // "id" and a bogus column, both of which must be dropped.
+    const gen = JSON.stringify([
+      { id: 999, name: 'Alice', country: 'FR', bogus: 'x' },
+      { name: 'Bob', country: null },
+    ]);
+    const app = await makeTestApp({ ai: new FakeAiProvider([gen]) });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/mock',
+      payload: { connectionId: id, table: 'artists', count: 2 },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      columns: string[];
+      rows: Record<string, unknown>[];
+    };
+    // auto-increment PK excluded from target columns
+    expect(body.columns).toEqual(['name', 'country']);
+    expect(body.rows).toHaveLength(2);
+    // dropped the auto PK and the unknown column
+    expect(body.rows[0]).toEqual({ name: 'Alice', country: 'FR' });
+    expect(Object.keys(body.rows[0]!)).not.toContain('id');
+    expect(Object.keys(body.rows[0]!)).not.toContain('bogus');
+  });
+
+  it('rejects unusable model output', async () => {
+    const app = await makeTestApp({ ai: new FakeAiProvider(['nope']) });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/mock',
+      payload: { connectionId: id, table: 'artists', count: 2 },
+    });
+    expect(res.statusCode).toBe(422);
+    await closeTestApp(app);
+  });
+});
+
 describe('schema digest', () => {
   it('serializes tables one per line with PK/FK info', async () => {
     const t2 = await makeTestApp();

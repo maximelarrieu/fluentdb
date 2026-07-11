@@ -1,6 +1,7 @@
 import type {
   AiChatRequest,
   MonitorProposal,
+  MockRowsPreview,
   AutocompleteCatalog,
   ConnectCapabilities,
   ConnectionInput,
@@ -249,6 +250,13 @@ export const api = {
     database?: string;
     description: string;
   }) => request<MonitorProposal>('POST', '/api/ai/monitor', body),
+  aiMock: (body: {
+    connectionId: string;
+    database?: string;
+    schema?: string;
+    table: string;
+    count: number;
+  }) => request<MockRowsPreview>('POST', '/api/ai/mock', body),
 
   exportUrl: (id: string) => `/api/connections/${id}/export`,
 
