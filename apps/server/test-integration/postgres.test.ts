@@ -150,6 +150,21 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(catalog.it_tracks).toContain('title');
   });
 
+  it('searches objects and columns across the schema', async () => {
+    const objHits = await driver.searchObjects('it_track');
+    expect(
+      objHits.some((h) => h.kind === 'table' && h.name === 'it_tracks'),
+    ).toBe(true);
+
+    const colHits = await driver.searchObjects('band_id');
+    const col = colHits.find(
+      (h) => h.kind === 'column' && h.name === 'band_id',
+    );
+    expect(col?.table).toBe('it_tracks');
+    expect(col?.schema).toBe('public');
+    expect(col?.dataType).toBeTruthy();
+  });
+
   it('lists, introspects, refreshes and defines materialized views', async () => {
     await driver.runQuery(
       `DROP MATERIALIZED VIEW IF EXISTS it_band_track_counts;

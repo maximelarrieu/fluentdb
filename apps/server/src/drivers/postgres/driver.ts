@@ -12,6 +12,7 @@ import type {
   RowChanges,
   RowQuery,
   SchemaInfo,
+  SearchHit,
   TableInfo,
   TableRef,
   TableStructure,
@@ -335,6 +336,49 @@ export class PostgresDriver implements Driver {
       catalog[key] = r.columns;
     }
     return catalog;
+  }
+
+  async searchObjects(query: string, limit = 50): Promise<SearchHit[]> {
+    const like = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const relKind = `CASE c.relkind WHEN 'm' THEN 'matview' WHEN 'v' THEN 'view' ELSE 'table' END`;
+    const notSystem = `n.nspname NOT LIKE 'pg\\_%' AND n.nspname <> 'information_schema'`;
+    const db = this.db();
+    const [objects, columns] = await Promise.all([
+      db.query(
+        `SELECT n.nspname AS schema, c.relname AS name, ${relKind} AS kind
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind IN ('r','p','v','m') AND ${notSystem} AND c.relname ILIKE $1
+         ORDER BY c.relname LIMIT $2`,
+        [like, limit],
+      ),
+      db.query(
+        `SELECT n.nspname AS schema, c.relname AS "table", a.attname AS name,
+                format_type(a.atttypid, a.atttypmod) AS data_type, ${relKind} AS table_kind
+         FROM pg_attribute a
+         JOIN pg_class c ON c.oid = a.attrelid
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind IN ('r','p','v','m') AND ${notSystem}
+           AND a.attnum > 0 AND NOT a.attisdropped AND a.attname ILIKE $1
+         ORDER BY a.attname LIMIT $2`,
+        [like, limit],
+      ),
+    ]);
+    const hits: SearchHit[] = [
+      ...objects.rows.map((r) => ({
+        kind: r.kind as SearchHit['kind'],
+        name: r.name as string,
+        schema: r.schema as string,
+      })),
+      ...columns.rows.map((r) => ({
+        kind: 'column' as const,
+        name: r.name as string,
+        schema: r.schema as string,
+        table: r.table as string,
+        tableKind: r.table_kind as SearchHit['tableKind'],
+        dataType: r.data_type as string,
+      })),
+    ];
+    return hits.slice(0, limit);
   }
 
   async runQuery(sql: string, opts: RunQueryOptions): Promise<QueryResultSet[]> {

@@ -20,6 +20,7 @@ import type {
   RowChanges,
   RowQuery,
   SchemaInfo,
+  SearchHit,
   TableInfo,
   TableStructure,
 } from '@fluentdb/shared';
@@ -137,6 +138,14 @@ export const api = {
       dialect: 'postgres' | 'mysql' | 'sqlite';
       typeNames: string[];
     }>('GET', `/api/connections/${id}/autocomplete${scope(database)}`),
+  search: (id: string, q: string, database?: string) => {
+    const params = new URLSearchParams({ q });
+    if (database) params.set('database', database);
+    return request<SearchHit[]>(
+      'GET',
+      `/api/connections/${id}/search?${params.toString()}`,
+    );
+  },
 
   // data
   rows: (

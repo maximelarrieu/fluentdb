@@ -47,6 +47,48 @@ describe('view definition and materialized-view routes (sqlite)', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('global search finds objects and columns across the schema', async () => {
+    // object hit
+    const albums = await t.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/search?q=album`,
+    });
+    expect(albums.statusCode).toBe(200);
+    const hits = albums.json() as {
+      kind: string;
+      name: string;
+      table?: string;
+    }[];
+    expect(hits.some((h) => h.kind === 'table' && h.name === 'albums')).toBe(
+      true,
+    );
+    // the view is found too
+    expect(hits.some((h) => h.kind === 'view' && h.name === 'recent_albums')).toBe(
+      true,
+    );
+
+    // column hit: artist_id belongs to albums
+    const cols = await t.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/search?q=artist_id`,
+    });
+    const colHits = cols.json() as {
+      kind: string;
+      name: string;
+      table?: string;
+    }[];
+    const col = colHits.find((h) => h.kind === 'column' && h.name === 'artist_id');
+    expect(col?.table).toBe('albums');
+  });
+
+  it('rejects an empty search query', async () => {
+    const res = await t.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/search?q=`,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('reports materializedViews: false for sqlite', async () => {
     const res = await t.app.inject({
       method: 'POST',
