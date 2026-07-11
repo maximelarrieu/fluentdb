@@ -245,10 +245,12 @@ export class PostgresDriver implements Driver {
     }));
 
     const idxRes = await db.query(
+      // cast to text[] — array_agg of the `name` type yields name[], which
+      // node-pg returns as a raw '{...}' string instead of a JS array.
       `SELECT i.relname AS name,
               ix.indisunique AS is_unique,
               ix.indisprimary AS is_primary,
-              array_agg(COALESCE(a.attname, '(expr)') ORDER BY k.ord) AS columns
+              array_agg(COALESCE(a.attname, '(expr)')::text ORDER BY k.ord) AS columns
        FROM pg_index ix
        JOIN pg_class i ON i.oid = ix.indexrelid
        JOIN pg_class t ON t.oid = ix.indrelid
