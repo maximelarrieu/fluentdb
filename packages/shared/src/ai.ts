@@ -6,6 +6,7 @@ export const aiModes = [
   'explain',
   'fix',
   'index_advice',
+  'explain_object',
 ] as const;
 export type AiMode = (typeof aiModes)[number];
 
@@ -27,6 +28,14 @@ export const aiChatRequestSchema = z.object({
       selectedTables: z.array(z.string()).optional(),
       /** Compact digest of the execution plan, for index advice */
       planSummary: z.string().optional(),
+      /** Target object to explain, for the `explain_object` mode */
+      object: z
+        .object({
+          name: z.string(),
+          schema: z.string().optional(),
+          kind: z.enum(['table', 'view', 'matview']),
+        })
+        .optional(),
     })
     .optional(),
 });

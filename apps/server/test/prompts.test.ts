@@ -35,4 +35,19 @@ describe('buildSystemPrompt', () => {
     const prompt = buildSystemPrompt(req({ mode: 'chat' }), null, null);
     expect(prompt).not.toContain('Execution plan summary:');
   });
+
+  it('includes the object detail for explain_object', () => {
+    const prompt = buildSystemPrompt(
+      req({
+        mode: 'explain_object',
+        context: { object: { name: 'recent_albums', kind: 'view' } },
+      }),
+      '- albums (id INTEGER PK)',
+      'SQLite',
+      'view "recent_albums"\nColumns: id INTEGER PK\nDefinition:\nCREATE VIEW recent_albums AS SELECT * FROM albums',
+    );
+    expect(prompt.toLowerCase()).toContain('explain the database object');
+    expect(prompt).toContain('Object to explain:');
+    expect(prompt).toContain('CREATE VIEW recent_albums');
+  });
 });

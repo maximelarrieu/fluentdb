@@ -7,6 +7,16 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+
+- **Explication IA d'un objet** : un bouton « Expliquer » (survol) sur chaque
+  table, vue et vue matérialisée de l'arbre de schéma ouvre l'assistant et
+  décrit l'objet en langage naturel — ce que représente une ligne, le rôle des
+  colonnes clés, les relations (clés étrangères), et pour une vue/matview ce que
+  sa définition calcule et les tables qu'elle lit. Nouveau mode `explain_object`
+  réutilisant le flux SSE ; le prompt reçoit la structure, la définition et le
+  lineage de l'objet — structure seule, jamais les données.
+
 ### Corrigé
 
 - **Relations manquantes dans l'ERD (PostgreSQL)** : les clés étrangères

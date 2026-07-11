@@ -37,9 +37,22 @@ export function AssistantPanel() {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as {
         mode: AiMode;
-        sql: string;
+        sql?: string;
         planSummary?: string;
+        object?: { name: string; schema?: string; kind: string };
       };
+      if (detail.mode === 'explain_object' && detail.object) {
+        const label =
+          detail.object.kind === 'matview'
+            ? 'la vue matérialisée'
+            : detail.object.kind === 'view'
+              ? 'la vue'
+              : 'la table';
+        send(`Explique ${label} « ${detail.object.name} ».`, 'explain_object', {
+          object: detail.object as never,
+        });
+        return;
+      }
       const prompt =
         detail.mode === 'explain'
           ? 'Explique cette requête SQL.'
@@ -59,7 +72,12 @@ export function AssistantPanel() {
   const send = async (
     text: string,
     mode: AiMode = 'chat',
-    context?: { currentSql?: string; error?: string; planSummary?: string },
+    context?: {
+      currentSql?: string;
+      error?: string;
+      planSummary?: string;
+      object?: { name: string; schema?: string; kind: 'table' | 'view' | 'matview' };
+    },
   ) => {
     if (!text.trim() || streaming) return;
     const userMsg: Msg = { role: 'user', content: text };

@@ -17,6 +17,8 @@ const MODE_INSTRUCTIONS: Record<AiMode, string> = {
   explain:
     'Task: explain what the given SQL does, step by step, referencing the schema. Point out potential performance issues (missing index, full scan) if relevant.',
   fix: 'Task: the given SQL failed with the given error. Diagnose the problem and reply with a corrected version in a ```sql block, plus one sentence on what was wrong.',
+  explain_object:
+    'Task: explain the database object described below (a table, view or materialized view) to the user. Say in plain language what it represents (what one row means), the role of its key columns, and how it relates to other tables (foreign keys, or — for a view/materialized view — what its definition computes and which tables it reads from). Be concrete and concise; do not dump the raw SQL back. Do not propose changes unless asked.',
   index_advice:
     "Task: you are an index advisor. Given the query, its execution-plan summary and the schema, propose the index(es) that would speed it up. Reply with each CREATE INDEX in its own ```sql block, using the exact dialect. Briefly justify each one (which scan/filter/join it targets). Only suggest indexes that match columns present in the schema. Always warn in one sentence that an index speeds up reads but slows down writes and uses disk space, so it should be weighed. If no index would help, say so plainly.",
 };
@@ -25,11 +27,13 @@ export function buildSystemPrompt(
   req: AiChatRequest,
   schemaDigest: string | null,
   dialectInfo: string | null,
+  objectDetail?: string | null,
 ): string {
   const parts = [BASE];
   const modeInstruction = MODE_INSTRUCTIONS[req.mode];
   if (modeInstruction) parts.push(modeInstruction);
   if (dialectInfo) parts.push(`SQL dialect: ${dialectInfo}`);
+  if (objectDetail) parts.push(`Object to explain:\n${objectDetail}`);
   if (schemaDigest) {
     parts.push(`Connected database schema:\n${schemaDigest}`);
   } else {
