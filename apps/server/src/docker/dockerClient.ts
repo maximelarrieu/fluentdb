@@ -32,17 +32,30 @@ export interface DockerEndpoint {
   port?: number;
 }
 
+/** Windows named pipe exposed by Docker Desktop. */
+const WINDOWS_DOCKER_PIPE = '\\\\.\\pipe\\docker_engine';
+
 /**
  * Ordered list of Docker endpoints to probe.
  *
  * `DOCKER_HOST` wins and pins a single endpoint. Otherwise we try the common
- * socket locations in turn — the classic system socket, then the ones Docker
- * Desktop (macOS/Windows) and rootless Docker (Linux) use — so detection works
- * without the user setting `DOCKER_HOST` by hand.
+ * locations in turn so detection works without the user setting `DOCKER_HOST`
+ * by hand: on Windows the Docker Desktop named pipe; elsewhere the classic
+ * system socket then the paths used by Docker Desktop, rootless Docker, Colima,
+ * OrbStack and Rancher Desktop.
  */
-export function candidateDockerEndpoints(env = process.env): DockerEndpoint[] {
+export function candidateDockerEndpoints(
+  env = process.env,
+  platform: NodeJS.Platform = process.platform,
+): DockerEndpoint[] {
   const dockerHost = env.DOCKER_HOST;
   if (dockerHost) {
+    if (dockerHost.startsWith('npipe://')) {
+      // npipe:////./pipe/docker_engine -> \\.\pipe\docker_engine
+      return [
+        { socketPath: dockerHost.slice('npipe://'.length).replace(/\//g, '\\') },
+      ];
+    }
     if (dockerHost.startsWith('unix://')) {
       return [{ socketPath: dockerHost.slice('unix://'.length) }];
     }
@@ -50,8 +63,13 @@ export function candidateDockerEndpoints(env = process.env): DockerEndpoint[] {
       const url = new URL(dockerHost.replace('tcp://', 'http://'));
       return [{ host: url.hostname, port: Number(url.port || 2375) }];
     }
-    // Unknown scheme — treat the value as a raw socket path.
+    // Unknown scheme — treat the value as a raw socket path / pipe.
     return [{ socketPath: dockerHost }];
+  }
+
+  // Windows Docker Desktop speaks over a named pipe, never a Unix socket.
+  if (platform === 'win32') {
+    return [{ socketPath: WINDOWS_DOCKER_PIPE }];
   }
 
   const home = env.HOME || env.USERPROFILE || os.homedir();
@@ -64,13 +82,17 @@ export function candidateDockerEndpoints(env = process.env): DockerEndpoint[] {
   candidates.push(
     { socketPath: path.join(home, '.docker', 'run', 'docker.sock') },
     { socketPath: path.join(home, '.docker', 'desktop', 'docker.sock') },
+    // Common Docker Desktop alternatives on macOS/Linux.
+    { socketPath: path.join(home, '.colima', 'default', 'docker.sock') },
+    { socketPath: path.join(home, '.orbstack', 'run', 'docker.sock') },
+    { socketPath: path.join(home, '.rd', 'docker.sock') },
   );
   return candidates;
 }
 
 /**
  * Minimal Docker Engine API client — exactly the two endpoints the
- * detection feature needs, over undici (unix socket or tcp).
+ * detection feature needs, over undici (unix socket, Windows named pipe or tcp).
  */
 export class DockerClient {
   private readonly candidates: DockerEndpoint[];

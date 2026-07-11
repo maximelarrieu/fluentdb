@@ -102,10 +102,13 @@ describe('docker detection (fake unix-socket daemon)', () => {
   });
 
   it('probes Docker Desktop and rootless socket locations by default', () => {
-    const paths = candidateDockerEndpoints({
-      HOME: '/home/me',
-      XDG_RUNTIME_DIR: '/run/user/1000',
-    } as NodeJS.ProcessEnv).map((e) => e.socketPath);
+    const paths = candidateDockerEndpoints(
+      {
+        HOME: '/home/me',
+        XDG_RUNTIME_DIR: '/run/user/1000',
+      } as NodeJS.ProcessEnv,
+      'linux',
+    ).map((e) => e.socketPath);
 
     expect(paths).toContain('/var/run/docker.sock');
     expect(paths).toContain('/run/user/1000/docker.sock');
@@ -124,6 +127,21 @@ describe('docker detection (fake unix-socket daemon)', () => {
         DOCKER_HOST: 'tcp://127.0.0.1:2375',
       } as NodeJS.ProcessEnv),
     ).toEqual([{ host: '127.0.0.1', port: 2375 }]);
+  });
+
+  it('uses the Docker Desktop named pipe on Windows', () => {
+    expect(candidateDockerEndpoints({} as NodeJS.ProcessEnv, 'win32')).toEqual([
+      { socketPath: '\\\\.\\pipe\\docker_engine' },
+    ]);
+  });
+
+  it('maps a npipe:// DOCKER_HOST to a Windows pipe path', () => {
+    expect(
+      candidateDockerEndpoints(
+        { DOCKER_HOST: 'npipe:////./pipe/docker_engine' } as NodeJS.ProcessEnv,
+        'win32',
+      ),
+    ).toEqual([{ socketPath: '\\\\.\\pipe\\docker_engine' }]);
   });
 
   it('pings the daemon', async () => {
