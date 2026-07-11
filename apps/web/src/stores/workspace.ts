@@ -32,7 +32,18 @@ export interface TasksTab {
   id: string;
   title: string;
 }
-export type Tab = TableTab | QueryTab | StructureTab | ErdTab | TasksTab;
+export interface DashboardTab {
+  kind: 'dashboard';
+  id: string;
+  title: string;
+}
+export type Tab =
+  | TableTab
+  | QueryTab
+  | StructureTab
+  | ErdTab
+  | TasksTab
+  | DashboardTab;
 
 interface ActiveConnection {
   id: string;
@@ -51,6 +62,8 @@ interface WorkspaceState {
   aiOpen: boolean;
   sidebarCollapsed: boolean;
   schemaVersion: number;
+  /** Task the tasks view should select when opened (e.g. from the dashboard). */
+  focusTaskId: string | null;
 
   setActive: (conn: ActiveConnection | null) => void;
   setDatabase: (database: string | undefined) => void;
@@ -59,7 +72,8 @@ interface WorkspaceState {
   openStructure: (table: string, schema?: string) => void;
   openQuery: (sql?: string) => void;
   openErd: () => void;
-  openTasks: () => void;
+  openTasks: (taskId?: string) => void;
+  openDashboard: () => void;
   setTabSql: (id: string, sql: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -80,6 +94,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   aiOpen: false,
   sidebarCollapsed: false,
   schemaVersion: 0,
+  focusTaskId: null,
   skipExecConfirm: false,
 
   setActive: (conn) =>
@@ -145,13 +160,25 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },
 
-  openTasks: () => {
+  openTasks: (taskId) => {
+    set({ focusTaskId: taskId ?? null });
     const existing = get().tabs.find((t) => t.kind === 'tasks');
     if (existing) return set({ activeTabId: existing.id });
     const tab: TasksTab = {
       kind: 'tasks',
       id: nanoid(),
       title: 'Tâches planifiées',
+    };
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+  },
+
+  openDashboard: () => {
+    const existing = get().tabs.find((t) => t.kind === 'dashboard');
+    if (existing) return set({ activeTabId: existing.id });
+    const tab: DashboardTab = {
+      kind: 'dashboard',
+      id: nanoid(),
+      title: 'Tableau de bord',
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },

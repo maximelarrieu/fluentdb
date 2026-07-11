@@ -9,6 +9,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Tableau de bord (mur de tuiles)** : un onglet « Tableau de bord » agrège
+  toutes les tâches planifiées en tuiles — dernière valeur en évidence,
+  **sparkline** de tendance, état d'alerte (bordure/ligne ambre + résumé) ou
+  d'échec, planning et prochaine exécution. Les tuiles sont regroupées par base
+  de données et se rafraîchissent en direct ; un point signale un résultat non
+  consulté. Cliquer une tuile ouvre la tâche correspondante dans l'onglet
+  « Tâches planifiées ».
 - **Tâches planifiées groupées par base** : l'onglet regroupe désormais les
   tâches par **base de données** (connexion + base) avec un en-tête par groupe.
   Les dialogues de création et d'édition gagnent un champ **« Base de données »**
