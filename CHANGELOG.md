@@ -57,6 +57,14 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Écritures « safe » — compte exact des lignes touchées** : avant d'exécuter
+  un `UPDATE`/`DELETE`, la fenêtre de confirmation affiche désormais le **nombre
+  exact** de lignes concernées, obtenu par un `SELECT count(*)` en lecture seule
+  sur la même cible et le même `WHERE`. Fonctionne sur **tous les moteurs**, y
+  compris SQLite (qui n'affichait aucune estimation) ; repli sur l'estimation du
+  planificateur (`EXPLAIN`) pour les formes complexes (jointures, `UPDATE …
+  FROM`, `DELETE … USING`). Les alertes existantes (`UPDATE`/`DELETE` sans
+  `WHERE`, `DROP`/`TRUNCATE`) restent inchangées.
 - **Tâches planifiées — édition** : un bouton « Modifier » sur une tâche ouvre
   un dialogue pour changer son **nom**, sa **planification** (chaque jour /
   intervalle) et sa **requête** sans avoir à la supprimer puis la recréer. La

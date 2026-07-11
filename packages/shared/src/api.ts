@@ -36,6 +36,12 @@ export interface StatementPlan {
   warnings: string[];
   /** null when the engine can't estimate (e.g. SQLite) or on EXPLAIN failure */
   estimatedRows: number | null;
+  /**
+   * True when `estimatedRows` is an EXACT affected-row count obtained by a
+   * read-only `SELECT count(*)` over the statement's own target and WHERE
+   * (UPDATE/DELETE). False/absent means it's a planner estimate.
+   */
+  exactRows?: boolean;
 }
 
 export interface QueryPlanResponse {

@@ -6,7 +6,11 @@ import {
   queryRequestSchema,
   type StatementPlan,
 } from '@fluentdb/shared';
-import { analyzeScript, classifyStatement } from '../sql/analyze.js';
+import {
+  analyzeScript,
+  classifyStatement,
+  affectedCountQuery,
+} from '../sql/analyze.js';
 import { splitSqlStatements } from '../drivers/sqlSplit.js';
 import type { AppContext } from '../context.js';
 
@@ -60,10 +64,34 @@ export function registerQueryRoutes(
 
     const analyses = analyzeScript(body.sql);
     const statements: StatementPlan[] = await Promise.all(
-      analyses.map(async (a) => {
+      analyses.map(async (a, i) => {
         let estimatedRows: number | null = null;
-        if (a.kind === 'write' && driver.capabilities.estimateRows) {
-          estimatedRows = await driver.estimateRows(a.sql).catch(() => null);
+        let exactRows = false;
+        if (a.kind === 'write') {
+          // Prefer an EXACT count via a read-only SELECT count(*) over the
+          // statement's own target + WHERE (works on every engine, SQLite
+          // included). Fall back to the planner estimate when we can't derive
+          // a safe count query.
+          const countSql = affectedCountQuery(a.sql);
+          if (countSql) {
+            try {
+              const sets = await driver.runQuery(countSql, {
+                queryId: `plan-count-${id}-${i}-${Date.now()}`,
+                maxRows: 1,
+              });
+              const value = sets.find((s) => s.rows.length > 0)?.rows[0]?.[0];
+              const n = typeof value === 'number' ? value : Number(value);
+              if (Number.isFinite(n)) {
+                estimatedRows = n;
+                exactRows = true;
+              }
+            } catch {
+              // fall through to the planner estimate
+            }
+          }
+          if (!exactRows && driver.capabilities.estimateRows) {
+            estimatedRows = await driver.estimateRows(a.sql).catch(() => null);
+          }
         }
         return {
           sql: a.sql,
@@ -71,6 +99,7 @@ export function registerQueryRoutes(
           operation: a.operation,
           warnings: a.warnings,
           estimatedRows,
+          exactRows,
         };
       }),
     );

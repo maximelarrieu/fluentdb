@@ -202,8 +202,23 @@ describe('schema, data, query, ddl, export over sqlite', () => {
     ]);
     // DELETE without WHERE carries a warning
     expect(body.statements[1].warnings.length).toBeGreaterThan(0);
-    // SQLite cannot estimate rows
-    expect(body.statements[1].estimatedRows).toBeNull();
+    // Even on SQLite, an exact affected-row count is derived via SELECT count(*)
+    // (5 albums in the fixture) — the whole table for a WHERE-less DELETE.
+    expect(body.statements[1].estimatedRows).toBe(5);
+    expect(body.statements[1].exactRows).toBe(true);
+  });
+
+  it('derives an exact affected-row count for an UPDATE with WHERE', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${id}/query/plan`,
+      payload: { sql: "UPDATE albums SET title = 'x' WHERE year >= 2000" },
+    });
+    const s = res.json().statements[0];
+    // fixture albums with year >= 2000: Discovery (2001), Random Access
+    // Memories (2013), Kid A (2000), Cross (2007) → 4.
+    expect(s.estimatedRows).toBe(4);
+    expect(s.exactRows).toBe(true);
   });
 
   it('does not require confirmation for pure reads', async () => {

@@ -122,6 +122,82 @@ export function classifyStatement(sql: string): StatementAnalysis {
   return { sql, kind, operation, hasWhere, warnings };
 }
 
+/**
+ * Index of the first top-level occurrence of `keyword` (upper-cased), i.e.
+ * outside string/identifier literals AND at parenthesis depth 0. Returns -1
+ * when absent. Used to find a statement's own WHERE/FROM/JOIN, ignoring any
+ * inside subqueries or string constants.
+ */
+function topLevelKeywordIndex(sql: string, keyword: string): number {
+  const upper = sql.toUpperCase();
+  let inSingle = false;
+  let inDouble = false;
+  let inBacktick = false;
+  let depth = 0;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i]!;
+    if (inSingle) {
+      if (ch === "'") inSingle = false;
+      continue;
+    }
+    if (inDouble) {
+      if (ch === '"') inDouble = false;
+      continue;
+    }
+    if (inBacktick) {
+      if (ch === '`') inBacktick = false;
+      continue;
+    }
+    if (ch === "'") inSingle = true;
+    else if (ch === '"') inDouble = true;
+    else if (ch === '`') inBacktick = true;
+    else if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (
+      depth === 0 &&
+      upper.startsWith(keyword, i) &&
+      isBoundary(sql[i - 1]) &&
+      isBoundary(sql[i + keyword.length])
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Derive a read-only `SELECT count(*)` that counts exactly the rows a simple
+ * UPDATE/DELETE would touch — same target table and same WHERE. Returns null
+ * for anything non-trivial (joins, multi-table UPDATE…FROM, USING, no clear
+ * single target) so we never show a misleading count. The result is safe to
+ * run: it only ever reads.
+ */
+export function affectedCountQuery(sql: string): string | null {
+  const operation = leadingKeyword(sql);
+  if (operation !== 'DELETE' && operation !== 'UPDATE') return null;
+
+  // Multi-table forms can't be counted from a single target — bail.
+  if (topLevelKeywordIndex(sql, 'JOIN') >= 0) return null;
+  if (operation === 'DELETE' && topLevelKeywordIndex(sql, 'USING') >= 0) {
+    return null;
+  }
+  if (operation === 'UPDATE' && topLevelKeywordIndex(sql, 'FROM') >= 0) {
+    return null;
+  }
+
+  const target =
+    operation === 'DELETE'
+      ? /^\s*DELETE\s+FROM\s+("[^"]+"|`[^`]+`|[\w.]+)/i.exec(sql)?.[1]
+      : /^\s*UPDATE\s+("[^"]+"|`[^`]+`|[\w.]+)\s+SET\s/i.exec(sql)?.[1];
+  if (!target) return null;
+
+  const whereIdx = topLevelKeywordIndex(sql, 'WHERE');
+  let where = whereIdx >= 0 ? sql.slice(whereIdx).trim() : '';
+  where = where.replace(/;\s*$/, '').trim();
+
+  return `SELECT count(*) AS affected FROM ${target}${where ? ` ${where}` : ''}`;
+}
+
 /** Analyze a (possibly multi-statement) SQL script. */
 export function analyzeScript(script: string): StatementAnalysis[] {
   return splitSqlStatements(script).map(classifyStatement);
