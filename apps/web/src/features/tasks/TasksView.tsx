@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Power,
+  Pencil,
   Table as TableIcon,
   LineChart,
   BellRing,
@@ -27,6 +28,7 @@ import { useTaskSeen, TASKS_POLL_MS } from './notifications.js';
 import { TrendChart } from './TrendChart.js';
 import { buildTrend, numericColumns, textColumns } from './trend.js';
 import { AlertDialog } from './AlertDialog.js';
+import { TaskEditDialog } from './TaskEditDialog.js';
 
 export function scheduleLabel(s: TaskSchedule): string {
   return s.kind === 'daily'
@@ -248,6 +250,7 @@ function TaskDetail({
   const [snapId, setSnapId] = useState<number | null>(null);
   const [view, setView] = useState<'result' | 'trend'>('result');
   const [alertOpen, setAlertOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [valueSel, setValueSel] = useState('');
   const [labelSel, setLabelSel] = useState<'AUTO' | string>('AUTO');
 
@@ -310,6 +313,9 @@ function TaskDetail({
           <Button size="sm" variant="default" onClick={onRun} disabled={running}>
             {running ? <Spinner /> : <Play size={13} />} Exécuter
           </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditOpen(true)}>
+            <Pencil size={13} /> Modifier
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -333,6 +339,10 @@ function TaskDetail({
           numericCols={numeric}
           onClose={() => setAlertOpen(false)}
         />
+      )}
+
+      {editOpen && (
+        <TaskEditDialog task={task} onClose={() => setEditOpen(false)} />
       )}
 
       <div className="flex-1 flex min-h-0">

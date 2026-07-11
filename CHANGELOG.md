@@ -26,6 +26,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Tâches planifiées — édition** : un bouton « Modifier » sur une tâche ouvre
+  un dialogue pour changer son **nom**, sa **planification** (chaque jour /
+  intervalle) et sa **requête** sans avoir à la supprimer puis la recréer. La
+  prochaine exécution est recalculée à l'enregistrement et la requête reste
+  soumise au garde-fou lecture seule.
 - **Panneau latéral repliable** : le panneau de gauche (connexions + encart
   Docker) se masque et se réaffiche via un bouton. Replié, il laisse un fin
   rail avec un bouton pour le rouvrir, libérant de la place pour l'espace de
