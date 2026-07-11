@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, LayoutDashboard, AlertTriangle } from 'lucide-react';
+import { Clock, LayoutDashboard, AlertTriangle, Sparkles } from 'lucide-react';
 import type { ScheduledTask } from '@fluentdb/shared';
 import { api } from '../../api/client.js';
+import { Button } from '../../components/ui/Button.js';
 import { Spinner, EmptyState } from '../../components/ui/misc.js';
 import { formatNumber } from '../../lib/format.js';
 import { useWorkspace } from '../../stores/workspace.js';
@@ -9,6 +11,7 @@ import { useTaskSeen, unseenTasks, TASKS_POLL_MS } from './notifications.js';
 import { groupByDatabase, scheduleLabel } from './TasksView.js';
 import { useTaskMetric, DeltaChip } from './kpi.js';
 import { taskDelta } from './dashboard.js';
+import { MonitorWithAiDialog } from './MonitorWithAiDialog.js';
 
 /** Colours mirror the trend palette so tiles read as the same system. */
 const OK_LINE = '#3987e5';
@@ -153,6 +156,9 @@ export function DashboardView() {
   const openTasks = useWorkspace((s) => s.openTasks);
   const seen = useTaskSeen((s) => s.seen);
   const markSeen = useTaskSeen((s) => s.markSeen);
+  const [monitorOpen, setMonitorOpen] = useState(false);
+  const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+  const aiReady = aiStatus.data?.configured ?? false;
 
   const tasks = useQuery({
     queryKey: ['tasks'],
@@ -164,11 +170,23 @@ export function DashboardView() {
   const list = tasks.data ?? [];
   if (list.length === 0) {
     return (
-      <EmptyState
-        icon={<LayoutDashboard size={40} strokeWidth={1.2} />}
-        title="Aucune tâche à afficher"
-        hint="Planifie des requêtes de lecture depuis l'éditeur SQL : elles apparaîtront ici sous forme de tuiles avec leur dernière valeur et leur tendance."
-      />
+      <>
+        <EmptyState
+          icon={<LayoutDashboard size={40} strokeWidth={1.2} />}
+          title="Aucune tâche à afficher"
+          hint="Planifie des requêtes de lecture depuis l'éditeur SQL : elles apparaîtront ici sous forme de tuiles avec leur dernière valeur et leur tendance."
+          action={
+            aiReady ? (
+              <Button variant="primary" onClick={() => setMonitorOpen(true)}>
+                <Sparkles size={14} /> Nouvelle surveillance avec l'IA
+              </Button>
+            ) : undefined
+          }
+        />
+        {monitorOpen && (
+          <MonitorWithAiDialog onClose={() => setMonitorOpen(false)} />
+        )}
+      </>
     );
   }
 
@@ -177,12 +195,25 @@ export function DashboardView() {
 
   return (
     <div className="h-full overflow-auto">
+      {monitorOpen && (
+        <MonitorWithAiDialog onClose={() => setMonitorOpen(false)} />
+      )}
       <div className="flex items-center gap-2 px-4 h-11 border-b border-border sticky top-0 bg-bg z-10">
         <LayoutDashboard size={15} className="text-accent" />
         <span className="text-[13px] font-semibold">Tableau de bord</span>
         <span className="text-[11px] text-muted">
           {list.length} tâche{list.length > 1 ? 's' : ''}
         </span>
+        {aiReady && (
+          <Button
+            size="sm"
+            variant="subtle"
+            className="ml-auto"
+            onClick={() => setMonitorOpen(true)}
+          >
+            <Sparkles size={13} /> Nouvelle surveillance (IA)
+          </Button>
+        )}
       </div>
 
       <div className="p-4 flex flex-col gap-5">

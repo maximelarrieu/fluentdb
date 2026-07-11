@@ -1,5 +1,6 @@
 import type {
   AiChatRequest,
+  MonitorProposal,
   AutocompleteCatalog,
   ConnectCapabilities,
   ConnectionInput,
@@ -243,6 +244,11 @@ export const api = {
       'GET',
       '/api/ai/status',
     ),
+  aiMonitor: (body: {
+    connectionId: string;
+    database?: string;
+    description: string;
+  }) => request<MonitorProposal>('POST', '/api/ai/monitor', body),
 
   exportUrl: (id: string) => `/api/connections/${id}/export`,
 
