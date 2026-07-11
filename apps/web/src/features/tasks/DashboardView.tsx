@@ -7,7 +7,8 @@ import { formatNumber } from '../../lib/format.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { useTaskSeen, unseenTasks, TASKS_POLL_MS } from './notifications.js';
 import { groupByDatabase, scheduleLabel } from './TasksView.js';
-import { taskMetric } from './dashboard.js';
+import { useTaskMetric, DeltaChip } from './kpi.js';
+import { taskDelta } from './dashboard.js';
 
 /** Colours mirror the trend palette so tiles read as the same system. */
 const OK_LINE = '#3987e5';
@@ -67,12 +68,8 @@ function TaskTile({
   unseen: boolean;
   onOpen: () => void;
 }) {
-  const snapshots = useQuery({
-    queryKey: ['task-snapshots', task.id],
-    queryFn: () => api.taskSnapshots(task.id),
-    refetchInterval: TASKS_POLL_MS,
-  });
-  const metric = taskMetric(snapshots.data ?? []);
+  const { metric, isLoading } = useTaskMetric(task.id);
+  const delta = taskDelta(metric);
   const alert = task.lastStatus !== 'error' && task.lastAlert;
   const errored = task.lastStatus === 'error';
   const line = alert ? ALERT_LINE : OK_LINE;
@@ -117,8 +114,11 @@ function TaskTile({
             </span>
           ) : metric.latest != null ? (
             <>
-              <div className="text-2xl font-semibold leading-none tabular-nums truncate">
-                {formatNumber(metric.latest)}
+              <div className="flex items-baseline gap-1.5 min-w-0">
+                <span className="text-2xl font-semibold leading-none tabular-nums truncate">
+                  {formatNumber(metric.latest)}
+                </span>
+                {delta && <DeltaChip delta={delta} className="text-[11px] shrink-0" />}
               </div>
               <div className="text-[10px] text-muted mt-1 truncate">{caption}</div>
             </>
@@ -126,8 +126,8 @@ function TaskTile({
             <span className="text-muted text-[13px]">en attente…</span>
           )}
         </div>
-        <div className="w-[140px] shrink-0 self-center">
-          {snapshots.isLoading ? (
+        <div className="w-24 shrink-0 self-center">
+          {isLoading ? (
             <div className="h-[34px]" />
           ) : (
             <Sparkline points={metric.points} color={line} />

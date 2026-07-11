@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskSnapshot } from '@fluentdb/shared';
-import { taskMetric } from './dashboard.js';
+import { taskMetric, taskDelta } from './dashboard.js';
 
 function snap(
   id: number,
@@ -64,5 +64,40 @@ describe('taskMetric', () => {
     ]);
     expect(m.points).toEqual([]);
     expect(m.latest).toBeNull();
+  });
+
+  it('exposes the previous value for a delta', () => {
+    const m = taskMetric([
+      snap(1, '2026-01-01T09:00:00Z', ['n'], [[100]]),
+      snap(2, '2026-01-02T09:00:00Z', ['n'], [[112]]),
+    ]);
+    expect(m.previous).toBe(100);
+    expect(m.latest).toBe(112);
+  });
+});
+
+describe('taskDelta', () => {
+  const m = (points: number[]): Parameters<typeof taskDelta>[0] => ({
+    valueCol: 'n',
+    points,
+    latest: points.at(-1) ?? null,
+    previous: points.length >= 2 ? points[points.length - 2]! : null,
+    latestRowCount: 1,
+    multiRow: false,
+  });
+
+  it('is null with fewer than two runs', () => {
+    expect(taskDelta(m([]))).toBeNull();
+    expect(taskDelta(m([5]))).toBeNull();
+  });
+
+  it('computes direction and percentage', () => {
+    expect(taskDelta(m([100, 112]))).toEqual({ dir: 'up', diff: 12, pct: 12 });
+    expect(taskDelta(m([100, 75]))).toEqual({ dir: 'down', diff: -25, pct: -25 });
+  });
+
+  it('reports a flat change and a null percentage from zero', () => {
+    expect(taskDelta(m([8, 8]))).toEqual({ dir: 'flat', diff: 0, pct: 0 });
+    expect(taskDelta(m([0, 5]))).toEqual({ dir: 'up', diff: 5, pct: null });
   });
 });

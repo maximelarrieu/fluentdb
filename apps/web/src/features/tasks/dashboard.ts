@@ -17,10 +17,29 @@ export interface TaskMetric {
   points: number[];
   /** Latest metric value, or null when there is no successful run. */
   latest: number | null;
+  /** Metric value of the run just before the latest, or null. */
+  previous: number | null;
   /** Rows in the latest successful snapshot. */
   latestRowCount: number;
   /** Whether the latest successful run returned more than one row. */
   multiRow: boolean;
+}
+
+export interface TaskDelta {
+  dir: 'up' | 'down' | 'flat';
+  /** Signed absolute change (latest − previous). */
+  diff: number;
+  /** Signed percentage change, or null when the previous value was 0. */
+  pct: number | null;
+}
+
+/** Change of the latest metric vs the previous run, or null when < 2 runs. */
+export function taskDelta(m: TaskMetric): TaskDelta | null {
+  if (m.latest == null || m.previous == null) return null;
+  const diff = m.latest - m.previous;
+  const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+  const pct = m.previous !== 0 ? (diff / m.previous) * 100 : null;
+  return { dir, diff, pct };
 }
 
 /**
@@ -57,6 +76,7 @@ export function taskMetric(snapshots: TaskSnapshot[]): TaskMetric {
     valueCol,
     points,
     latest: points.at(-1) ?? null,
+    previous: points.length >= 2 ? points[points.length - 2]! : null,
     latestRowCount: latestSnap?.rowCount ?? 0,
     multiRow: (latestSnap?.rows.length ?? 0) > 1,
   };
