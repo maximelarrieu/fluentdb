@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Save,
   Clock,
+  Bookmark,
 } from 'lucide-react';
 import type { QueryPlan, QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
@@ -23,6 +24,7 @@ import { ResultsPane } from './ResultsPane.js';
 import { ConfirmExecutionDialog } from './ConfirmExecutionDialog.js';
 import { SaveAsViewDialog } from './SaveAsViewDialog.js';
 import { ScheduleTaskDialog } from '../tasks/ScheduleTaskDialog.js';
+import { SnippetsDialog } from './SnippetsDialog.js';
 import { PlanView } from '../plan/PlanView.js';
 import { summarizePlan } from '../plan/summary.js';
 
@@ -35,6 +37,9 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const canExplain = active!.capabilities.explain;
   const canAnalyze = active!.capabilities.explainAnalyze;
   const canMatview = active!.capabilities.materializedViews;
+
+  const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+  const aiConfigured = aiStatus.data?.configured ?? false;
 
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +60,7 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
     null,
   );
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [snippetsOpen, setSnippetsOpen] = useState(false);
 
   const meta = useQuery({
     queryKey: ['autocomplete', connId, database],
@@ -170,6 +176,16 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
     );
   };
 
+  // One-click "fix": hand the failing query + its error to the assistant.
+  const fixWithAi = () => {
+    toggleAi(true);
+    window.dispatchEvent(
+      new CustomEvent('fluentdb:ai', {
+        detail: { mode: 'fix', sql: lastSql || sql, error: error ?? undefined },
+      }),
+    );
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 px-2 h-9 border-b border-border-soft bg-panel">
@@ -228,6 +244,13 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           <Button
             size="sm"
             variant="ghost"
+            onClick={() => setSnippetsOpen(true)}
+          >
+            <Bookmark size={13} /> Snippets
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => setScheduleOpen(true)}
             disabled={!sql.trim()}
           >
@@ -273,13 +296,26 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
               }}
             />
           ) : (
-            <ResultsPane result={result} error={error} onExport={exportData} />
+            <ResultsPane
+              result={result}
+              error={error}
+              onExport={exportData}
+              onFix={aiConfigured ? fixWithAi : undefined}
+            />
           )}
         </div>
       </div>
 
       {scheduleOpen && (
         <ScheduleTaskDialog sql={sql} onClose={() => setScheduleOpen(false)} />
+      )}
+
+      {snippetsOpen && (
+        <SnippetsDialog
+          currentSql={sql}
+          onLoad={(s) => setTabSql(tabId, s)}
+          onClose={() => setSnippetsOpen(false)}
+        />
       )}
 
       {saveView && meta.data && (

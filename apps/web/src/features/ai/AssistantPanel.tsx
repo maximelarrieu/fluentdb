@@ -39,6 +39,7 @@ export function AssistantPanel() {
         mode: AiMode;
         sql?: string;
         planSummary?: string;
+        error?: string;
         object?: { name: string; schema?: string; kind: string };
       };
       if (detail.mode === 'explain_object' && detail.object) {
@@ -64,6 +65,7 @@ export function AssistantPanel() {
       send(prompt, detail.mode, {
         currentSql: detail.sql,
         planSummary: detail.planSummary,
+        error: detail.error,
       });
     };
     window.addEventListener('fluentdb:ai', handler);

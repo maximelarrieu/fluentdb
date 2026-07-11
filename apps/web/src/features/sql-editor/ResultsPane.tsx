@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Download, AlertTriangle, CheckCircle2, Wrench } from 'lucide-react';
 import type { QueryResponse } from '@fluentdb/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/misc.js';
@@ -10,18 +10,30 @@ export function ResultsPane({
   result,
   error,
   onExport,
+  onFix,
 }: {
   result: QueryResponse | null;
   error: string | null;
   onExport: (format: 'csv' | 'json') => void;
+  /** Present when an AI provider is configured — offers a one-click fix. */
+  onFix?: () => void;
 }) {
   const [activeSet, setActiveSet] = useState(0);
 
   if (error) {
     return (
-      <div className="h-full flex items-start gap-2 p-4 text-red text-[13px] mono overflow-auto">
-        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-        <pre className="whitespace-pre-wrap">{error}</pre>
+      <div className="h-full flex flex-col gap-3 p-4 overflow-auto">
+        <div className="flex items-start gap-2 text-red text-[13px] mono">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <pre className="whitespace-pre-wrap">{error}</pre>
+        </div>
+        {onFix && (
+          <div>
+            <Button size="sm" variant="default" onClick={onFix}>
+              <Wrench size={13} /> Corriger avec l'IA
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
