@@ -13,6 +13,7 @@ import { ErdView } from './features/erd/ErdView.js';
 import { AssistantPanel } from './features/ai/AssistantPanel.js';
 import { CommandPalette } from './features/search/CommandPalette.js';
 import { TasksView } from './features/tasks/TasksView.js';
+import { DashboardView } from './features/tasks/DashboardView.js';
 import { TaskNotifier } from './features/tasks/TaskNotifier.js';
 
 export function App() {
@@ -83,6 +84,8 @@ function Workspace() {
             <ErdView key={activeTab.id} />
           ) : activeTab.kind === 'tasks' ? (
             <TasksView key={activeTab.id} />
+          ) : activeTab.kind === 'dashboard' ? (
+            <DashboardView key={activeTab.id} />
           ) : (
             <QueryEditor
               key={activeTab.id}

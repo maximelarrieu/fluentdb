@@ -12,6 +12,7 @@ import {
   FileCode,
   WandSparkles,
   Clock,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
@@ -35,6 +36,7 @@ export function SchemaTree() {
     openStructure,
     openErd,
     openTasks,
+    openDashboard,
     schemaVersion,
     toggleAi,
   } = useWorkspace();
@@ -153,7 +155,20 @@ export function SchemaTree() {
           size="sm"
           variant="subtle"
           className="w-full justify-center"
-          onClick={openTasks}
+          onClick={openDashboard}
+        >
+          <LayoutDashboard size={13} /> Tableau de bord
+          {unseenCount > 0 && (
+            <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] flex items-center justify-center">
+              {unseenCount}
+            </span>
+          )}
+        </Button>
+        <Button
+          size="sm"
+          variant="subtle"
+          className="w-full justify-center"
+          onClick={() => openTasks()}
         >
           <Clock size={13} /> Tâches planifiées
           {unseenCount > 0 && (

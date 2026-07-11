@@ -4,6 +4,7 @@ import {
   Columns3,
   Workflow,
   Clock,
+  LayoutDashboard,
   X,
   Plus,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ const icons: Record<Tab['kind'], React.ReactNode> = {
   structure: <Columns3 size={13} className="text-amber" />,
   erd: <Workflow size={13} className="text-purple-400" />,
   tasks: <Clock size={13} className="text-accent" />,
+  dashboard: <LayoutDashboard size={13} className="text-accent" />,
 };
 
 export function TabBar() {
