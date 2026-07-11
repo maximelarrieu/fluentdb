@@ -119,6 +119,39 @@ describe('AI chat endpoint', () => {
     });
     await closeTestApp(app);
   });
+
+  it('injects object structure and definition for explain_object', async () => {
+    // A provider that records the system prompt it was handed.
+    let captured = '';
+    const recorder = {
+      id: 'rec',
+      model: 'rec-1',
+      // eslint-disable-next-line require-yield
+      async *chatStream(opts: { system: string }) {
+        captured = opts.system;
+        return;
+      },
+    };
+    const app = await makeTestApp({ ai: recorder as never });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/chat',
+      payload: {
+        connectionId: id,
+        mode: 'explain_object',
+        messages: [{ role: 'user', content: 'explique recent_albums' }],
+        context: { object: { name: 'recent_albums', kind: 'view' } },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(captured).toContain('Object to explain:');
+    expect(captured).toContain('recent_albums');
+    // sqlite getViewDefinition returns the CREATE VIEW statement
+    expect(captured).toContain('Definition:');
+    expect(captured.toLowerCase()).toContain('create view');
+    await closeTestApp(app);
+  });
 });
 
 describe('schema digest', () => {

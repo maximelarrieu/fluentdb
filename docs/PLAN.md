@@ -80,6 +80,25 @@ FluentDB peut réellement innover, là où les concurrents desktop sont faibles.
 - Packaging desktop **Tauri**, gestion des vues/fonctions/migrations, persistance
   des onglets et connexions entre sessions.
 
+### Évolutions planifiées (détaillées)
+
+Suite priorisée après le socle ERD / vues :
+
+1. **Explication IA d'un objet** *(court terme, faible effort)* — un bouton
+   « Expliquer » sur une table / vue / vue matérialisée dans l'arbre de schéma.
+   Réutilise le flux SSE existant : nouveau mode `explain_object`, injection de
+   la structure de l'objet, de sa définition (vues/matviews) et de ses
+   dépendances de lineage dans le prompt (structure seule, jamais de données).
+2. **Recherche globale** *(court terme)* — palette ⌘/Ctrl+K qui cherche tables,
+   vues, matviews **et colonnes** sur tous les schémas, puis ouvre l'objet en un
+   clic. Endpoint `search` avec une requête catalogue unique par moteur
+   (pg_catalog / information_schema / sqlite_master), plafonné.
+3. **Comparaison de schémas (prod/staging)** *(moyen/long terme, plus lourd)* —
+   diff structurel entre deux connexions (tables/colonnes/index/FK
+   ajoutés/supprimés/modifiés) puis génération du DDL de migration, derrière
+   aperçu + confirmation (jamais auto-exécuté). À découper en jalons : diff
+   lecture seule → génération DDL → application assistée.
+
 ## 6. Qualité et vérification
 
 - Tests unitaires + API (vitest via `fastify.inject()`), fixture SQLite universelle.

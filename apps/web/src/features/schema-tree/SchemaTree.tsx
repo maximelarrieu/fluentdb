@@ -10,6 +10,7 @@ import {
   Columns3,
   Workflow,
   FileCode,
+  WandSparkles,
 } from 'lucide-react';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
@@ -32,11 +33,26 @@ export function SchemaTree() {
     openStructure,
     openErd,
     schemaVersion,
+    toggleAi,
   } = useWorkspace();
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+
+  const explainObject = (t: TableInfo) => {
+    toggleAi(true);
+    window.dispatchEvent(
+      new CustomEvent('fluentdb:ai', {
+        detail: {
+          mode: 'explain_object',
+          object: { name: t.name, schema: t.schema, kind: t.kind },
+        },
+      }),
+    );
+  };
 
   const databases = useQuery({
     queryKey: ['databases', active?.id],
@@ -146,6 +162,7 @@ export function SchemaTree() {
           kind="table"
           onOpen={(t) => openTable(t.name, t.schema)}
           onStructure={(t) => openStructure(t.name, t.schema)}
+          onExplain={aiStatus.data?.configured ? explainObject : undefined}
         />
         {viewsList.length > 0 && (
           <TreeSection
@@ -156,6 +173,7 @@ export function SchemaTree() {
             onOpen={(t) => openTable(t.name, t.schema)}
             onStructure={(t) => openStructure(t.name, t.schema)}
             onDefinition={setDefTarget}
+            onExplain={aiStatus.data?.configured ? explainObject : undefined}
           />
         )}
         {matviewsList.length > 0 && (
@@ -169,6 +187,7 @@ export function SchemaTree() {
             onDefinition={setDefTarget}
             onRefresh={active.capabilities.materializedViews ? refresh.mutate : undefined}
             refreshingName={refresh.isPending ? refresh.variables?.name : undefined}
+            onExplain={aiStatus.data?.configured ? explainObject : undefined}
           />
         )}
       </div>
@@ -219,6 +238,7 @@ function TreeSection({
   onStructure,
   onDefinition,
   onRefresh,
+  onExplain,
   refreshingName,
 }: {
   label: string;
@@ -229,6 +249,7 @@ function TreeSection({
   onStructure: (t: TableInfo) => void;
   onDefinition?: (t: TableInfo) => void;
   onRefresh?: (t: TableInfo) => void;
+  onExplain?: (t: TableInfo) => void;
   refreshingName?: string;
 }) {
   const [open, setOpen] = useState(true);
@@ -284,6 +305,18 @@ function TreeSection({
                     size={13}
                     className={refreshing ? 'animate-spin' : ''}
                   />
+                </button>
+              )}
+              {onExplain && (
+                <button
+                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-accent"
+                  title="Expliquer avec l'assistant IA"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExplain(t);
+                  }}
+                >
+                  <WandSparkles size={13} />
                 </button>
               )}
               {onDefinition && (
