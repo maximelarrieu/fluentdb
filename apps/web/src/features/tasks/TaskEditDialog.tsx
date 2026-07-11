@@ -24,6 +24,7 @@ export function TaskEditDialog({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [name, setName] = useState(task.name);
+  const [db, setDb] = useState(task.database ?? '');
   const [sql, setSql] = useState(task.sql);
   const [schedule, setSchedule] = useState(scheduleToForm(task.schedule));
 
@@ -31,6 +32,7 @@ export function TaskEditDialog({
     mutationFn: () =>
       api.updateTask(task.id, {
         name: name.trim(),
+        database: db.trim() || null,
         sql: sql.trim(),
         schedule: formToSchedule(schedule),
       }),
@@ -61,6 +63,20 @@ export function TaskEditDialog({
             onChange={(e) => setName(e.target.value)}
             placeholder="Taille des tables"
           />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-muted">
+            Base de données <span className="text-muted/60">(optionnel)</span>
+          </span>
+          <Input
+            value={db}
+            onChange={(e) => setDb(e.target.value)}
+            placeholder="par défaut de la connexion"
+          />
+          <span className="text-[11px] text-muted/70">
+            Cible la requête et regroupe la tâche par base dans l'onglet.
+          </span>
         </label>
 
         <ScheduleFields value={schedule} onChange={setSchedule} />

@@ -9,6 +9,16 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Tâches planifiées groupées par base** : l'onglet regroupe désormais les
+  tâches par **base de données** (connexion + base) avec un en-tête par groupe.
+  Les dialogues de création et d'édition gagnent un champ **« Base de données »**
+  (optionnel) qui cible la requête et détermine ce regroupement.
+- **Adapter une requête pour la tendance (IA)** : quand une requête ne renvoie
+  aucune colonne numérique traçable (ex. des tailles formatées en texte via
+  `pg_size_pretty`), l'onglet « Tendance » propose un bouton **« Adapter la
+  requête avec l'IA »** qui demande à l'assistant de réécrire la requête pour
+  renvoyer une valeur numérique (et garder une colonne de libellé pour les
+  séries).
 - **Alertes sur seuil (tâches planifiées)** : sur une tâche, on définit
   **soi-même** un seuil — une colonne numérique, un opérateur (>, ≥, <, ≤) et
   une valeur. À chaque exécution, si au moins une ligne franchit le seuil, une
