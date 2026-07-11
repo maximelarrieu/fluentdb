@@ -13,6 +13,7 @@ import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
 import { ConfirmExecutionDialog } from './ConfirmExecutionDialog.js';
 import { PlanView } from '../plan/PlanView.js';
+import { summarizePlan } from '../plan/summary.js';
 
 export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const { active, database, setTabSql, toggleAi, skipExecConfirm, setSkipExecConfirm } =
@@ -215,7 +216,21 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
         </div>
         <div className="flex-1 min-h-0">
           {bottom === 'plan' && plan && !error ? (
-            <PlanView plan={plan} />
+            <PlanView
+              plan={plan}
+              onSuggestIndex={() => {
+                toggleAi(true);
+                window.dispatchEvent(
+                  new CustomEvent('fluentdb:ai', {
+                    detail: {
+                      mode: 'index_advice',
+                      sql,
+                      planSummary: summarizePlan(plan),
+                    },
+                  }),
+                );
+              }}
+            />
           ) : (
             <ResultsPane result={result} error={error} onExport={exportData} />
           )}

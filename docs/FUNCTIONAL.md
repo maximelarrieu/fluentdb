@@ -127,6 +127,12 @@ visuel vivant de la base connectée.
   (candidats à un index). Pour un `SELECT`, « Mesurer (ANALYZE) » exécute la
   requête pour des métriques réelles (PostgreSQL) ; sinon l'estimation
   n'exécute rien. Une vue « brut » montre la sortie native d'EXPLAIN.
+  - **Suggérer un index** : si le plan révèle un parcours coûteux (typiquement
+    un parcours complet de table), un bouton envoie à l'assistant IA la requête,
+    un résumé du plan et le schéma ; l'assistant propose un ou des `CREATE INDEX`
+    en cartes prêtes à insérer/exécuter (l'exécution passe par la confirmation
+    des écritures). Il rappelle qu'un index accélère les lectures mais coûte en
+    écritures et en espace.
 
 ## 7. Assistant IA
 

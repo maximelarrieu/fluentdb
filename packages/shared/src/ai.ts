@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-export const aiModes = ['chat', 'generate_sql', 'explain', 'fix'] as const;
+export const aiModes = [
+  'chat',
+  'generate_sql',
+  'explain',
+  'fix',
+  'index_advice',
+] as const;
 export type AiMode = (typeof aiModes)[number];
 
 export const chatMessageSchema = z.object({
@@ -19,6 +25,8 @@ export const aiChatRequestSchema = z.object({
       currentSql: z.string().optional(),
       error: z.string().optional(),
       selectedTables: z.array(z.string()).optional(),
+      /** Compact digest of the execution plan, for index advice */
+      planSummary: z.string().optional(),
     })
     .optional(),
 });

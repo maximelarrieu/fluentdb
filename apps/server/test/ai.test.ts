@@ -87,6 +87,38 @@ describe('AI chat endpoint', () => {
     expect(res.statusCode).toBe(503);
     await closeTestApp(bare);
   });
+
+  it('handles index_advice mode with a plan summary', async () => {
+    const app = await makeTestApp({
+      ai: new FakeAiProvider([
+        'Un index sur year aiderait :\n',
+        '```sql\nCREATE INDEX idx_albums_year ON albums (year);\n```\n',
+        'Attention : un index accélère les lectures mais ralentit les écritures.',
+      ]),
+    });
+    const id = await createAndConnect(app);
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/chat',
+      payload: {
+        connectionId: id,
+        mode: 'index_advice',
+        messages: [{ role: 'user', content: 'propose un index' }],
+        context: {
+          currentSql: 'SELECT * FROM albums WHERE year > 2000',
+          planSummary: 'Sequential scans:\n- table albums, filter year > 2000',
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const events = parseSse(res.payload);
+    const suggestion = events.find((e) => e.type === 'sql_suggestion');
+    expect(suggestion).toEqual({
+      type: 'sql_suggestion',
+      sql: 'CREATE INDEX idx_albums_year ON albums (year);',
+    });
+    await closeTestApp(app);
+  });
 });
 
 describe('schema digest', () => {

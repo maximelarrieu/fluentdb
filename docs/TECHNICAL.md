@@ -145,7 +145,9 @@ Filtres : `op` ∈ `eq, neq, gt, gte, lt, lte, contains, starts_with, is_null, n
   Réponse **SSE** (`text/event-stream`), événements :
   `{ type: 'text', delta }`, `{ type: 'sql_suggestion', sql }`,
   `{ type: 'done' }`, `{ type: 'error', message }`.
-  `mode` ∈ `chat, generate_sql, explain, fix`.
+  `mode` ∈ `chat, generate_sql, explain, fix, index_advice`. Le mode
+  `index_advice` accepte `context.planSummary` (résumé du plan d'exécution) et
+  fait proposer des `CREATE INDEX` à partir du plan et du schéma.
 
 ## 5. Étendre FluentDB
 
