@@ -50,6 +50,15 @@ export function registerSchemaRoutes(
     return { definition };
   });
 
+  app.get('/api/connections/:id/search', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const q = z
+      .object({ q: z.string().min(1), database: z.string().optional() })
+      .parse(req.query);
+    const driver = await ctx.manager.getDriver(id, q.database);
+    return driver.searchObjects(q.q);
+  });
+
   app.get('/api/connections/:id/autocomplete', async (req) => {
     const { id } = idParams.parse(req.params);
     const { database } = scopeQuery.parse(req.query);

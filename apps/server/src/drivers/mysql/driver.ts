@@ -12,6 +12,7 @@ import type {
   RowChanges,
   RowQuery,
   SchemaInfo,
+  SearchHit,
   TableInfo,
   TableRef,
   TableStructure,
@@ -459,5 +460,39 @@ export class MysqlDriver implements Driver {
     );
     const def = (rows as Record<string, unknown>[])[0]?.def;
     return def == null ? null : String(def);
+  }
+
+  async searchObjects(query: string, limit = 50): Promise<SearchHit[]> {
+    const db = this.db();
+    const database = this.dbName();
+    const like = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const [objRows] = await db.query(
+      `SELECT TABLE_NAME AS name,
+              CASE WHEN TABLE_TYPE LIKE '%VIEW%' THEN 'view' ELSE 'table' END AS kind
+       FROM information_schema.TABLES
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME LIKE ?
+       ORDER BY TABLE_NAME LIMIT ?`,
+      [database, like, limit],
+    );
+    const [colRows] = await db.query(
+      `SELECT TABLE_NAME AS tbl, COLUMN_NAME AS name, COLUMN_TYPE AS data_type
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND COLUMN_NAME LIKE ?
+       ORDER BY COLUMN_NAME LIMIT ?`,
+      [database, like, limit],
+    );
+    const hits: SearchHit[] = [
+      ...(objRows as Record<string, unknown>[]).map((r) => ({
+        kind: String(r.kind) as SearchHit['kind'],
+        name: String(r.name),
+      })),
+      ...(colRows as Record<string, unknown>[]).map((r) => ({
+        kind: 'column' as const,
+        name: String(r.name),
+        table: String(r.tbl),
+        dataType: String(r.data_type),
+      })),
+    ];
+    return hits.slice(0, limit);
   }
 }

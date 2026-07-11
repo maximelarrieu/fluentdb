@@ -16,6 +16,7 @@ import type {
   RowChanges,
   RowQuery,
   SchemaInfo,
+  SearchHit,
   TableInfo,
   TableRef,
   TableStructure,
@@ -374,5 +375,44 @@ export class SqliteDriver implements Driver {
       )
       .get(ref.name) as { sql: string | null } | undefined;
     return row?.sql ?? null;
+  }
+
+  async searchObjects(query: string, limit = 50): Promise<SearchHit[]> {
+    const like = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const db = this.conn();
+    const objects = db
+      .prepare(
+        `SELECT name, type FROM sqlite_master
+         WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'
+           AND name LIKE ? ESCAPE '\\' ORDER BY name LIMIT ?`,
+      )
+      .all(like, limit) as { name: string; type: string }[];
+    const columns = db
+      .prepare(
+        `SELECT m.name AS tbl, m.type AS tbl_type, p.name AS name, p.type AS data_type
+         FROM sqlite_master m JOIN pragma_table_info(m.name) p
+         WHERE m.type IN ('table','view') AND m.name NOT LIKE 'sqlite_%'
+           AND p.name LIKE ? ESCAPE '\\' ORDER BY p.name LIMIT ?`,
+      )
+      .all(like, limit) as {
+      tbl: string;
+      tbl_type: string;
+      name: string;
+      data_type: string;
+    }[];
+    const hits: SearchHit[] = [
+      ...objects.map((o) => ({
+        kind: (o.type === 'view' ? 'view' : 'table') as SearchHit['kind'],
+        name: o.name,
+      })),
+      ...columns.map((c) => ({
+        kind: 'column' as const,
+        name: c.name,
+        table: c.tbl,
+        tableKind: (c.tbl_type === 'view' ? 'view' : 'table') as SearchHit['tableKind'],
+        dataType: c.data_type,
+      })),
+    ];
+    return hits.slice(0, limit);
   }
 }

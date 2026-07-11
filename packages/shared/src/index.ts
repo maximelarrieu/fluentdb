@@ -1,5 +1,6 @@
 export * from './connections.js';
 export * from './schema.js';
+export * from './search.js';
 export * from './query.js';
 export * from './mutations.js';
 export * from './ai.js';

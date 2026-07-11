@@ -13,6 +13,7 @@ import type {
   RowChanges,
   RowQuery,
   SchemaInfo,
+  SearchHit,
   TableInfo,
   TableRef,
   TableStructure,
@@ -71,6 +72,12 @@ export interface Driver {
   listTables(schema?: string): Promise<TableInfo[]>;
   getTableStructure(ref: TableRef): Promise<TableStructure>;
   getAutocompleteCatalog(): Promise<AutocompleteCatalog>;
+
+  /**
+   * Fuzzy catalog search across objects (tables/views/matviews) and column
+   * names, for the global command palette. Returns at most `limit` hits.
+   */
+  searchObjects(query: string, limit?: number): Promise<SearchHit[]>;
 
   runQuery(sql: string, opts: RunQueryOptions): Promise<QueryResultSet[]>;
   /** Returns true if a running query was found and a cancel was issued. */

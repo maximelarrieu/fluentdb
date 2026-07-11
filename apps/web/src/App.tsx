@@ -11,6 +11,7 @@ import { QueryEditor } from './features/sql-editor/QueryEditor.js';
 import { StructureView } from './features/structure/StructureView.js';
 import { ErdView } from './features/erd/ErdView.js';
 import { AssistantPanel } from './features/ai/AssistantPanel.js';
+import { CommandPalette } from './features/search/CommandPalette.js';
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
         <ConnectionSidebar />
         <Workspace />
         <AssistantPanel />
+        <CommandPalette />
       </div>
     </ToastProvider>
   );

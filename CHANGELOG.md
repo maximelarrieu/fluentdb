@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Recherche globale (palette ⌘/Ctrl+K)** : une palette de commande cherche
+  d'un coup les tables, vues, vues matérialisées **et colonnes** de la base
+  connectée (sur tous les schémas), avec navigation clavier ; la sélection ouvre
+  l'objet (ou la structure de la table pour une colonne). Endpoint `search`
+  adossé à une requête catalogue par moteur (pg_catalog / information_schema /
+  sqlite_master), plafonnée.
 - **Explication IA d'un objet** : un bouton « Expliquer » (survol) sur chaque
   table, vue et vue matérialisée de l'arbre de schéma ouvre l'assistant et
   décrit l'objet en langage naturel — ce que représente une ligne, le rôle des
