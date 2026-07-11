@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock,
@@ -7,14 +7,19 @@ import {
   AlertTriangle,
   CheckCircle2,
   Power,
+  Table as TableIcon,
+  LineChart,
 } from 'lucide-react';
 import type { ScheduledTask, TaskSchedule, TaskSnapshot } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
+import { Select } from '../../components/ui/Input.js';
 import { Spinner, EmptyState, Badge } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { DataGrid } from '../data-grid/DataGrid.js';
 import { useTaskSeen, TASKS_POLL_MS } from './notifications.js';
+import { TrendChart } from './TrendChart.js';
+import { buildTrend, numericColumns, textColumns } from './trend.js';
 
 export function scheduleLabel(s: TaskSchedule): string {
   return s.kind === 'daily'
@@ -136,6 +141,71 @@ export function TasksView() {
   );
 }
 
+function TrendView({
+  numeric,
+  texts,
+  valueCol,
+  labelCol,
+  onValue,
+  onLabel,
+  trend,
+}: {
+  numeric: string[];
+  texts: string[];
+  valueCol: string;
+  labelCol: string;
+  onValue: (c: string) => void;
+  onLabel: (c: string) => void;
+  trend: ReturnType<typeof buildTrend>;
+}) {
+  if (numeric.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted text-sm px-6 text-center">
+        Aucune colonne numérique à représenter. Une tendance nécessite une
+        requête qui renvoie au moins une valeur numérique (ex. un COUNT, une
+        taille…).
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-border-soft text-[12px]">
+        <label className="flex items-center gap-1.5">
+          <span className="text-muted">Valeur</span>
+          <Select value={valueCol} onChange={(e) => onValue(e.target.value)} className="h-7">
+            {numeric.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="flex items-center gap-1.5">
+          <span className="text-muted">Série</span>
+          <Select value={labelCol} onChange={(e) => onLabel(e.target.value)} className="h-7">
+            <option value="">(aucune — série unique)</option>
+            {texts.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </div>
+      <div className="flex-1 min-h-0 p-2">
+        {trend.hasData ? (
+          <TrendChart trend={trend} />
+        ) : (
+          <div className="h-full flex items-center justify-center text-muted text-sm px-6 text-center">
+            Pas assez d'historique pour tracer une tendance — il faut au moins
+            deux exécutions réussies. Reviens après quelques exécutions.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatusDot({ task }: { task: ScheduledTask }) {
   const color =
     task.lastStatus === 'error'
@@ -160,6 +230,10 @@ function TaskDetail({
   onDelete: () => void;
 }) {
   const [snapId, setSnapId] = useState<number | null>(null);
+  const [view, setView] = useState<'result' | 'trend'>('result');
+  const [valueSel, setValueSel] = useState('');
+  const [labelSel, setLabelSel] = useState<'AUTO' | string>('AUTO');
+
   const snapshots = useQuery({
     queryKey: ['task-snapshots', task.id],
     queryFn: () => api.taskSnapshots(task.id),
@@ -170,6 +244,17 @@ function TaskDetail({
   const current: TaskSnapshot | undefined =
     snaps.find((s) => s.id === snapId) ?? snaps[0];
 
+  const numeric = useMemo(() => numericColumns(snaps), [snaps]);
+  const texts = useMemo(() => textColumns(snaps), [snaps]);
+  const multiRow = snaps.some((s) => s.status === 'ok' && s.rows.length > 1);
+  const valueCol = valueSel || numeric[0] || '';
+  const labelCol =
+    labelSel === 'AUTO' ? (multiRow ? (texts[0] ?? '') : '') : labelSel;
+  const trend = useMemo(
+    () => buildTrend(snaps, valueCol, labelCol || null),
+    [snaps, valueCol, labelCol],
+  );
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <div className="flex items-center gap-2 px-3 h-11 border-b border-border">
@@ -177,6 +262,24 @@ function TaskDetail({
         <span className="text-[11px] text-muted truncate">
           {scheduleLabel(task.schedule)} · prochaine : {fmt(task.nextRunAt)}
         </span>
+        <div className="ml-3 flex items-center rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setView('result')}
+            className={`flex items-center gap-1 px-2 py-1 text-[12px] ${
+              view === 'result' ? 'bg-panel-2 text-text' : 'text-muted'
+            }`}
+          >
+            <TableIcon size={12} /> Résultat
+          </button>
+          <button
+            onClick={() => setView('trend')}
+            className={`flex items-center gap-1 px-2 py-1 text-[12px] border-l border-border ${
+              view === 'trend' ? 'bg-panel-2 text-text' : 'text-muted'
+            }`}
+          >
+            <LineChart size={12} /> Tendance
+          </button>
+        </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Button size="sm" variant="default" onClick={onRun} disabled={running}>
             {running ? <Spinner /> : <Play size={13} />} Exécuter
@@ -221,8 +324,18 @@ function TaskDetail({
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          {!current ? (
+        <div className="flex-1 min-w-0 flex flex-col">
+          {view === 'trend' ? (
+            <TrendView
+              numeric={numeric}
+              texts={texts}
+              valueCol={valueCol}
+              labelCol={labelCol}
+              onValue={setValueSel}
+              onLabel={setLabelSel}
+              trend={trend}
+            />
+          ) : !current ? (
             <div className="h-full flex items-center justify-center text-muted text-sm">
               Lance la tâche pour voir un résultat.
             </div>
