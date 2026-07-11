@@ -7,6 +7,18 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Corrigé
+
+- **Relations manquantes dans l'ERD (PostgreSQL)** : les clés étrangères
+  n'étaient reliées par aucune arête. L'introspection renvoyait les colonnes de
+  clé étrangère comme une chaîne (`"{col}"`, tableau PostgreSQL de type `name`
+  non parsé par le pilote) au lieu d'un tableau, si bien que l'ERD lisait `"{"`
+  comme nom de colonne et n'attachait aucun lien. Les `array_agg` sont
+  désormais castés en `text[]`.
+- **Mini-carte de l'ERD illisible** : les nœuds étaient dessinés dans une
+  couleur quasi identique au fond sombre. Ils sont maintenant colorés selon le
+  type d'objet (table, vue, vue matérialisée) et bien visibles.
+
 ### Ajouté
 
 - **Lineage dans le diagramme ERD** : les vues et vues matérialisées

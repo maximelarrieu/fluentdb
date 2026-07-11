@@ -241,8 +241,16 @@ function ErdInner() {
           <MiniMap
             pannable
             zoomable
-            nodeColor="#1a1e28"
-            maskColor="#0d0f1466"
+            nodeColor={(n) => {
+              const kind = (n.data as TableNodeData)?.table?.kind ?? 'table';
+              return kind === 'view'
+                ? '#f0b429'
+                : kind === 'matview'
+                  ? '#3fb884'
+                  : '#6d8bff';
+            }}
+            nodeStrokeColor="#0d0f14"
+            maskColor="#0d0f14aa"
             className="!bg-panel !border !border-border"
           />
         </ReactFlow>

@@ -79,6 +79,11 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(s.primaryKey).toEqual(['id']);
     expect(s.columns.find((c) => c.name === 'id')?.isAutoIncrement).toBe(true);
     expect(s.foreignKeys[0]?.referencedTable).toBe('it_bands');
+    // FK columns must be real arrays, not a raw '{band_id}' string — the ERD
+    // reads columns[0] to attach edges, so a string breaks every FK link.
+    expect(Array.isArray(s.foreignKeys[0]?.columns)).toBe(true);
+    expect(s.foreignKeys[0]?.columns).toEqual(['band_id']);
+    expect(s.foreignKeys[0]?.referencedColumns).toEqual(['id']);
     expect(s.indexes.some((i) => i.name === 'it_tracks_title_idx')).toBe(true);
   });
 
