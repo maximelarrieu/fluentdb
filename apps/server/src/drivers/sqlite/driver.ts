@@ -8,6 +8,7 @@ import type {
   DdlChange,
   DdlPreview,
   ForeignKeyInfo,
+  HealthFinding,
   IndexInfo,
   MutationResult,
   PageResult,
@@ -271,6 +272,88 @@ export class SqliteDriver implements Driver {
   async estimateRows(): Promise<number | null> {
     // SQLite's EXPLAIN QUERY PLAN gives no row-count estimate.
     return null;
+  }
+
+  async healthChecks(): Promise<HealthFinding[]> {
+    const db = this.conn();
+    const findings: HealthFinding[] = [];
+
+    // 1. Integrity check.
+    try {
+      const rows = db.pragma('integrity_check') as { integrity_check: string }[];
+      const ok = rows.length === 1 && rows[0]!.integrity_check === 'ok';
+      findings.push({
+        id: 'sqlite.integrity',
+        category: 'maintenance',
+        severity: ok ? 'ok' : 'critical',
+        title: ok ? 'Intégrité de la base : OK' : 'Corruption détectée',
+        detail: ok
+          ? 'PRAGMA integrity_check ne signale aucune anomalie.'
+          : `PRAGMA integrity_check signale : ${rows
+              .map((r) => r.integrity_check)
+              .join('; ')}`,
+      });
+    } catch {
+      // skip
+    }
+
+    // 2. Foreign-key violations.
+    try {
+      const bad = db.pragma('foreign_key_check') as {
+        table: string;
+        rowid: number;
+      }[];
+      if (bad.length > 0) {
+        const byTable = new Map<string, number>();
+        for (const r of bad) byTable.set(r.table, (byTable.get(r.table) ?? 0) + 1);
+        findings.push({
+          id: 'sqlite.fk',
+          category: 'maintenance',
+          severity: 'warn',
+          title: `${bad.length} violation(s) de clé étrangère`,
+          detail:
+            'Des lignes référencent des clés inexistantes. Corrige les données ou les contraintes.',
+          table: {
+            columns: ['table', 'violations'],
+            rows: [...byTable.entries()],
+          },
+        });
+      }
+    } catch {
+      // skip
+    }
+
+    // 3. Tables without a primary key.
+    try {
+      const tables = (
+        db
+          .prepare(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+          )
+          .all() as { name: string }[]
+      ).map((r) => r.name);
+      const noPk = tables.filter((name) => {
+        const cols = db.pragma(
+          `table_info(${this.dialect.quoteIdent(name)})`,
+        ) as { pk: number }[];
+        return !cols.some((c) => c.pk > 0);
+      });
+      if (noPk.length > 0) {
+        findings.push({
+          id: 'sqlite.no_pk',
+          category: 'schema',
+          severity: 'info',
+          title: `${noPk.length} table(s) sans clé primaire`,
+          detail:
+            'Une clé primaire est recommandée : elle rend les lignes éditables dans la grille et accélère les accès.',
+          table: { columns: ['table'], rows: noPk.map((n) => [n]) },
+        });
+      }
+    } catch {
+      // skip
+    }
+
+    return findings;
   }
 
   async explain(sql: string): Promise<QueryPlan> {

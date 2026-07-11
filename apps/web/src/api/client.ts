@@ -12,6 +12,7 @@ import type {
   DetectedDbContainer,
   DockerStatus,
   ErdSchema,
+  HealthReport,
   HistoryEntry,
   MutationResult,
   PageResult,
@@ -220,6 +221,13 @@ export const api = {
   // erd
   erd: (id: string, database?: string, schema?: string) =>
     request<ErdSchema>('GET', `/api/connections/${id}/erd${scope(database, schema)}`),
+
+  // health
+  health: (id: string, database?: string) =>
+    request<HealthReport>(
+      'GET',
+      `/api/connections/${id}/health${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
 
   // scheduled tasks
   tasks: () => request<ScheduledTask[]>('GET', '/api/tasks'),

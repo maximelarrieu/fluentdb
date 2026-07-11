@@ -6,6 +6,7 @@ import type {
   DdlChange,
   DdlPreview,
   EngineKind,
+  HealthFinding,
   MutationResult,
   PageResult,
   QueryPlan,
@@ -101,6 +102,15 @@ export interface Driver {
   /** Pure: DdlChange -> SQL statements + warnings. Never executes. */
   buildDdl(change: DdlChange): DdlPreview;
   applyDdl(statements: string[]): Promise<void>;
+
+  /**
+   * Read-only diagnostic checks over the engine's catalogs / stat views:
+   * unused indexes, missing-index candidates, maintenance debt, slow queries,
+   * tables without a primary key, connection pressure… Each finding may carry
+   * a remediation SQL for the user to review. Engine-specific; best-effort
+   * (individual checks that fail are skipped, never throwing the whole report).
+   */
+  healthChecks(): Promise<HealthFinding[]>;
 
   /**
    * The defining SQL of a view or materialized view, or null when the object

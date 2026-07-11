@@ -221,6 +221,25 @@ describe('schema, data, query, ddl, export over sqlite', () => {
     expect(s.exactRows).toBe(true);
   });
 
+  it('returns a health report (integrity ok + table without PK)', async () => {
+    const res = await t.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/health`,
+    });
+    expect(res.statusCode).toBe(200);
+    const report = res.json() as {
+      engine: string;
+      findings: { id: string; severity: string; table?: { rows: unknown[][] } }[];
+    };
+    expect(report.engine).toBe('sqlite');
+    const integrity = report.findings.find((f) => f.id === 'sqlite.integrity');
+    expect(integrity?.severity).toBe('ok');
+    // fixture has a `no_pk` table
+    const noPk = report.findings.find((f) => f.id === 'sqlite.no_pk');
+    expect(noPk).toBeTruthy();
+    expect(noPk!.table!.rows.flat()).toContain('no_pk');
+  });
+
   it('does not require confirmation for pure reads', async () => {
     const res = await t.app.inject({
       method: 'POST',

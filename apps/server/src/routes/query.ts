@@ -16,11 +16,25 @@ import type { AppContext } from '../context.js';
 
 const idParams = z.object({ id: z.string() });
 const queryIdParams = z.object({ queryId: z.string() });
+const healthQuery = z.object({ database: z.string().optional() });
 
 export function registerQueryRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): void {
+  /** Read-only diagnostic report over the engine's catalogs / stat views. */
+  app.get('/api/connections/:id/health', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database } = healthQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    const findings = await driver.healthChecks();
+    return {
+      engine: driver.engine,
+      generatedAt: new Date().toISOString(),
+      findings,
+    };
+  });
+
   app.post('/api/connections/:id/query', async (req) => {
     const { id } = idParams.parse(req.params);
     const body = queryRequestSchema.parse(req.body);
