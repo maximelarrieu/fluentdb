@@ -7,6 +7,16 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+
+- **Tendance des tâches planifiées (graphe temporel)** : dans l'onglet d'une
+  tâche, une bascule « Résultat / Tendance » trace l'évolution d'une **valeur
+  numérique dans le temps** à partir de l'historique des exécutions — une ligne
+  par catégorie quand la requête renvoie plusieurs lignes (ex. taille par
+  table). Choix de la colonne de valeur et de la colonne de série ; graphe SVG
+  léger (aucune dépendance) avec axes, légende, labels directs et survol
+  (crosshair + infobulle), pensé pour le thème sombre.
+
 ### Modifié
 
 - **Tâches planifiées — réactivité** : le nombre de tâches exécutées non
