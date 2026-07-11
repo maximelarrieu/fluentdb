@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Valeur-clé + variation (tâches planifiées)** : la dernière valeur d'une
+  tâche (somme de sa colonne numérique, ou nombre de lignes à défaut) est mise
+  en évidence avec sa **variation par rapport à l'exécution précédente**
+  (« ↗ 20 % », « — stable ») — dans la liste, en tête du détail et sur les
+  tuiles du tableau de bord. L'indicateur est **neutre** (une flèche donne le
+  sens, sans jugement « bon / mauvais »).
 - **Tableau de bord (mur de tuiles)** : un onglet « Tableau de bord » agrège
   toutes les tâches planifiées en tuiles — dernière valeur en évidence,
   **sparkline** de tendance, état d'alerte (bordure/ligne ambre + résumé) ou
