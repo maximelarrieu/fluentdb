@@ -55,6 +55,7 @@ export class SqliteDriver implements Driver {
     estimateRows: false,
     explain: true,
     explainAnalyze: false,
+    materializedViews: false,
   };
 
   private db: Database.Database | null = null;
@@ -364,5 +365,14 @@ export class SqliteDriver implements Driver {
     } catch (err) {
       throw new DriverError((err as Error).message);
     }
+  }
+
+  async getViewDefinition(ref: TableRef): Promise<string | null> {
+    const row = this.conn()
+      .prepare(
+        `SELECT sql FROM sqlite_master WHERE type = 'view' AND name = ?`,
+      )
+      .get(ref.name) as { sql: string | null } | undefined;
+    return row?.sql ?? null;
   }
 }

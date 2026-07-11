@@ -55,6 +55,7 @@ export class MysqlDriver implements Driver {
     estimateRows: true,
     explain: true,
     explainAnalyze: false,
+    materializedViews: false,
   };
 
   private pool: mysql.Pool | null = null;
@@ -448,5 +449,15 @@ export class MysqlDriver implements Driver {
     } finally {
       conn.release();
     }
+  }
+
+  async getViewDefinition(ref: TableRef): Promise<string | null> {
+    const [rows] = await this.db().query(
+      `SELECT VIEW_DEFINITION AS def FROM information_schema.VIEWS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+      [this.dbName(), ref.name],
+    );
+    const def = (rows as Record<string, unknown>[])[0]?.def;
+    return def == null ? null : String(def);
   }
 }

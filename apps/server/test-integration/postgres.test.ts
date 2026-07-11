@@ -145,6 +145,60 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(catalog.it_tracks).toContain('title');
   });
 
+  it('lists, introspects, refreshes and defines materialized views', async () => {
+    await driver.runQuery(
+      `DROP MATERIALIZED VIEW IF EXISTS it_band_track_counts;
+       CREATE MATERIALIZED VIEW it_band_track_counts AS
+         SELECT b.id AS band_id, b.name, count(t.id) AS tracks
+         FROM it_bands b LEFT JOIN it_tracks t ON t.band_id = b.id
+         GROUP BY b.id, b.name;
+       CREATE UNIQUE INDEX it_band_track_counts_pk ON it_band_track_counts(band_id);`,
+      { queryId: 'mv-setup', maxRows: 10 },
+    );
+
+    // Listed with kind 'matview' and a populated flag.
+    const tables = await driver.listTables();
+    const mv = tables.find((t) => t.name === 'it_band_track_counts');
+    expect(mv?.kind).toBe('matview');
+    expect(mv?.isPopulated).toBe(true);
+
+    // Columns resolve via pg_catalog (matviews are absent from info_schema).
+    const structure = await driver.getTableStructure({
+      name: 'it_band_track_counts',
+    });
+    expect(structure.columns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['band_id', 'name', 'tracks']),
+    );
+
+    // Data browsing works over a matview.
+    const page = await driver.selectRows(
+      { name: 'it_band_track_counts' },
+      { page: 0, pageSize: 10, sorts: [], filters: [] },
+    );
+    expect(page.total).toBeGreaterThan(0);
+
+    // Autocomplete includes matview columns.
+    const catalog = await driver.getAutocompleteCatalog();
+    expect(catalog.it_band_track_counts).toContain('tracks');
+
+    // Definition is the view SQL.
+    const def = await driver.getViewDefinition({
+      name: 'it_band_track_counts',
+    });
+    expect(def).toMatch(/select/i);
+
+    // Refresh runs CONCURRENTLY because it is populated and has a unique index.
+    const refreshed = await driver.refreshMaterializedView({
+      name: 'it_band_track_counts',
+    });
+    expect(refreshed.concurrent).toBe(true);
+
+    await driver.runQuery(
+      'DROP MATERIALIZED VIEW IF EXISTS it_band_track_counts',
+      { queryId: 'mv-teardown', maxRows: 1 },
+    );
+  });
+
   it('estimates affected rows without executing (dry-run EXPLAIN)', async () => {
     // Collect statistics so the planner has a realistic row estimate.
     await driver.runQuery('ANALYZE it_bands', { queryId: 'analyze', maxRows: 1 });

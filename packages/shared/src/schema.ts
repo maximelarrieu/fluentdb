@@ -8,7 +8,7 @@ export interface SchemaInfo {
   isDefault?: boolean;
 }
 
-export type TableKind = 'table' | 'view';
+export type TableKind = 'table' | 'view' | 'matview';
 
 export interface TableInfo {
   name: string;
@@ -16,6 +16,8 @@ export interface TableInfo {
   kind: TableKind;
   rowEstimate?: number | null;
   comment?: string | null;
+  /** Materialized views only: whether the view currently holds data. */
+  isPopulated?: boolean | null;
 }
 
 export interface ColumnInfo {

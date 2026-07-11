@@ -42,6 +42,8 @@ export interface DriverCapabilities {
   explain: boolean;
   /** Whether EXPLAIN ANALYZE (real metrics) is supported */
   explainAnalyze: boolean;
+  /** Whether materialized views exist (refresh, populated state) */
+  materializedViews: boolean;
 }
 
 export interface RunQueryOptions {
@@ -92,6 +94,20 @@ export interface Driver {
   /** Pure: DdlChange -> SQL statements + warnings. Never executes. */
   buildDdl(change: DdlChange): DdlPreview;
   applyDdl(statements: string[]): Promise<void>;
+
+  /**
+   * The defining SQL of a view or materialized view, or null when the object
+   * has no definition (a plain table) or the engine cannot provide one.
+   */
+  getViewDefinition?(ref: TableRef): Promise<string | null>;
+
+  /**
+   * Rebuild a materialized view's stored data (`REFRESH MATERIALIZED VIEW`).
+   * Uses CONCURRENTLY when the view is populated and has a unique index, so
+   * reads are not blocked; `concurrent` in the result says which path ran.
+   * Only defined by engines whose capabilities.materializedViews is true.
+   */
+  refreshMaterializedView?(ref: TableRef): Promise<{ concurrent: boolean }>;
 }
 
 export type DriverFactory = (config: ConnectionConfig, database?: string) => Driver;

@@ -35,4 +35,34 @@ export function registerDdlRoutes(app: FastifyInstance, ctx: AppContext): void {
     await driver.applyDdl(body.statements);
     return { ok: true };
   });
+
+  // Refresh rebuilds a materialized view's stored data — a write, so it is
+  // blocked on read-only connections just like DDL.
+  app.post('/api/connections/:id/matview/refresh', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const body = z
+      .object({
+        database: z.string().optional(),
+        schema: z.string().optional(),
+        name: z.string().min(1),
+      })
+      .parse(req.body);
+    const config = ctx.manager.getConfig(id);
+    if (config?.isReadOnly) {
+      throw Object.assign(new Error('Connection is marked read-only'), {
+        statusCode: 403,
+      });
+    }
+    const driver = await ctx.manager.getDriver(id, body.database);
+    if (!driver.refreshMaterializedView) {
+      throw Object.assign(
+        new Error('Materialized views are not supported by this engine'),
+        { statusCode: 400 },
+      );
+    }
+    return driver.refreshMaterializedView({
+      name: body.name,
+      schema: body.schema,
+    });
+  });
 }

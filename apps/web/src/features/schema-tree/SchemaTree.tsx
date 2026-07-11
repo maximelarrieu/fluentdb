@@ -1,19 +1,23 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Table2,
   Eye,
+  Layers,
   ChevronDown,
   Search,
   RefreshCw,
   Columns3,
   Workflow,
+  FileCode,
 } from 'lucide-react';
-import type { TableInfo } from '@fluentdb/shared';
-import { api } from '../../api/client.js';
+import type { TableInfo, TableKind } from '@fluentdb/shared';
+import { api, ApiError } from '../../api/client.js';
 import { Input, Select } from '../../components/ui/Input.js';
 import { Button } from '../../components/ui/Button.js';
+import { Dialog } from '../../components/ui/Dialog.js';
 import { Spinner, Badge } from '../../components/ui/misc.js';
+import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { formatNumber } from '../../lib/format.js';
 
@@ -30,6 +34,9 @@ export function SchemaTree() {
     schemaVersion,
   } = useWorkspace();
   const [filter, setFilter] = useState('');
+  const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
+  const toast = useToast();
+  const queryClient = useQueryClient();
 
   const databases = useQuery({
     queryKey: ['databases', active?.id],
@@ -49,6 +56,22 @@ export function SchemaTree() {
     enabled: !!active,
   });
 
+  const refresh = useMutation({
+    mutationFn: (t: TableInfo) =>
+      api.refreshMatview(active!.id, t.name, database, t.schema),
+    onSuccess: (res) => {
+      toast.push(
+        'success',
+        res.concurrent
+          ? 'Vue matérialisée rafraîchie (sans verrou)'
+          : 'Vue matérialisée rafraîchie',
+      );
+      queryClient.invalidateQueries({ queryKey: ['tables', active!.id] });
+    },
+    onError: (err) =>
+      toast.push('error', err instanceof ApiError ? err.message : String(err)),
+  });
+
   if (!active) return null;
 
   const filtered = (tables.data ?? []).filter((t) =>
@@ -56,6 +79,7 @@ export function SchemaTree() {
   );
   const tablesList = filtered.filter((t) => t.kind === 'table');
   const viewsList = filtered.filter((t) => t.kind === 'view');
+  const matviewsList = filtered.filter((t) => t.kind === 'matview');
 
   return (
     <div className="w-60 shrink-0 flex flex-col border-r border-border bg-panel h-full">
@@ -119,6 +143,7 @@ export function SchemaTree() {
           label="Tables"
           count={tablesList.length}
           items={tablesList}
+          kind="table"
           onOpen={(t) => openTable(t.name, t.schema)}
           onStructure={(t) => openStructure(t.name, t.schema)}
         />
@@ -127,9 +152,23 @@ export function SchemaTree() {
             label="Vues"
             count={viewsList.length}
             items={viewsList}
-            isView
+            kind="view"
             onOpen={(t) => openTable(t.name, t.schema)}
             onStructure={(t) => openStructure(t.name, t.schema)}
+            onDefinition={setDefTarget}
+          />
+        )}
+        {matviewsList.length > 0 && (
+          <TreeSection
+            label="Vues matérialisées"
+            count={matviewsList.length}
+            items={matviewsList}
+            kind="matview"
+            onOpen={(t) => openTable(t.name, t.schema)}
+            onStructure={(t) => openStructure(t.name, t.schema)}
+            onDefinition={setDefTarget}
+            onRefresh={active.capabilities.materializedViews ? refresh.mutate : undefined}
+            refreshingName={refresh.isPending ? refresh.variables?.name : undefined}
           />
         )}
       </div>
@@ -147,26 +186,53 @@ export function SchemaTree() {
           <RefreshCw size={13} />
         </Button>
       </div>
+
+      {defTarget && (
+        <DefinitionDialog
+          connId={active.id}
+          database={database}
+          table={defTarget}
+          onClose={() => setDefTarget(null)}
+        />
+      )}
     </div>
   );
 }
+
+const KIND_ICON: Record<TableKind, typeof Table2> = {
+  table: Table2,
+  view: Eye,
+  matview: Layers,
+};
+const KIND_COLOR: Record<TableKind, string> = {
+  table: 'text-accent',
+  view: 'text-amber',
+  matview: 'text-green',
+};
 
 function TreeSection({
   label,
   count,
   items,
-  isView,
+  kind,
   onOpen,
   onStructure,
+  onDefinition,
+  onRefresh,
+  refreshingName,
 }: {
   label: string;
   count: number;
   items: TableInfo[];
-  isView?: boolean;
+  kind: TableKind;
   onOpen: (t: TableInfo) => void;
   onStructure: (t: TableInfo) => void;
+  onDefinition?: (t: TableInfo) => void;
+  onRefresh?: (t: TableInfo) => void;
+  refreshingName?: string;
 }) {
   const [open, setOpen] = useState(true);
+  const Icon = KIND_ICON[kind];
   return (
     <div className="mb-1">
       <button
@@ -181,35 +247,108 @@ function TreeSection({
         <Badge>{count}</Badge>
       </button>
       {open &&
-        items.map((t) => (
-          <div
-            key={`${t.schema ?? ''}.${t.name}`}
-            className="group flex items-center gap-2 pl-6 pr-2 py-1 hover:bg-panel-2 cursor-pointer"
-            onClick={() => onOpen(t)}
-          >
-            {isView ? (
-              <Eye size={13} className="text-amber shrink-0" />
-            ) : (
-              <Table2 size={13} className="text-accent shrink-0" />
-            )}
-            <span className="text-[13px] truncate flex-1">{t.name}</span>
-            {t.rowEstimate != null && (
-              <span className="text-[10px] text-muted/60 opacity-0 group-hover:opacity-100">
-                {formatNumber(t.rowEstimate)}
-              </span>
-            )}
-            <button
-              className="opacity-0 group-hover:opacity-100 text-muted hover:text-text"
-              title="Structure"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStructure(t);
-              }}
+        items.map((t) => {
+          const refreshing = refreshingName === t.name;
+          return (
+            <div
+              key={`${t.schema ?? ''}.${t.name}`}
+              className="group flex items-center gap-2 pl-6 pr-2 py-1 hover:bg-panel-2 cursor-pointer"
+              onClick={() => onOpen(t)}
             >
-              <Columns3 size={13} />
-            </button>
-          </div>
-        ))}
+              <Icon size={13} className={`${KIND_COLOR[kind]} shrink-0`} />
+              <span className="text-[13px] truncate flex-1">{t.name}</span>
+              {kind === 'matview' && t.isPopulated === false && (
+                <span
+                  className="text-[9px] uppercase tracking-wide text-amber shrink-0"
+                  title="Non peuplée — rafraîchis pour charger les données"
+                >
+                  vide
+                </span>
+              )}
+              {t.rowEstimate != null && (
+                <span className="text-[10px] text-muted/60 opacity-0 group-hover:opacity-100">
+                  {formatNumber(t.rowEstimate)}
+                </span>
+              )}
+              {onRefresh && (
+                <button
+                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-text disabled:opacity-100"
+                  title="Rafraîchir (REFRESH MATERIALIZED VIEW)"
+                  disabled={refreshing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRefresh(t);
+                  }}
+                >
+                  <RefreshCw
+                    size={13}
+                    className={refreshing ? 'animate-spin' : ''}
+                  />
+                </button>
+              )}
+              {onDefinition && (
+                <button
+                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-text"
+                  title="Voir la définition"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDefinition(t);
+                  }}
+                >
+                  <FileCode size={13} />
+                </button>
+              )}
+              <button
+                className="opacity-0 group-hover:opacity-100 text-muted hover:text-text"
+                title="Structure"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStructure(t);
+                }}
+              >
+                <Columns3 size={13} />
+              </button>
+            </div>
+          );
+        })}
     </div>
+  );
+}
+
+function DefinitionDialog({
+  connId,
+  database,
+  table,
+  onClose,
+}: {
+  connId: string;
+  database?: string;
+  table: TableInfo;
+  onClose: () => void;
+}) {
+  const def = useQuery({
+    queryKey: ['definition', connId, database, table.schema, table.name],
+    queryFn: () => api.viewDefinition(connId, table.name, database, table.schema),
+  });
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={table.name}
+      description={
+        table.kind === 'matview' ? 'Vue matérialisée' : 'Vue'
+      }
+      className="w-[680px]"
+    >
+      {def.isLoading && <Spinner />}
+      {def.isError && (
+        <p className="text-xs text-red">{(def.error as Error).message}</p>
+      )}
+      {def.data && (
+        <pre className="text-[12px] mono whitespace-pre-wrap bg-panel-2 rounded-lg p-3 overflow-auto max-h-[60vh]">
+          {def.data.definition ?? '— définition indisponible —'}
+        </pre>
+      )}
+    </Dialog>
   );
 }

@@ -110,6 +110,27 @@ export const api = {
       'GET',
       `/api/connections/${id}/tables/${encodeURIComponent(table)}/structure${scope(database, schema)}`,
     ),
+  viewDefinition: (
+    id: string,
+    table: string,
+    database?: string,
+    schema?: string,
+  ) =>
+    request<{ definition: string | null }>(
+      'GET',
+      `/api/connections/${id}/tables/${encodeURIComponent(table)}/definition${scope(database, schema)}`,
+    ),
+  refreshMatview: (
+    id: string,
+    name: string,
+    database?: string,
+    schema?: string,
+  ) =>
+    request<{ concurrent: boolean }>(
+      'POST',
+      `/api/connections/${id}/matview/refresh`,
+      { name, database, schema },
+    ),
   autocomplete: (id: string, database?: string) =>
     request<{
       catalog: AutocompleteCatalog;
