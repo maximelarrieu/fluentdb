@@ -57,6 +57,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Espace de travail persistant** : les onglets ouverts (tables, requêtes SQL
+  et leur contenu, structure, ERD, tableau de bord, tâches) et la connexion
+  active sont conservés entre les sessions (stockage local). Au redémarrage, la
+  connexion est **rétablie automatiquement** et l'espace de travail restauré ;
+  si elle n'est plus joignable (supprimée, base injoignable), l'espace repart
+  propre. Les réglages de session (confirmation d'écriture « ne plus me
+  demander », panneaux ouverts) restent volontairement non persistés.
 - **Écritures « safe » — compte exact des lignes touchées** : avant d'exécuter
   un `UPDATE`/`DELETE`, la fenêtre de confirmation affiche désormais le **nombre
   exact** de lignes concernées, obtenu par un `SELECT count(*)` en lecture seule
