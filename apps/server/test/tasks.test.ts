@@ -69,6 +69,73 @@ describe('scheduled tasks over sqlite', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('raises an alert when a run breaches the user-defined threshold', async () => {
+    const res = await create({
+      name: 'ids > 1',
+      connectionId: connId,
+      sql: 'SELECT id AS v FROM artists', // ids 1,2,3 in the fixture
+      schedule: { kind: 'interval', everyMinutes: 60 },
+      alert: { column: 'v', op: 'gt', threshold: 1 },
+    });
+    const task = res.json() as ScheduledTask;
+    expect(task.alert).toEqual({ column: 'v', op: 'gt', threshold: 1 });
+
+    const run = await t.app.inject({
+      method: 'POST',
+      url: `/api/tasks/${task.id}/run`,
+    });
+    const snap = run.json() as TaskSnapshot;
+    expect(snap.status).toBe('ok');
+    expect(snap.alert).toMatch(/ligne\(s\) > 1/); // ids 2 and 3 breach
+
+    const stored = (
+      (await t.app.inject({ method: 'GET', url: '/api/tasks' })).json() as ScheduledTask[]
+    ).find((x) => x.id === task.id)!;
+    expect(stored.lastAlert).toBe(snap.alert);
+  });
+
+  it('does not alert when the threshold is not breached', async () => {
+    const res = await create({
+      name: 'ids > 100',
+      connectionId: connId,
+      sql: 'SELECT id AS v FROM artists',
+      schedule: { kind: 'interval', everyMinutes: 60 },
+      alert: { column: 'v', op: 'gt', threshold: 100 },
+    });
+    const task = res.json() as ScheduledTask;
+    const run = await t.app.inject({
+      method: 'POST',
+      url: `/api/tasks/${task.id}/run`,
+    });
+    expect((run.json() as TaskSnapshot).alert).toBeNull();
+  });
+
+  it('can set and clear an alert via update', async () => {
+    const task = (
+      await create({
+        name: 'edit alert',
+        connectionId: connId,
+        sql: 'SELECT id AS v FROM artists',
+        schedule: { kind: 'interval', everyMinutes: 60 },
+      })
+    ).json() as ScheduledTask;
+    expect(task.alert).toBeNull();
+
+    const set = await t.app.inject({
+      method: 'PUT',
+      url: `/api/tasks/${task.id}`,
+      payload: { alert: { column: 'v', op: 'lte', threshold: 0 } },
+    });
+    expect((set.json() as ScheduledTask).alert?.op).toBe('lte');
+
+    const cleared = await t.app.inject({
+      method: 'PUT',
+      url: `/api/tasks/${task.id}`,
+      payload: { alert: null },
+    });
+    expect((cleared.json() as ScheduledTask).alert).toBeNull();
+  });
+
   it('daily schedule does not run before its time', async () => {
     // A daily task created now schedules its first run at the next 09:00,
     // never immediately.

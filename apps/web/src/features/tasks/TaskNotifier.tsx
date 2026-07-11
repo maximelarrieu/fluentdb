@@ -33,12 +33,16 @@ export function TaskNotifier() {
     for (const t of tasks.data) {
       const prev = lastSeen.current[t.id] ?? 0;
       if (t.lastSnapshotId != null && t.lastSnapshotId > prev) {
-        toast.push(
-          t.lastStatus === 'error' ? 'error' : 'success',
-          t.lastStatus === 'error'
-            ? `Tâche « ${t.name} » : échec`
-            : `Nouveau résultat : « ${t.name} » (${t.lastRowCount ?? 0} ligne(s))`,
-        );
+        if (t.lastStatus === 'error') {
+          toast.push('error', `Tâche « ${t.name} » : échec`);
+        } else if (t.lastAlert) {
+          toast.push('error', `⚠️ Alerte « ${t.name} » : ${t.lastAlert}`);
+        } else {
+          toast.push(
+            'success',
+            `Nouveau résultat : « ${t.name} » (${t.lastRowCount ?? 0} ligne(s))`,
+          );
+        }
       }
     }
     lastSeen.current = current;

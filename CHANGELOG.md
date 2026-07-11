@@ -9,6 +9,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Alertes sur seuil (tâches planifiées)** : sur une tâche, on définit
+  **soi-même** un seuil — une colonne numérique, un opérateur (>, ≥, <, ≤) et
+  une valeur. À chaque exécution, si au moins une ligne franchit le seuil, une
+  **notification in-app** le signale, la tâche et les exécutions concernées sont
+  marquées en ambre, et le graphe de tendance affiche une **ligne de seuil**.
+  Le seuil est éditable à tout moment et n'affecte jamais l'exécution
+  (lecture seule).
 - **Tendance des tâches planifiées (graphe temporel)** : dans l'onglet d'une
   tâche, une bascule « Résultat / Tendance » trace l'évolution d'une **valeur
   numérique dans le temps** à partir de l'historique des exécutions — une ligne

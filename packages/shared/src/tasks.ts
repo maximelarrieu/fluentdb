@@ -14,6 +14,26 @@ export const taskScheduleSchema = z.discriminatedUnion('kind', [
 ]);
 export type TaskSchedule = z.infer<typeof taskScheduleSchema>;
 
+export const alertOps = ['gt', 'gte', 'lt', 'lte'] as const;
+export type AlertOp = (typeof alertOps)[number];
+export const alertOpSymbol: Record<AlertOp, string> = {
+  gt: '>',
+  gte: '≥',
+  lt: '<',
+  lte: '≤',
+};
+
+/**
+ * User-defined threshold on a numeric column of the task's result. A run
+ * "breaches" when any row satisfies `value <op> threshold`.
+ */
+export const taskAlertSchema = z.object({
+  column: z.string().min(1),
+  op: z.enum(alertOps),
+  threshold: z.number(),
+});
+export type TaskAlert = z.infer<typeof taskAlertSchema>;
+
 export const scheduledTaskInputSchema = z.object({
   name: z.string().min(1).max(120),
   connectionId: z.string().min(1),
@@ -21,6 +41,7 @@ export const scheduledTaskInputSchema = z.object({
   sql: z.string().min(1),
   schedule: taskScheduleSchema,
   enabled: z.boolean().default(true),
+  alert: taskAlertSchema.nullable().optional(),
 });
 export type ScheduledTaskInput = z.infer<typeof scheduledTaskInputSchema>;
 
@@ -42,6 +63,9 @@ export interface ScheduledTask {
   lastRowCount: number | null;
   lastError: string | null;
   lastSnapshotId: number | null;
+  alert: TaskAlert | null;
+  /** Breach summary of the latest run, or null when it didn't breach. */
+  lastAlert: string | null;
 }
 
 export interface TaskSnapshot {
@@ -55,4 +79,6 @@ export interface TaskSnapshot {
   rows: CellValue[][];
   truncated: boolean;
   error: string | null;
+  /** Threshold breach summary for this run, or null. */
+  alert: string | null;
 }

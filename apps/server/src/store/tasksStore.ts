@@ -19,6 +19,7 @@ interface SnapshotInput {
   rows: TaskSnapshot['rows'];
   truncated: boolean;
   error: string | null;
+  alert: string | null;
 }
 
 /**
@@ -47,7 +48,9 @@ export class TasksStore {
         last_status TEXT,
         last_row_count INTEGER,
         last_error TEXT,
-        last_snapshot_id INTEGER
+        last_snapshot_id INTEGER,
+        alert_json TEXT,
+        last_alert TEXT
       );
       CREATE TABLE IF NOT EXISTS task_snapshots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,10 +62,24 @@ export class TasksStore {
         columns_json TEXT NOT NULL,
         rows_json TEXT NOT NULL,
         truncated INTEGER NOT NULL DEFAULT 0,
-        error TEXT
+        error TEXT,
+        alert TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_snapshots_task ON task_snapshots(task_id, id DESC);
     `);
+    // Idempotent migrations for databases created before the alert columns.
+    this.addColumn('scheduled_tasks', 'alert_json', 'TEXT');
+    this.addColumn('scheduled_tasks', 'last_alert', 'TEXT');
+    this.addColumn('task_snapshots', 'alert', 'TEXT');
+  }
+
+  private addColumn(table: string, column: string, type: string): void {
+    const cols = this.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
   }
 
   private rowToTask(r: Record<string, unknown>): ScheduledTask {
@@ -86,6 +103,11 @@ export class TasksStore {
       lastError: r.last_error == null ? null : String(r.last_error),
       lastSnapshotId:
         r.last_snapshot_id == null ? null : Number(r.last_snapshot_id),
+      alert:
+        r.alert_json == null
+          ? null
+          : (JSON.parse(String(r.alert_json)) as ScheduledTask['alert']),
+      lastAlert: r.last_alert == null ? null : String(r.last_alert),
     };
   }
 
@@ -98,8 +120,8 @@ export class TasksStore {
     this.db
       .prepare(
         `INSERT INTO scheduled_tasks
-         (id, name, connection_id, connection_name, database, sql, schedule_json, enabled, next_run_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, name, connection_id, connection_name, database, sql, schedule_json, enabled, next_run_at, alert_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -111,6 +133,7 @@ export class TasksStore {
         JSON.stringify(input.schedule),
         input.enabled ? 1 : 0,
         nextRunAt,
+        input.alert ? JSON.stringify(input.alert) : null,
       );
     return this.get(id)!;
   }
@@ -125,7 +148,7 @@ export class TasksStore {
     this.db
       .prepare(
         `UPDATE scheduled_tasks
-         SET name = ?, database = ?, sql = ?, schedule_json = ?, enabled = ?, next_run_at = ?
+         SET name = ?, database = ?, sql = ?, schedule_json = ?, enabled = ?, next_run_at = ?, alert_json = ?
          WHERE id = ?`,
       )
       .run(
@@ -135,6 +158,9 @@ export class TasksStore {
         JSON.stringify(patch.schedule ?? cur.schedule),
         (patch.enabled ?? cur.enabled) ? 1 : 0,
         nextRunAt === undefined ? cur.nextRunAt : nextRunAt,
+        (patch.alert === undefined ? cur.alert : patch.alert)
+          ? JSON.stringify(patch.alert === undefined ? cur.alert : patch.alert)
+          : null,
         id,
       );
     return this.get(id);
@@ -170,8 +196,8 @@ export class TasksStore {
     const info = this.db
       .prepare(
         `INSERT INTO task_snapshots
-         (task_id, status, duration_ms, row_count, columns_json, rows_json, truncated, error)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (task_id, status, duration_ms, row_count, columns_json, rows_json, truncated, error, alert)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         taskId,
@@ -182,16 +208,17 @@ export class TasksStore {
         JSON.stringify(snap.rows),
         snap.truncated ? 1 : 0,
         snap.error,
+        snap.alert,
       );
     const snapshotId = Number(info.lastInsertRowid);
     this.db
       .prepare(
         `UPDATE scheduled_tasks
          SET last_run_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-             last_status = ?, last_row_count = ?, last_error = ?, last_snapshot_id = ?
+             last_status = ?, last_row_count = ?, last_error = ?, last_snapshot_id = ?, last_alert = ?
          WHERE id = ?`,
       )
-      .run(snap.status, snap.rowCount, snap.error, snapshotId, taskId);
+      .run(snap.status, snap.rowCount, snap.error, snapshotId, snap.alert, taskId);
     // Trim old snapshots for this task.
     this.db
       .prepare(
@@ -214,6 +241,7 @@ export class TasksStore {
       rows: JSON.parse(String(r.rows_json)),
       truncated: Number(r.truncated) === 1,
       error: r.error == null ? null : String(r.error),
+      alert: r.alert == null ? null : String(r.alert),
     };
   }
 

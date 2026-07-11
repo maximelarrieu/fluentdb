@@ -30,7 +30,15 @@ const fmtTime = (ms: number) =>
  * theme-aware (dark surface), with a legend (identity never by color alone),
  * direct end-labels for few series, and a hover crosshair + tooltip.
  */
-export function TrendChart({ trend, unit }: { trend: Trend; unit?: string }) {
+export function TrendChart({
+  trend,
+  unit,
+  threshold,
+}: {
+  trend: Trend;
+  unit?: string;
+  threshold?: number;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [size, setSize] = useState({ W: 800, H: 320 });
@@ -52,8 +60,9 @@ export function TrendChart({ trend, unit }: { trend: Trend; unit?: string }) {
     const xs = [...new Set(pts.map((p) => p.x))].sort((a, b) => a - b);
     const xMin = xs[0] ?? 0;
     const xMax = xs.at(-1) ?? 1;
-    const yMaxRaw = Math.max(...pts.map((p) => p.y), 0);
-    const yMinRaw = Math.min(...pts.map((p) => p.y), 0);
+    const extra = threshold != null ? [threshold] : [];
+    const yMaxRaw = Math.max(...pts.map((p) => p.y), 0, ...extra);
+    const yMinRaw = Math.min(...pts.map((p) => p.y), 0, ...extra);
     const yTicks = niceTicks(yMinRaw, yMaxRaw || 1, 4);
     const yMax = Math.max(yMaxRaw, yTicks.at(-1) ?? 1);
     const yMin = Math.min(yMinRaw, yTicks[0] ?? 0);
@@ -66,7 +75,7 @@ export function TrendChart({ trend, unit }: { trend: Trend; unit?: string }) {
         ? (M.t + (H - M.b)) / 2
         : H - M.b - ((y - yMin) / (yMax - yMin)) * (H - M.t - M.b);
     return { xs, xMin, xMax, yMin, yMax, yTicks, sx, sy };
-  }, [trend, W, H]);
+  }, [trend, W, H, threshold]);
 
   const singleSeries = trend.series.length === 1;
 
@@ -151,6 +160,28 @@ export function TrendChart({ trend, unit }: { trend: Trend; unit?: string }) {
                 {fmtTime(x)}
               </text>
             ))}
+          {/* alert threshold line */}
+          {threshold != null && (
+            <g>
+              <line
+                x1={M.l}
+                x2={W - M.r}
+                y1={model.sy(threshold)}
+                y2={model.sy(threshold)}
+                stroke="#f0b429"
+                strokeWidth={1.5}
+                strokeDasharray="6 4"
+              />
+              <text
+                x={M.l + 4}
+                y={model.sy(threshold) - 4}
+                fontSize={10}
+                fill="#f0b429"
+              >
+                seuil {formatNumber(threshold)}
+              </text>
+            </g>
+          )}
           {/* hover crosshair */}
           {hoverX != null && (
             <line

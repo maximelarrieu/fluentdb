@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { scheduledTaskInputSchema, taskScheduleSchema } from '@fluentdb/shared';
+import {
+  scheduledTaskInputSchema,
+  taskAlertSchema,
+  taskScheduleSchema,
+} from '@fluentdb/shared';
 import { analyzeScript } from '../sql/analyze.js';
 import type { AppContext } from '../context.js';
 
@@ -44,6 +48,7 @@ export function registerTaskRoutes(app: FastifyInstance, ctx: AppContext): void 
         sql: z.string().min(1).optional(),
         schedule: taskScheduleSchema.optional(),
         enabled: z.boolean().optional(),
+        alert: taskAlertSchema.nullable().optional(),
       })
       .parse(req.body);
     const cur = ctx.tasks.get(id);
