@@ -9,6 +9,7 @@ import {
   Gauge,
   ChevronDown,
   Save,
+  Clock,
 } from 'lucide-react';
 import type { QueryPlan, QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
@@ -21,6 +22,7 @@ import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
 import { ConfirmExecutionDialog } from './ConfirmExecutionDialog.js';
 import { SaveAsViewDialog } from './SaveAsViewDialog.js';
+import { ScheduleTaskDialog } from '../tasks/ScheduleTaskDialog.js';
 import { PlanView } from '../plan/PlanView.js';
 import { summarizePlan } from '../plan/summary.js';
 
@@ -52,6 +54,7 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const [saveView, setSaveView] = useState<{ materialized: boolean } | null>(
     null,
   );
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const meta = useQuery({
     queryKey: ['autocomplete', connId, database],
@@ -222,6 +225,14 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
               <Save size={13} /> Enregistrer en vue
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setScheduleOpen(true)}
+            disabled={!sql.trim()}
+          >
+            <Clock size={13} /> Planifier
+          </Button>
           <Button size="sm" variant="ghost" onClick={explain} disabled={!sql.trim()}>
             <WandSparkles size={13} /> Expliquer
           </Button>
@@ -266,6 +277,10 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           )}
         </div>
       </div>
+
+      {scheduleOpen && (
+        <ScheduleTaskDialog sql={sql} onClose={() => setScheduleOpen(false)} />
+      )}
 
       {saveView && meta.data && (
         <SaveAsViewDialog

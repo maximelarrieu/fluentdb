@@ -7,7 +7,7 @@ import { loadDotEnv } from './env.js';
 const envFile = loadDotEnv();
 
 const config = loadConfig();
-const { app } = buildApp({ dataDir: config.dataDir, logger: true });
+const { app, ctx } = buildApp({ dataDir: config.dataDir, logger: true });
 
 // In production the server serves the built web UI (same origin, no CORS).
 if (config.webDistDir) {
@@ -30,6 +30,8 @@ try {
   if (envFile) {
     app.log.info(`Loaded environment from ${envFile}`);
   }
+  // Start firing scheduled tasks (only in the real server, never in tests).
+  ctx.scheduler.start();
   if (!config.webDistDir) {
     app.log.info(
       'Web UI not built — run `npm run dev:web` and open http://localhost:5173',

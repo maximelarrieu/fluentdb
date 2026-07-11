@@ -7,6 +7,8 @@ import { ConnectionsStore } from './store/connectionsStore.js';
 import { HistoryStore } from './store/historyStore.js';
 import { ConnectionManager } from './services/connectionManager.js';
 import { QueryRunner } from './services/queryRunner.js';
+import { TasksStore } from './store/tasksStore.js';
+import { Scheduler } from './services/scheduler.js';
 import { DockerClient } from './docker/dockerClient.js';
 import { geminiFromEnv } from './ai/providers/gemini.js';
 import type { AiProvider } from './ai/types.js';
@@ -20,6 +22,7 @@ import { registerExportRoutes } from './routes/export.js';
 import { registerDockerRoutes } from './routes/docker.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerErdRoutes } from './routes/erd.js';
+import { registerTaskRoutes } from './routes/tasks.js';
 
 export interface BuildAppOptions {
   dataDir: string;
@@ -41,15 +44,29 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   const history = new HistoryStore(opts.dataDir);
   const manager = new ConnectionManager(store);
   const runner = new QueryRunner(history);
+  const tasks = new TasksStore(opts.dataDir);
   const docker = opts.dockerClient ?? new DockerClient();
   const ai = opts.aiProvider !== undefined ? opts.aiProvider : geminiFromEnv();
-
-  const ctx: AppContext = { store, history, manager, runner, docker, ai };
 
   const app = Fastify({
     logger: opts.logger ?? false,
     bodyLimit: 10 * 1024 * 1024,
   });
+
+  const scheduler = new Scheduler(tasks, manager, (m) =>
+    app.log.warn(`[scheduler] ${m}`),
+  );
+
+  const ctx: AppContext = {
+    store,
+    history,
+    tasks,
+    manager,
+    runner,
+    scheduler,
+    docker,
+    ai,
+  };
 
   registerHostGuard(app);
 
@@ -81,10 +98,13 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   registerDockerRoutes(app, ctx);
   registerAiRoutes(app, ctx);
   registerErdRoutes(app, ctx);
+  registerTaskRoutes(app, ctx);
 
   app.addHook('onClose', async () => {
+    scheduler.stop();
     await manager.disconnectAll();
     history.close();
+    tasks.close();
   });
 
   return { app, ctx };

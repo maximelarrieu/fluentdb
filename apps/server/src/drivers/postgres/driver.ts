@@ -42,7 +42,12 @@ const DEFAULT_SCHEMA = 'public';
 // structure…). Reuse node-pg's own text[] parser (OID 1009) so any name[]
 // always arrives as an array — a process-wide guard against that whole class
 // of bug, in addition to the explicit ::text casts in the queries below.
-pg.types.setTypeParser(1003, pg.types.getTypeParser(1009));
+// (@types/pg only types the OID enum, so retype the numeric OIDs loosely.)
+const pgTypes = pg.types as unknown as {
+  getTypeParser: (oid: number) => (value: string) => unknown;
+  setTypeParser: (oid: number, parser: (value: string) => unknown) => void;
+};
+pgTypes.setTypeParser(1003, pgTypes.getTypeParser(1009));
 
 interface PgPlanNode {
   'Node Type'?: string;

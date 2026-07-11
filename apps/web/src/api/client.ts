@@ -20,9 +20,12 @@ import type {
   RowChanges,
   RowQuery,
   SchemaInfo,
+  ScheduledTask,
+  ScheduledTaskInput,
   SearchHit,
   TableInfo,
   TableStructure,
+  TaskSnapshot,
 } from '@fluentdb/shared';
 
 export class ApiError extends Error {
@@ -215,6 +218,19 @@ export const api = {
   // erd
   erd: (id: string, database?: string, schema?: string) =>
     request<ErdSchema>('GET', `/api/connections/${id}/erd${scope(database, schema)}`),
+
+  // scheduled tasks
+  tasks: () => request<ScheduledTask[]>('GET', '/api/tasks'),
+  createTask: (input: ScheduledTaskInput) =>
+    request<ScheduledTask>('POST', '/api/tasks', input),
+  updateTask: (id: string, patch: Partial<ScheduledTaskInput>) =>
+    request<ScheduledTask>('PUT', `/api/tasks/${id}`, patch),
+  deleteTask: (id: string) =>
+    request<{ ok: true }>('DELETE', `/api/tasks/${id}`),
+  runTask: (id: string) =>
+    request<TaskSnapshot>('POST', `/api/tasks/${id}/run`),
+  taskSnapshots: (id: string) =>
+    request<TaskSnapshot[]>('GET', `/api/tasks/${id}/snapshots`),
 
   // docker
   dockerStatus: () => request<DockerStatus>('GET', '/api/docker/status'),
