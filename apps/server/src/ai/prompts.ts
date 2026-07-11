@@ -17,6 +17,8 @@ const MODE_INSTRUCTIONS: Record<AiMode, string> = {
   explain:
     'Task: explain what the given SQL does, step by step, referencing the schema. Point out potential performance issues (missing index, full scan) if relevant.',
   fix: 'Task: the given SQL failed with the given error. Diagnose the problem and reply with a corrected version in a ```sql block, plus one sentence on what was wrong.',
+  index_advice:
+    "Task: you are an index advisor. Given the query, its execution-plan summary and the schema, propose the index(es) that would speed it up. Reply with each CREATE INDEX in its own ```sql block, using the exact dialect. Briefly justify each one (which scan/filter/join it targets). Only suggest indexes that match columns present in the schema. Always warn in one sentence that an index speeds up reads but slows down writes and uses disk space, so it should be weighed. If no index would help, say so plainly.",
 };
 
 export function buildSystemPrompt(
@@ -40,6 +42,9 @@ export function buildSystemPrompt(
   }
   if (req.context?.error) {
     parts.push(`Last execution error:\n${req.context.error}`);
+  }
+  if (req.context?.planSummary) {
+    parts.push(`Execution plan summary:\n${req.context.planSummary}`);
   }
   return parts.join('\n\n');
 }

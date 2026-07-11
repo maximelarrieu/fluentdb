@@ -11,6 +11,7 @@ import type {
   IndexInfo,
   MutationResult,
   PageResult,
+  QueryPlan,
   QueryResultSet,
   RowChanges,
   RowQuery,
@@ -35,6 +36,7 @@ import {
 } from '../sqlBuilder.js';
 import { sqliteDialect } from './dialect.js';
 import { buildSqliteDdl } from './ddl.js';
+import { normalizeSqlitePlan, type SqlitePlanRow } from './explain.js';
 
 /** better-sqlite3 cannot bind booleans — coerce to 0/1. */
 function bindable(params: CellValue[]): (string | number | null)[] {
@@ -51,6 +53,8 @@ export class SqliteDriver implements Driver {
     transactionalDdl: true,
     alterColumn: false,
     estimateRows: false,
+    explain: true,
+    explainAnalyze: false,
   };
 
   private db: Database.Database | null = null;
@@ -265,6 +269,22 @@ export class SqliteDriver implements Driver {
   async estimateRows(): Promise<number | null> {
     // SQLite's EXPLAIN QUERY PLAN gives no row-count estimate.
     return null;
+  }
+
+  async explain(sql: string): Promise<QueryPlan> {
+    let rows: SqlitePlanRow[];
+    try {
+      rows = this.conn()
+        .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+        .all() as SqlitePlanRow[];
+    } catch (err) {
+      throw new DriverError((err as Error).message);
+    }
+    return {
+      engine: 'sqlite',
+      analyzed: false,
+      root: normalizeSqlitePlan(rows),
+    };
   }
 
   private exec(built: BuiltQuery): { rows: unknown[][]; columns: string[] } {

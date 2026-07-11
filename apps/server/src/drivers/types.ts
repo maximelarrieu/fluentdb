@@ -8,6 +8,7 @@ import type {
   EngineKind,
   MutationResult,
   PageResult,
+  QueryPlan,
   QueryResultSet,
   RowChanges,
   RowQuery,
@@ -37,6 +38,10 @@ export interface DriverCapabilities {
   alterColumn: boolean;
   /** Whether estimateRows() can return a meaningful estimate */
   estimateRows: boolean;
+  /** Whether explain() returns a query plan tree */
+  explain: boolean;
+  /** Whether EXPLAIN ANALYZE (real metrics) is supported */
+  explainAnalyze: boolean;
 }
 
 export interface RunQueryOptions {
@@ -74,6 +79,12 @@ export interface Driver {
    * that does NOT execute it. Returns null when unsupported or on failure.
    */
   estimateRows(sql: string): Promise<number | null>;
+
+  /**
+   * Return a normalized execution-plan tree. `analyze: true` asks for real
+   * metrics (runs the query) — callers must only pass it for read statements.
+   */
+  explain(sql: string, opts: { analyze: boolean }): Promise<QueryPlan>;
 
   selectRows(ref: TableRef, q: RowQuery): Promise<PageResult>;
   mutateRows(ref: TableRef, changes: RowChanges): Promise<MutationResult>;

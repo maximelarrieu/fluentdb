@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Play, Square, Sparkles, WandSparkles } from 'lucide-react';
-import type { QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
+import * as Dropdown from '@radix-ui/react-dropdown-menu';
+import { Play, Square, Sparkles, WandSparkles, Gauge, ChevronDown } from 'lucide-react';
+import type { QueryPlan, QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
@@ -11,6 +12,8 @@ import { nanoid } from '../../lib/nanoid.js';
 import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
 import { ConfirmExecutionDialog } from './ConfirmExecutionDialog.js';
+import { PlanView } from '../plan/PlanView.js';
+import { summarizePlan } from '../plan/summary.js';
 
 export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const { active, database, setTabSql, toggleAi, skipExecConfirm, setSkipExecConfirm } =
@@ -18,10 +21,15 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const toast = useToast();
   const connId = active!.id;
   const canCancel = active!.capabilities.cancelQuery;
+  const canExplain = active!.capabilities.explain;
+  const canAnalyze = active!.capabilities.explainAnalyze;
 
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSql, setLastSql] = useState('');
+  // bottom pane shows either query results or the execution plan
+  const [bottom, setBottom] = useState<'results' | 'plan'>('results');
+  const [plan, setPlan] = useState<QueryPlan | null>(null);
   // id of the query currently in flight, so the Cancel button can target it
   const runningQueryId = useRef<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -46,14 +54,30 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
     onSuccess: (r) => {
       setResult(r);
       setError(null);
+      setBottom('results');
     },
     onError: (e: ApiError) => {
       setError(e.detail ? `${e.message}\n${e.detail}` : e.message);
       setResult(null);
+      setBottom('results');
     },
     onSettled: () => {
       runningQueryId.current = null;
       setCancelling(false);
+    },
+  });
+
+  const explainPlan = useMutation({
+    mutationFn: (opts: { analyze: boolean }) =>
+      api.explain(connId, sql, { database, analyze: opts.analyze }),
+    onSuccess: (p) => {
+      setPlan(p);
+      setError(null);
+      setBottom('plan');
+    },
+    onError: (e: ApiError) => {
+      setError(e.detail ? `${e.message}\n${e.detail}` : e.message);
+      setBottom('results');
     },
   });
 
@@ -155,6 +179,15 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
             <Square size={12} /> {cancelling ? 'Annulation…' : 'Annuler'}
           </Button>
         )}
+        {canExplain && (
+          <AnalyzeButton
+            disabled={!sql.trim() || explainPlan.isPending}
+            pending={explainPlan.isPending}
+            canAnalyze={canAnalyze}
+            onExplain={() => explainPlan.mutate({ analyze: false })}
+            onAnalyze={() => explainPlan.mutate({ analyze: true })}
+          />
+        )}
         <span className="text-[11px] text-muted ml-1">
           ⌘/Ctrl+↵ tout · ⇧⌘/Ctrl+↵ sélection
         </span>
@@ -182,7 +215,25 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           )}
         </div>
         <div className="flex-1 min-h-0">
-          <ResultsPane result={result} error={error} onExport={exportData} />
+          {bottom === 'plan' && plan && !error ? (
+            <PlanView
+              plan={plan}
+              onSuggestIndex={() => {
+                toggleAi(true);
+                window.dispatchEvent(
+                  new CustomEvent('fluentdb:ai', {
+                    detail: {
+                      mode: 'index_advice',
+                      sql,
+                      planSummary: summarizePlan(plan),
+                    },
+                  }),
+                );
+              }}
+            />
+          ) : (
+            <ResultsPane result={result} error={error} onExport={exportData} />
+          )}
         </div>
       </div>
 
@@ -197,6 +248,75 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
             run.mutate(q);
           }}
         />
+      )}
+    </div>
+  );
+}
+
+/** "Analyser" split button: EXPLAIN estimate, with an optional ANALYZE item. */
+function AnalyzeButton({
+  disabled,
+  pending,
+  canAnalyze,
+  onExplain,
+  onAnalyze,
+}: {
+  disabled: boolean;
+  pending: boolean;
+  canAnalyze: boolean;
+  onExplain: () => void;
+  onAnalyze: () => void;
+}) {
+  return (
+    <div className="flex items-center">
+      <Button
+        size="sm"
+        variant="default"
+        onClick={onExplain}
+        disabled={disabled}
+        className={canAnalyze ? 'rounded-r-none' : undefined}
+      >
+        {pending ? <Spinner /> : <Gauge size={13} />} Analyser
+      </Button>
+      {canAnalyze && (
+        <Dropdown.Root>
+          <Dropdown.Trigger asChild>
+            <Button
+              size="sm"
+              variant="default"
+              disabled={disabled}
+              className="rounded-l-none border-l border-border px-1.5"
+            >
+              <ChevronDown size={13} />
+            </Button>
+          </Dropdown.Trigger>
+          <Dropdown.Portal>
+            <Dropdown.Content
+              align="start"
+              sideOffset={4}
+              className="z-50 min-w-[220px] rounded-lg border border-border bg-panel-2 p-1 shadow-xl"
+            >
+              <Dropdown.Item
+                onSelect={onExplain}
+                className="flex flex-col rounded px-2 py-1.5 text-[13px] cursor-pointer outline-none data-[highlighted]:bg-panel"
+              >
+                Estimer (EXPLAIN)
+                <span className="text-[11px] text-muted">
+                  Plan estimé, sans exécuter la requête
+                </span>
+              </Dropdown.Item>
+              <Dropdown.Item
+                onSelect={onAnalyze}
+                className="flex flex-col rounded px-2 py-1.5 text-[13px] cursor-pointer outline-none data-[highlighted]:bg-panel"
+              >
+                Mesurer (ANALYZE)
+                <span className="text-[11px] text-muted">
+                  Exécute la requête pour des métriques réelles
+                </span>
+              </Dropdown.Item>
+            </Dropdown.Content>
+          </Dropdown.Portal>
+        </Dropdown.Root>
       )}
     </div>
   );

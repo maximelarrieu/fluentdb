@@ -45,6 +45,8 @@ export class ConnectionManager {
       transactionalDdl: driver.capabilities.transactionalDdl,
       alterColumn: driver.capabilities.alterColumn,
       estimateRows: driver.capabilities.estimateRows,
+      explain: driver.capabilities.explain,
+      explainAnalyze: driver.capabilities.explainAnalyze,
       serverVersion: version,
     };
   }

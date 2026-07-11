@@ -32,15 +32,24 @@ export function AssistantPanel() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, streaming]);
 
-  // "Explain" / "Fix" entry points dispatched from the editor
+  // "Explain" / "Fix" / "Index advice" entry points dispatched from the editor
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { mode: AiMode; sql: string };
+      const detail = (e as CustomEvent).detail as {
+        mode: AiMode;
+        sql: string;
+        planSummary?: string;
+      };
       const prompt =
         detail.mode === 'explain'
           ? 'Explique cette requête SQL.'
-          : 'Corrige cette requête SQL.';
-      send(prompt, detail.mode, { currentSql: detail.sql });
+          : detail.mode === 'index_advice'
+            ? 'Propose un ou des index pour accélérer cette requête.'
+            : 'Corrige cette requête SQL.';
+      send(prompt, detail.mode, {
+        currentSql: detail.sql,
+        planSummary: detail.planSummary,
+      });
     };
     window.addEventListener('fluentdb:ai', handler);
     return () => window.removeEventListener('fluentdb:ai', handler);
@@ -50,7 +59,7 @@ export function AssistantPanel() {
   const send = async (
     text: string,
     mode: AiMode = 'chat',
-    context?: { currentSql?: string; error?: string },
+    context?: { currentSql?: string; error?: string; planSummary?: string },
   ) => {
     if (!text.trim() || streaming) return;
     const userMsg: Msg = { role: 'user', content: text };

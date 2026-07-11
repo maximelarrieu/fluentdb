@@ -215,6 +215,26 @@ describe('schema, data, query, ddl, export over sqlite', () => {
     expect(res.json().requiresConfirmation).toBe(false);
   });
 
+  it('returns a query plan via /query/explain', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/connections/${id}/query/explain`,
+      payload: { sql: 'SELECT * FROM albums WHERE year > 2000' },
+    });
+    expect(res.statusCode).toBe(200);
+    const plan = res.json();
+    expect(plan.engine).toBe('sqlite');
+    expect(plan.analyzed).toBe(false);
+    // the plan mentions the albums table somewhere in the tree
+    const labels: string[] = [];
+    const walk = (n: { label: string; children: unknown[] }) => {
+      labels.push(n.label);
+      (n.children as { label: string; children: unknown[] }[]).forEach(walk);
+    };
+    walk(plan.root);
+    expect(labels.join(' ')).toMatch(/albums/i);
+  });
+
   it('returns cancelled:false for an unknown query id', async () => {
     const res = await t.app.inject({
       method: 'POST',

@@ -104,6 +104,10 @@ Filtres : `op` ∈ `eq, neq, gt, gte, lt, lte, contains, starts_with, is_null, n
 - `POST /api/queries/:queryId/cancel` → `{ cancelled }`. Annule la requête en
   vol (PostgreSQL, MySQL) ; `cancelled:false` si l'id est inconnu ou le moteur
   ne le supporte pas (SQLite).
+- `POST /api/connections/:id/query/explain` — `{ sql, database?, analyze? }` →
+  `QueryPlan` (arbre normalisé : `kind`, lignes estimées/réelles, part de coût,
+  warnings). `analyze:true` n'est honoré que pour un statement de lecture et si
+  le moteur le supporte (PostgreSQL) — un `EXPLAIN` simple n'exécute jamais.
 - `POST /api/connections/:id/query/plan` — `{ sql, database? }` →
   `{ statements: [{ sql, kind, operation, warnings[], estimatedRows|null }], requiresConfirmation }`.
   Analyse sans exécuter : classifie chaque instruction (`read`/`write`/`ddl`/`other`),
@@ -141,7 +145,9 @@ Filtres : `op` ∈ `eq, neq, gt, gte, lt, lte, contains, starts_with, is_null, n
   Réponse **SSE** (`text/event-stream`), événements :
   `{ type: 'text', delta }`, `{ type: 'sql_suggestion', sql }`,
   `{ type: 'done' }`, `{ type: 'error', message }`.
-  `mode` ∈ `chat, generate_sql, explain, fix`.
+  `mode` ∈ `chat, generate_sql, explain, fix, index_advice`. Le mode
+  `index_advice` accepte `context.planSummary` (résumé du plan d'exécution) et
+  fait proposer des `CREATE INDEX` à partir du plan et du schéma.
 
 ## 5. Étendre FluentDB
 

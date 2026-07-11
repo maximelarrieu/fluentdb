@@ -9,6 +9,20 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Suggestions d'index par l'IA** : depuis le plan d'exécution, un bouton
+  « Suggérer un index » envoie à l'assistant la requête, un résumé du plan (les
+  parcours coûteux) et le schéma (structure seule) ; Gemini propose un ou des
+  `CREATE INDEX` concrets, rendus en cartes « Insérer & exécuter ». L'exécution
+  de l'index (DDL) passe par le dialogue de confirmation. L'assistant rappelle
+  qu'un index accélère les lectures mais coûte en écritures et en espace.
+- **Plan d'exécution visualisé (EXPLAIN)** : un bouton « Analyser » dans l'éditeur
+  SQL affiche le plan d'exécution de la requête sous forme d'**arbre visuel**
+  (parcours de table/index, jointures, tris…), avec le nombre de lignes estimé
+  par étape, la part de coût, et les **étapes coûteuses en rouge**. Les
+  parcours séquentiels sur colonnes non indexées sont signalés. Pour les
+  requêtes de lecture, option « Mesurer (ANALYZE) » pour des métriques réelles
+  (PostgreSQL) ; un `EXPLAIN` simple n'exécute jamais la requête. Vue « brut »
+  disponible.
 - **Diagrammes ERD** : un onglet « Diagramme ERD » affiche un schéma visuel
   vivant de la base connectée (tables, colonnes, clés primaires et étrangères,
   relations), auto-agencé. Fonctions : recherche de table, ré-agencement,
