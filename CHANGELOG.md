@@ -9,6 +9,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Données de test générées par l'IA (mock data)** : depuis une table, un
+  bouton « Données de test » demande à l'assistant de générer N lignes
+  réalistes à partir de la **structure** (types respectés, valeurs plausibles
+  selon le nom des colonnes, valeurs de clés étrangères choisies parmi les clés
+  existantes, colonnes auto-incrémentées exclues). Les lignes sont **prévisualisées
+  et relues** avant d'être insérées (insertion paramétrée via le chemin de
+  mutation habituel). Endpoint `POST /api/ai/mock`.
 - **Créer une surveillance en langage naturel (IA)** : depuis l'onglet
   « Tableau de bord » ou « Tâches planifiées », décrire une surveillance en
   français (« la taille de chaque table du schéma public chaque jour à 9h,

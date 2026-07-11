@@ -3,10 +3,16 @@ import {
   aiChatRequestSchema,
   monitorRequestSchema,
   monitorProposalSchema,
+  mockGenerateRequestSchema,
   type AiChatRequest,
   type AiStreamEvent,
+  type MockRowsPreview,
 } from '@fluentdb/shared';
-import { buildSystemPrompt, buildMonitorPrompt } from '../ai/prompts.js';
+import {
+  buildSystemPrompt,
+  buildMonitorPrompt,
+  buildMockPrompt,
+} from '../ai/prompts.js';
 import { buildSchemaDigest } from '../ai/schemaContext.js';
 import { extractSqlBlocks, extractJson, collectStream } from '../ai/types.js';
 import { analyzeScript } from '../sql/analyze.js';
@@ -134,6 +140,105 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       });
     }
     return parsed.data;
+  });
+
+  app.post('/api/ai/mock', async (req, reply) => {
+    const body = mockGenerateRequestSchema.parse(req.body);
+    if (!ctx.ai) {
+      return reply.code(503).send({
+        error:
+          'No AI provider configured — set GEMINI_API_KEY and restart the server',
+      });
+    }
+    const driver = await ctx.manager.getDriver(body.connectionId, body.database);
+    const structure = await driver.getTableStructure({
+      name: body.table,
+      schema: body.schema,
+    });
+
+    // Columns the DB fills itself (auto-increment keys) are excluded.
+    const fillable = structure.columns.filter((c) => !c.isAutoIncrement);
+    if (fillable.length === 0) {
+      return reply
+        .code(422)
+        .send({ error: 'Aucune colonne à générer pour cette table.' });
+    }
+    const fkByColumn = new Map<string, { table: string; column: string }>();
+    for (const fk of structure.foreignKeys) {
+      fk.columns.forEach((col, i) => {
+        const refCol = fk.referencedColumns[i] ?? fk.referencedColumns[0]!;
+        fkByColumn.set(col, { table: fk.referencedTable, column: refCol });
+      });
+    }
+
+    const q = driver.dialect.quoteIdent;
+    const columnLines = await Promise.all(
+      fillable.map(async (c) => {
+        let line = `- ${c.name} (${c.dataType})${c.nullable ? '' : ' NOT NULL'}`;
+        const fk = fkByColumn.get(c.name);
+        if (fk) {
+          let allowed: string[] = [];
+          try {
+            const sets = await driver.runQuery(
+              `SELECT DISTINCT ${q(fk.column)} AS v FROM ${q(fk.table)} LIMIT 20`,
+              { queryId: `mock-fk-${body.connectionId}-${c.name}`, maxRows: 20 },
+            );
+            allowed = (sets.find((s) => s.rows.length > 0)?.rows ?? [])
+              .map((r) => r[0])
+              .filter((v) => v != null)
+              .map((v) => String(v));
+          } catch {
+            // best-effort — leave allowed empty (model will use null)
+          }
+          line += ` FK -> ${fk.table}(${fk.column}); allowed: ${
+            allowed.length ? allowed.join(', ') : '(none — use null)'
+          }`;
+        }
+        return line;
+      }),
+    );
+
+    const dialectInfo = `${driver.dialect.name} (${await driver.serverVersion()})`;
+    const text = await collectStream(
+      ctx.ai.chatStream({
+        system: buildMockPrompt(body.table, columnLines, body.count, dialectInfo),
+        messages: [{ role: 'user', content: `Génère ${body.count} lignes.` }],
+      }),
+    );
+
+    const parsed = extractJson(text);
+    if (!Array.isArray(parsed)) {
+      return reply.code(422).send({
+        error: "L'assistant n'a pas pu générer de données exploitables.",
+      });
+    }
+
+    // Whitelist to fillable columns only; keep primitive cell values.
+    const allowedCols = new Set(fillable.map((c) => c.name));
+    const rows: MockRowsPreview['rows'] = [];
+    for (const raw of parsed.slice(0, body.count)) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const row: MockRowsPreview['rows'][number] = {};
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (!allowedCols.has(k)) continue;
+        if (
+          v === null ||
+          typeof v === 'string' ||
+          typeof v === 'number' ||
+          typeof v === 'boolean'
+        ) {
+          row[k] = v;
+        } else {
+          row[k] = JSON.stringify(v);
+        }
+      }
+      rows.push(row);
+    }
+    const preview: MockRowsPreview = {
+      columns: fillable.map((c) => c.name),
+      rows,
+    };
+    return preview;
   });
 
   app.post('/api/ai/chat', async (req, reply) => {

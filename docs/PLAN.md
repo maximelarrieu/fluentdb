@@ -127,6 +127,30 @@ en récupérant deux points de sûreté/confort déjà repérés. Une PR par ite
    espace de travail (onglets ouverts, connexion active) au redémarrage.
    Confort attendu dès l'usage quotidien.
 
+### Série suivante (inspirée des retours marché)
+
+Issue d'une revue des frictions des clients concurrents (DBeaver lent sur gros
+volumes, TablePlus/Beekeeper pauvres en fonctions DBA, export/import laborieux)
+et des tendances IA (chat conscient du schéma, MCP). Ordre d'exécution acté :
+
+1. **Générateur de données de test (mock data) assisté par IA** — remplir une
+   table de lignes réalistes générées à partir de sa structure. L'IA propose un
+   jeu cohérent (types respectés, valeurs plausibles, valeurs de FK choisies
+   parmi les clés existantes) ; **aperçu** obligatoire avant insertion, insérée
+   via des requêtes paramétrées.
+2. **Bilan de santé (DBA doctor)** — un écran qui lit les catalogues/vues
+   statistiques du moteur pour lister index inutilisés, tables très
+   « seq-scannées » (index manquants), maintenance à faire (dead tuples →
+   VACUUM), requêtes lentes (`pg_stat_statements`), tables sans clé primaire et
+   pression sur les connexions. Chaque constat porte une gravité et, quand
+   c'est pertinent, un SQL de remédiation à relire. Comble le trou n°1 des
+   clients grand public et prolonge EXPLAIN + conseils d'index déjà en place.
+3. **Serveur MCP** — exposer FluentDB comme serveur MCP pour que d'autres agents
+   interrogent la base via sa couche sûre (lecture seule, garde-fous).
+   *À cadrer avant de lancer (coût/complexité) — possible de passer.*
+4. **Quick wins** — favoris / snippets de requêtes nommés ; bouton
+   « Corriger avec l'IA » directement sur les erreurs d'exécution.
+
 ## 6. Qualité et vérification
 
 - Tests unitaires + API (vitest via `fastify.inject()`), fixture SQLite universelle.

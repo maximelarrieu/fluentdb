@@ -60,6 +60,32 @@ Rules for this task:
   return parts.join('\n\n');
 }
 
+/**
+ * System prompt for generating realistic mock rows for one table. The model
+ * must answer with a JSON array of row objects (column → value), nothing else.
+ */
+export function buildMockPrompt(
+  table: string,
+  columnLines: string[],
+  count: number,
+  dialectInfo: string | null,
+): string {
+  const parts = [
+    BASE,
+    `Task: generate ${count} rows of REALISTIC but FAKE test data for the table "${table}". Answer with a SINGLE JSON array of exactly ${count} objects and nothing else (no prose, no markdown fences needed). Each object maps a column name to a value.
+Rules:
+- Use ONLY the columns listed below. Do NOT include any other column (auto-increment keys are assigned by the database).
+- Respect each column's type and the semantics implied by its name (e.g. an "email" column → plausible emails, "created_at"/date → ISO 8601 strings, "price"/"amount" → numbers, booleans → true/false).
+- Non-nullable columns MUST always have a value; nullable ones may be null occasionally.
+- For a foreign-key column, choose values ONLY from its "allowed" set; if that set is empty, use null.
+- Vary values across rows — no copy-paste. Keep strings reasonably short and safe (no real personal data).
+Columns:
+${columnLines.join('\n')}`,
+  ];
+  if (dialectInfo) parts.push(`SQL dialect: ${dialectInfo}`);
+  return parts.join('\n\n');
+}
+
 export function buildSystemPrompt(
   req: AiChatRequest,
   schemaDigest: string | null,

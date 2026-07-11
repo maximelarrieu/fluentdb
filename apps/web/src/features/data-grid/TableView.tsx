@@ -8,6 +8,7 @@ import {
   Trash2,
   Undo2,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import type {
   CellValue,
@@ -23,6 +24,7 @@ import { useWorkspace } from '../../stores/workspace.js';
 import { formatNumber } from '../../lib/format.js';
 import { DataGrid } from './DataGrid.js';
 import { FilterBar } from './FilterBar.js';
+import { MockDataDialog } from './MockDataDialog.js';
 
 const PAGE_SIZE = 100;
 const editKey = (rowIndex: number, column: string) => `${rowIndex}::${column}`;
@@ -38,6 +40,8 @@ export function TableView({ table, schema }: { table: string; schema?: string })
   const [edits, setEdits] = useState<Map<string, CellValue>>(new Map());
   const [newRows, setNewRows] = useState<Record<string, CellValue>[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [mockOpen, setMockOpen] = useState(false);
+  const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
 
   const connId = active!.id;
 
@@ -175,6 +179,18 @@ export function TableView({ table, schema }: { table: string; schema?: string })
 
   return (
     <div className="h-full flex flex-col">
+      {mockOpen && (
+        <MockDataDialog
+          connectionId={connId}
+          database={database}
+          schema={schema}
+          table={table}
+          onClose={() => setMockOpen(false)}
+          onInserted={() =>
+            qc.invalidateQueries({ queryKey: ['rows', connId] })
+          }
+        />
+      )}
       <FilterBar
         columns={columns}
         filters={filters}
@@ -249,6 +265,15 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               <Button size="sm" variant="ghost" onClick={addRow}>
                 <Plus size={13} /> Ligne
               </Button>
+              {aiStatus.data?.configured && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setMockOpen(true)}
+                >
+                  <Sparkles size={13} /> Données de test
+                </Button>
+              )}
               {selected.size > 0 && (
                 <span className="text-muted flex items-center gap-1">
                   <Trash2 size={12} /> {selected.size} sélectionnée(s)

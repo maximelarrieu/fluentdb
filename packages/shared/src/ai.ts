@@ -77,3 +77,24 @@ export const monitorProposalSchema = z.object({
   notes: z.string().default(''),
 });
 export type MonitorProposal = z.infer<typeof monitorProposalSchema>;
+
+/** Ask the assistant to generate realistic mock rows for a table. */
+export const mockGenerateRequestSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().optional(),
+  schema: z.string().optional(),
+  table: z.string().min(1),
+  count: z.number().int().min(1).max(100),
+});
+export type MockGenerateRequest = z.infer<typeof mockGenerateRequestSchema>;
+
+const mockCellSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+/**
+ * A preview of generated rows the user reviews before inserting. `columns` are
+ * the target columns (auto-increment PKs excluded); each row maps column → value.
+ */
+export interface MockRowsPreview {
+  columns: string[];
+  rows: Record<string, z.infer<typeof mockCellSchema>>[];
+}
