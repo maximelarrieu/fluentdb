@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  DbRole,
   LockWait,
   DdlChange,
   DdlPreview,
@@ -549,6 +550,37 @@ export class PostgresDriver implements Driver {
       blockingQuery: r.blocking_query ?? null,
       waitedMs: r.waited_ms != null ? Number(r.waited_ms) : null,
     }));
+  }
+
+  async roles(): Promise<DbRole[]> {
+    const res = await this.db().query(
+      `SELECT r.rolname AS name,
+              r.rolcanlogin AS can_login,
+              r.rolsuper, r.rolcreatedb, r.rolcreaterole,
+              r.rolreplication, r.rolbypassrls,
+              ARRAY(
+                SELECT g.rolname FROM pg_auth_members m
+                JOIN pg_roles g ON g.oid = m.roleid
+                WHERE m.member = r.oid
+                ORDER BY g.rolname
+              ) AS member_of
+       FROM pg_roles r
+       ORDER BY r.rolcanlogin DESC, r.rolname`,
+    );
+    return res.rows.map((r) => {
+      const attributes: string[] = [];
+      if (r.rolsuper) attributes.push('SUPERUSER');
+      if (r.rolcreatedb) attributes.push('CREATEDB');
+      if (r.rolcreaterole) attributes.push('CREATEROLE');
+      if (r.rolreplication) attributes.push('REPLICATION');
+      if (r.rolbypassrls) attributes.push('BYPASSRLS');
+      return {
+        name: r.name,
+        canLogin: r.can_login === true,
+        attributes,
+        memberOf: (r.member_of ?? []) as string[],
+      };
+    });
   }
 
   async tableSizes(): Promise<TableSize[]> {

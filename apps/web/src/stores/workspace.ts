@@ -48,6 +48,11 @@ export interface ActivityTab {
   id: string;
   title: string;
 }
+export interface RolesTab {
+  kind: 'roles';
+  id: string;
+  title: string;
+}
 export type Tab =
   | TableTab
   | QueryTab
@@ -56,7 +61,8 @@ export type Tab =
   | TasksTab
   | DashboardTab
   | HealthTab
-  | ActivityTab;
+  | ActivityTab
+  | RolesTab;
 
 interface ActiveConnection {
   id: string;
@@ -91,6 +97,7 @@ interface WorkspaceState {
   openDashboard: () => void;
   openHealth: () => void;
   openActivity: () => void;
+  openRoles: () => void;
   /** Open a table's data view and flag it to pop the mock-data dialog. */
   requestMockData: (table: string, schema?: string) => void;
   clearMockRequest: () => void;
@@ -229,6 +236,17 @@ export const useWorkspace = create<WorkspaceState>()(
       kind: 'activity',
       id: nanoid(),
       title: 'Activité',
+    };
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+  },
+
+  openRoles: () => {
+    const existing = get().tabs.find((t) => t.kind === 'roles');
+    if (existing) return set({ activeTabId: existing.id });
+    const tab: RolesTab = {
+      kind: 'roles',
+      id: nanoid(),
+      title: 'Rôles & privilèges',
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },

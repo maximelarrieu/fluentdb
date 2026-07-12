@@ -280,6 +280,29 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(typeof killed).toBe('boolean');
   });
 
+  it('lists roles with attributes and memberships', async () => {
+    const roles = await driver.roles();
+    expect(roles.length).toBeGreaterThan(0);
+    // A superuser is flagged and can log in.
+    const superuser = roles.find((r) => r.attributes.includes('SUPERUSER'));
+    expect(superuser).toBeTruthy();
+    expect(superuser!.canLogin).toBe(true);
+    // Built-in group roles (pg_monitor) expose their memberships.
+    const monitor = roles.find((r) => r.name === 'pg_monitor');
+    expect(monitor).toBeTruthy();
+    expect(monitor!.canLogin).toBe(false);
+    expect(monitor!.memberOf).toEqual(
+      expect.arrayContaining(['pg_read_all_stats']),
+    );
+    // Every role is well-formed.
+    for (const r of roles) {
+      expect(typeof r.name).toBe('string');
+      expect(typeof r.canLogin).toBe('boolean');
+      expect(Array.isArray(r.attributes)).toBe(true);
+      expect(Array.isArray(r.memberOf)).toBe(true);
+    }
+  });
+
   it('produces a health report from the catalogs', async () => {
     const findings = await driver.healthChecks();
     expect(Array.isArray(findings)).toBe(true);

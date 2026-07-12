@@ -6,6 +6,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  DbRole,
   LockWait,
   DdlChange,
   DdlPreview,
@@ -301,6 +302,10 @@ export class SqliteDriver implements Driver {
 
   async blockingLocks(): Promise<LockWait[]> {
     return [];
+  }
+
+  async roles(): Promise<DbRole[]> {
+    return []; // SQLite has no role/privilege system.
   }
 
   async tableSizes(): Promise<TableSize[]> {

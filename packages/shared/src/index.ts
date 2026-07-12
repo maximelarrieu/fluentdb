@@ -4,6 +4,7 @@ export * from './search.js';
 export * from './tasks.js';
 export * from './health.js';
 export * from './activity.js';
+export * from './roles.js';
 export * from './query.js';
 export * from './mutations.js';
 export * from './ai.js';

@@ -169,7 +169,8 @@ PR par phase) :
 ### Perf sur gros volumes & fonctions DBA
 
 Deux axes issus des frictions marché (DBeaver lent sur gros volumes ;
-TablePlus/Beekeeper pauvres en DBA). Une PR par item, dans cet ordre :
+TablePlus/Beekeeper pauvres en DBA). Une PR par item, dans cet ordre.
+**Les 7 items sont livrés** (une PR chacun) :
 
 **Axe 1 — Perf sur gros volumes**
 
