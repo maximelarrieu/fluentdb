@@ -12,6 +12,7 @@ import type {
   DetectedDbContainer,
   DockerStatus,
   DbSession,
+  LockWait,
   ErdSchema,
   HealthReport,
   HistoryEntry,
@@ -235,6 +236,11 @@ export const api = {
     request<DbSession[]>(
       'GET',
       `/api/connections/${id}/activity${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+  locks: (id: string, database?: string) =>
+    request<LockWait[]>(
+      'GET',
+      `/api/connections/${id}/locks${database ? `?database=${encodeURIComponent(database)}` : ''}`,
     ),
   killSession: (
     id: string,

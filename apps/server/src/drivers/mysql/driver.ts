@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  LockWait,
   DdlChange,
   DdlPreview,
   HealthFinding,
@@ -433,6 +434,35 @@ export class MysqlDriver implements Driver {
       return false;
     } finally {
       await side.end().catch(() => {});
+    }
+  }
+
+  async blockingLocks(): Promise<LockWait[]> {
+    // sys.innodb_lock_waits exists on MySQL 5.7+/8; best-effort.
+    try {
+      const [rows] = await this.db().query(
+        `SELECT waiting_pid AS blocked_pid, waiting_query AS blocked_query,
+                blocking_pid, blocking_query
+         FROM sys.innodb_lock_waits`,
+      );
+      return (
+        rows as {
+          blocked_pid: number;
+          blocked_query: string | null;
+          blocking_pid: number;
+          blocking_query: string | null;
+        }[]
+      ).map((r) => ({
+        blockedPid: String(r.blocked_pid),
+        blockedUser: null,
+        blockedQuery: r.blocked_query ?? null,
+        blockingPid: String(r.blocking_pid),
+        blockingUser: null,
+        blockingQuery: r.blocking_query ?? null,
+        waitedMs: null,
+      }));
+    } catch {
+      return [];
     }
   }
 

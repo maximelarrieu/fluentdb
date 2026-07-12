@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, RefreshCw, Ban, XCircle } from 'lucide-react';
+import { Activity, RefreshCw, Ban, XCircle, Lock } from 'lucide-react';
 import type { DbSession } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
@@ -30,6 +30,13 @@ export function ActivityView() {
     refetchInterval: POLL_MS,
   });
 
+  const locks = useQuery({
+    queryKey: ['locks', active?.id, database],
+    queryFn: () => api.locks(active!.id, database),
+    enabled: !!active && (active?.capabilities.activityMonitor ?? false),
+    refetchInterval: POLL_MS,
+  });
+
   const kill = useMutation({
     mutationFn: (v: { pid: string; terminate: boolean }) =>
       api.killSession(active!.id, v.pid, { terminate: v.terminate, database }),
@@ -43,10 +50,13 @@ export function ActivityView() {
           : "Aucune action (session déjà terminée ?)",
       );
       qc.invalidateQueries({ queryKey: ['activity', active!.id] });
+      qc.invalidateQueries({ queryKey: ['locks', active!.id] });
     },
     onError: (e) =>
       toast.push('error', e instanceof ApiError ? e.message : String(e)),
   });
+
+  const lockRows = locks.data ?? [];
 
   if (!active) return <EmptyState title="Aucune connexion active" />;
   if (!active.capabilities.activityMonitor) {
@@ -80,6 +90,51 @@ export function ActivityView() {
           {sessions.isFetching ? <Spinner /> : <RefreshCw size={13} />} Actualiser
         </Button>
       </div>
+
+      {lockRows.length > 0 && (
+        <div className="m-4 rounded-xl border border-amber/40 bg-amber/5 p-3">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-amber mb-2">
+            <Lock size={14} /> Blocages ({lockRows.length})
+          </div>
+          <div className="flex flex-col gap-2">
+            {lockRows.map((w, i) => (
+              <div
+                key={i}
+                className="text-[12px] flex items-start gap-2 border-t border-amber/15 pt-2 first:border-0 first:pt-0"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">
+                    <span className="text-muted">PID</span>{' '}
+                    <span className="mono">{w.blockedPid}</span>
+                    {w.blockedUser && (
+                      <span className="text-muted"> ({w.blockedUser})</span>
+                    )}{' '}
+                    est bloqué par{' '}
+                    <span className="mono text-amber">{w.blockingPid}</span>
+                    {w.blockingUser && (
+                      <span className="text-muted"> ({w.blockingUser})</span>
+                    )}
+                  </div>
+                  <div className="mono text-muted/70 truncate" title={w.blockingQuery ?? ''}>
+                    bloqueur : {w.blockingQuery ?? '—'}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-red shrink-0"
+                  title="Terminer la session bloquante"
+                  onClick={() =>
+                    kill.mutate({ pid: w.blockingPid, terminate: true })
+                  }
+                >
+                  <XCircle size={13} /> Terminer le bloqueur
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {sessions.isLoading ? (
         <Spinner className="m-4" />

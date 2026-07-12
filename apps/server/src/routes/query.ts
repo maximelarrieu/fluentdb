@@ -30,6 +30,14 @@ export function registerQueryRoutes(
     return driver.activeSessions();
   });
 
+  /** Sessions blocked by another session (lock waits). */
+  app.get('/api/connections/:id/locks', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database } = healthQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    return driver.blockingLocks();
+  });
+
   /** Cancel a running query or terminate a session. */
   app.post('/api/connections/:id/activity/:pid/kill', async (req) => {
     const { id, pid } = z
