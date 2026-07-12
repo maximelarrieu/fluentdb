@@ -12,6 +12,7 @@ import type {
   DetectedDbContainer,
   DockerStatus,
   DbSession,
+  DbRole,
   LockWait,
   ErdSchema,
   HealthReport,
@@ -235,6 +236,11 @@ export const api = {
     request<HealthReport>(
       'GET',
       `/api/connections/${id}/health${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+  roles: (id: string, database?: string) =>
+    request<DbRole[]>(
+      'GET',
+      `/api/connections/${id}/roles${database ? `?database=${encodeURIComponent(database)}` : ''}`,
     ),
 
   // activity monitor

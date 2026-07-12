@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Rôles & privilèges (DBA)** : un onglet « Rôles & privilèges » liste les
+  rôles/utilisateurs du serveur avec leurs attributs (PostgreSQL `pg_roles` :
+  `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, `BYPASSRLS`, capacité de
+  login et appartenances via `pg_auth_members` ; MySQL : privilèges depuis
+  `information_schema.user_privileges`), avec filtre par nom. Indisponible sur
+  SQLite (pas de système de rôles).
 - **Explorateur de tailles (DBA)** : le Bilan de santé ouvre sur une section
   « Stockage » listant les plus grosses tables par espace disque (données +
   index), avec une barre proportionnelle et le détail de la part d'index

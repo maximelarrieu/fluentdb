@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  DbRole,
   LockWait,
   DdlChange,
   DdlPreview,
@@ -139,6 +140,9 @@ export interface Driver {
 
   /** Largest tables by disk usage (data + indexes), for the storage explorer. */
   tableSizes(): Promise<TableSize[]>;
+
+  /** Database roles/users and their attributes (empty when unsupported). */
+  roles(): Promise<DbRole[]>;
 
   /**
    * Read-only diagnostic checks over the engine's catalogs / stat views:

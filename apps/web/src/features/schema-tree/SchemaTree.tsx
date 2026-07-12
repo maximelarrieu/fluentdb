@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   HeartPulse,
   Activity,
+  Users,
   Sparkles,
   Copy,
   Pencil,
@@ -56,6 +57,7 @@ export function SchemaTree() {
     openDashboard,
     openHealth,
     openActivity,
+    openRoles,
     requestMockData,
     schemaVersion,
     toggleAi,
@@ -290,6 +292,16 @@ export function SchemaTree() {
             onClick={openActivity}
           >
             <Activity size={13} /> Activité
+          </Button>
+        )}
+        {active.capabilities.activityMonitor && (
+          <Button
+            size="sm"
+            variant="subtle"
+            className="w-full justify-center"
+            onClick={openRoles}
+          >
+            <Users size={13} /> Rôles &amp; privilèges
           </Button>
         )}
         <Button

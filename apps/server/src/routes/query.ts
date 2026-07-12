@@ -59,6 +59,14 @@ export function registerQueryRoutes(
     return driver.tableSizes();
   });
 
+  /** Database roles/users and their attributes (roles & privileges view). */
+  app.get('/api/connections/:id/roles', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database } = healthQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    return driver.roles();
+  });
+
   /** Read-only diagnostic report over the engine's catalogs / stat views. */
   app.get('/api/connections/:id/health', async (req) => {
     const { id } = idParams.parse(req.params);

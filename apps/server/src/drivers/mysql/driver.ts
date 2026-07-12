@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  DbRole,
   LockWait,
   DdlChange,
   DdlPreview,
@@ -461,6 +462,26 @@ export class MysqlDriver implements Driver {
         blockingUser: null,
         blockingQuery: r.blocking_query ?? null,
         waitedMs: null,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async roles(): Promise<DbRole[]> {
+    try {
+      const [rows] = await this.db().query(
+        `SELECT grantee,
+                GROUP_CONCAT(privilege_type ORDER BY privilege_type SEPARATOR ',') AS privs
+         FROM information_schema.user_privileges
+         GROUP BY grantee
+         ORDER BY grantee`,
+      );
+      return (rows as { grantee: string; privs: string | null }[]).map((r) => ({
+        name: r.grantee.replace(/'/g, ''),
+        canLogin: true,
+        attributes: r.privs ? r.privs.split(',') : [],
+        memberOf: [],
       }));
     } catch {
       return [];
