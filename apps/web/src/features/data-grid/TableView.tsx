@@ -265,15 +265,6 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               <Button size="sm" variant="ghost" onClick={addRow}>
                 <Plus size={13} /> Ligne
               </Button>
-              {aiStatus.data?.configured && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setMockOpen(true)}
-                >
-                  <Sparkles size={13} /> Données de test
-                </Button>
-              )}
               {selected.size > 0 && (
                 <span className="text-muted flex items-center gap-1">
                   <Trash2 size={12} /> {selected.size} sélectionnée(s)
@@ -284,6 +275,12 @@ export function TableView({ table, schema }: { table: string; schema?: string })
             <span className="text-muted/70">
               Lecture seule — pas de clé primaire détectée
             </span>
+          )}
+          {/* Mock data only inserts rows, so a primary key is not required. */}
+          {aiStatus.data?.configured && (
+            <Button size="sm" variant="ghost" onClick={() => setMockOpen(true)}>
+              <Sparkles size={13} /> Données de test
+            </Button>
           )}
         </div>
 
