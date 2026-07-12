@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronLeft,
@@ -30,7 +30,7 @@ const PAGE_SIZE = 100;
 const editKey = (rowIndex: number, column: string) => `${rowIndex}::${column}`;
 
 export function TableView({ table, schema }: { table: string; schema?: string }) {
-  const { active, database } = useWorkspace();
+  const { active, database, mockRequest, clearMockRequest } = useWorkspace();
   const toast = useToast();
   const qc = useQueryClient();
 
@@ -42,6 +42,14 @@ export function TableView({ table, schema }: { table: string; schema?: string })
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [mockOpen, setMockOpen] = useState(false);
   const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+
+  // Pop the mock-data dialog when the tree asked for it on this table.
+  useEffect(() => {
+    if (mockRequest && mockRequest.table === table && mockRequest.schema === schema) {
+      setMockOpen(true);
+      clearMockRequest();
+    }
+  }, [mockRequest, table, schema, clearMockRequest]);
 
   const connId = active!.id;
 

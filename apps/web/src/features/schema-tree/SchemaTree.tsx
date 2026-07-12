@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Table2,
@@ -10,10 +10,17 @@ import {
   Columns3,
   Workflow,
   FileCode,
+  FileCode2,
   WandSparkles,
   Clock,
   LayoutDashboard,
   HeartPulse,
+  Sparkles,
+  Copy,
+  Pencil,
+  Trash2,
+  Eraser,
+  Hash,
 } from 'lucide-react';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
@@ -22,9 +29,16 @@ import { Input, Select } from '../../components/ui/Input.js';
 import { Button } from '../../components/ui/Button.js';
 import { Dialog } from '../../components/ui/Dialog.js';
 import { Spinner, Badge } from '../../components/ui/misc.js';
+import {
+  ContextMenu,
+  CtxItem,
+  CtxSeparator,
+  CtxLabel,
+} from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { formatNumber } from '../../lib/format.js';
+import { RenameTableDialog } from './RenameTableDialog.js';
 
 export function SchemaTree() {
   const {
@@ -35,16 +49,19 @@ export function SchemaTree() {
     setSchema,
     openTable,
     openStructure,
+    openQuery,
     openErd,
     openTasks,
     openDashboard,
     openHealth,
+    requestMockData,
     schemaVersion,
     toggleAi,
   } = useWorkspace();
   const unseenCount = useUnseenTaskCount();
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
+  const [renameTarget, setRenameTarget] = useState<TableInfo | null>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -104,6 +121,108 @@ export function SchemaTree() {
   const tablesList = filtered.filter((t) => t.kind === 'table');
   const viewsList = filtered.filter((t) => t.kind === 'view');
   const matviewsList = filtered.filter((t) => t.kind === 'matview');
+
+  const aiOn = aiStatus.data?.configured ?? false;
+  const qc2 = active.engine === 'mysql' ? '`' : '"';
+  const qid = (s: string) => `${qc2}${s}${qc2}`;
+  const qname = (t: TableInfo) =>
+    t.schema ? `${qid(t.schema)}.${qid(t.name)}` : qid(t.name);
+  const copy = (text: string, label: string) => {
+    void navigator.clipboard?.writeText(text);
+    toast.push('info', `${label} copié`);
+  };
+  const dropSql = (t: TableInfo) =>
+    t.kind === 'view'
+      ? `DROP VIEW ${qname(t)};`
+      : t.kind === 'matview'
+        ? `DROP MATERIALIZED VIEW ${qname(t)};`
+        : `DROP TABLE ${qname(t)};`;
+  const truncateSql = (t: TableInfo) =>
+    active.engine === 'sqlite'
+      ? `DELETE FROM ${qname(t)};`
+      : `TRUNCATE TABLE ${qname(t)};`;
+
+  // Right-click menu for any schema object. Destructive actions open their SQL
+  // in a new editor so they pass through the usual write confirmation.
+  const objectMenu = (t: TableInfo): ReactNode => (
+    <>
+      <CtxLabel>{t.name}</CtxLabel>
+      <CtxItem icon={<Eye size={14} />} onSelect={() => openTable(t.name, t.schema)}>
+        Ouvrir les données
+      </CtxItem>
+      <CtxItem
+        icon={<Columns3 size={14} />}
+        onSelect={() => openStructure(t.name, t.schema)}
+      >
+        Voir la structure
+      </CtxItem>
+      {t.kind !== 'table' && (
+        <CtxItem icon={<FileCode size={14} />} onSelect={() => setDefTarget(t)}>
+          Voir la définition
+        </CtxItem>
+      )}
+      <CtxSeparator />
+      <CtxItem
+        icon={<FileCode2 size={14} />}
+        onSelect={() => openQuery(`SELECT * FROM ${qname(t)} LIMIT 100;`)}
+      >
+        SELECT * (nouvel éditeur)
+      </CtxItem>
+      <CtxItem
+        icon={<Hash size={14} />}
+        onSelect={() => openQuery(`SELECT count(*) FROM ${qname(t)};`)}
+      >
+        Compter les lignes
+      </CtxItem>
+      {t.kind === 'matview' && active.capabilities.materializedViews && (
+        <CtxItem icon={<RefreshCw size={14} />} onSelect={() => refresh.mutate(t)}>
+          Rafraîchir
+        </CtxItem>
+      )}
+      {t.kind === 'table' && aiOn && (
+        <CtxItem
+          icon={<Sparkles size={14} />}
+          onSelect={() => requestMockData(t.name, t.schema)}
+        >
+          Générer des données de test (IA)
+        </CtxItem>
+      )}
+      {aiOn && (
+        <CtxItem
+          icon={<WandSparkles size={14} />}
+          onSelect={() => explainObject(t)}
+        >
+          Expliquer avec l'IA
+        </CtxItem>
+      )}
+      <CtxSeparator />
+      <CtxItem icon={<Copy size={14} />} onSelect={() => copy(qname(t), 'Nom')}>
+        Copier le nom
+      </CtxItem>
+      <CtxSeparator />
+      {t.kind === 'table' && (
+        <>
+          <CtxItem icon={<Pencil size={14} />} onSelect={() => setRenameTarget(t)}>
+            Renommer…
+          </CtxItem>
+          <CtxItem
+            danger
+            icon={<Eraser size={14} />}
+            onSelect={() => openQuery(truncateSql(t))}
+          >
+            Vider…
+          </CtxItem>
+        </>
+      )}
+      <CtxItem
+        danger
+        icon={<Trash2 size={14} />}
+        onSelect={() => openQuery(dropSql(t))}
+      >
+        Supprimer…
+      </CtxItem>
+    </>
+  );
 
   return (
     <div className="w-60 shrink-0 flex flex-col border-r border-border bg-panel h-full">
@@ -205,6 +324,7 @@ export function SchemaTree() {
           onOpen={(t) => openTable(t.name, t.schema)}
           onStructure={(t) => openStructure(t.name, t.schema)}
           onExplain={aiStatus.data?.configured ? explainObject : undefined}
+          menuItems={objectMenu}
         />
         {viewsList.length > 0 && (
           <TreeSection
@@ -216,6 +336,7 @@ export function SchemaTree() {
             onStructure={(t) => openStructure(t.name, t.schema)}
             onDefinition={setDefTarget}
             onExplain={aiStatus.data?.configured ? explainObject : undefined}
+            menuItems={objectMenu}
           />
         )}
         {matviewsList.length > 0 && (
@@ -230,6 +351,7 @@ export function SchemaTree() {
             onRefresh={active.capabilities.materializedViews ? refresh.mutate : undefined}
             refreshingName={refresh.isPending ? refresh.variables?.name : undefined}
             onExplain={aiStatus.data?.configured ? explainObject : undefined}
+            menuItems={objectMenu}
           />
         )}
       </div>
@@ -254,6 +376,14 @@ export function SchemaTree() {
           database={database}
           table={defTarget}
           onClose={() => setDefTarget(null)}
+        />
+      )}
+
+      {renameTarget && (
+        <RenameTableDialog
+          table={renameTarget.name}
+          schema={renameTarget.schema}
+          onClose={() => setRenameTarget(null)}
         />
       )}
     </div>
@@ -282,6 +412,7 @@ function TreeSection({
   onRefresh,
   onExplain,
   refreshingName,
+  menuItems,
 }: {
   label: string;
   count: number;
@@ -293,6 +424,7 @@ function TreeSection({
   onRefresh?: (t: TableInfo) => void;
   onExplain?: (t: TableInfo) => void;
   refreshingName?: string;
+  menuItems?: (t: TableInfo) => ReactNode;
 }) {
   const [open, setOpen] = useState(true);
   const Icon = KIND_ICON[kind];
@@ -312,9 +444,9 @@ function TreeSection({
       {open &&
         items.map((t) => {
           const refreshing = refreshingName === t.name;
-          return (
+          const key = `${t.schema ?? ''}.${t.name}`;
+          const row = (
             <div
-              key={`${t.schema ?? ''}.${t.name}`}
               className="group flex items-center gap-2 pl-6 pr-2 py-1 hover:bg-panel-2 cursor-pointer"
               onClick={() => onOpen(t)}
             >
@@ -383,6 +515,15 @@ function TreeSection({
               >
                 <Columns3 size={13} />
               </button>
+            </div>
+          );
+          return menuItems ? (
+            <ContextMenu key={key} menu={menuItems(t)}>
+              {row}
+            </ContextMenu>
+          ) : (
+            <div key={key} className="contents">
+              {row}
             </div>
           );
         })}
