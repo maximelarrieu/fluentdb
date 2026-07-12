@@ -14,6 +14,8 @@ import {
   PanelLeftOpen,
   Copy,
   FileCode2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import {
   engineLabels,
@@ -31,6 +33,7 @@ import {
 } from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { useTheme } from '../../stores/theme.js';
 import { ConnectionForm } from './ConnectionForm.js';
 import { DockerPanel } from './DockerPanel.js';
 
@@ -48,6 +51,7 @@ export function ConnectionSidebar() {
   const qc = useQueryClient();
   const { active, setActive, openQuery, sidebarCollapsed, toggleSidebar } =
     useWorkspace();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ConnectionSummary | null>(null);
   const [initial, setInitial] = useState<Partial<ConnectionInput> | undefined>();
@@ -119,6 +123,14 @@ export function ConnectionSidebar() {
           <Database size={15} className="text-accent" /> FluentDB
         </span>
         <div className="flex items-center">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'}
+          >
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </Button>
           <Button size="icon" variant="ghost" onClick={() => openNew()} title="Nouvelle connexion">
             <Plus size={16} />
           </Button>

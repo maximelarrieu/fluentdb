@@ -136,7 +136,7 @@ export function SaveAsViewDialog({
             disabled={!validName || create.isPending}
             onClick={() => create.mutate()}
           >
-            {create.isPending && <Spinner className="text-white" />} Créer
+            {create.isPending && <Spinner className="text-current" />} Créer
           </Button>
         </div>
       </div>

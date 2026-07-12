@@ -126,7 +126,7 @@ export function AlertDialog({
             disabled={!canSave || save.isPending}
             onClick={() => save.mutate()}
           >
-            {save.isPending && <Spinner className="text-white" />} Enregistrer
+            {save.isPending && <Spinner className="text-current" />} Enregistrer
           </Button>
         </div>
       </div>

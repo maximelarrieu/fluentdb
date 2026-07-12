@@ -32,41 +32,58 @@ const dialects: Record<string, SQLDialect> = {
   sqlite: SQLite,
 };
 
+/*
+ * Syntax + editor theme driven entirely by the app's CSS tokens, so the
+ * editor follows light/dark automatically (no hardcoded hex — the old theme
+ * had near-white base text that vanished on a light background).
+ */
 const highlightStyle = HighlightStyle.define([
-  { tag: t.keyword, color: '#6d8bff' },
-  { tag: [t.string, t.special(t.string)], color: '#3fb884' },
-  { tag: t.number, color: '#f0b429' },
-  { tag: t.comment, color: '#5a6270', fontStyle: 'italic' },
-  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#a78bfa' },
-  { tag: t.operator, color: '#8b93a7' },
-  { tag: [t.propertyName, t.attributeName], color: '#e4e7ee' },
-  { tag: t.typeName, color: '#f2a15a' },
+  { tag: t.keyword, color: 'var(--color-accent)' },
+  { tag: [t.string, t.special(t.string)], color: 'var(--color-green)' },
+  { tag: t.number, color: 'var(--color-amber)' },
+  { tag: t.comment, color: 'var(--color-muted)', fontStyle: 'italic' },
+  {
+    tag: [t.function(t.variableName), t.function(t.propertyName)],
+    color: 'var(--color-accent-strong)',
+  },
+  { tag: t.operator, color: 'var(--color-muted)' },
+  { tag: [t.propertyName, t.attributeName], color: 'var(--color-text)' },
+  { tag: t.typeName, color: 'var(--color-amber)' },
 ]);
 
-const theme = EditorView.theme(
-  {
-    '&': { backgroundColor: 'transparent', color: '#e4e7ee' },
-    '.cm-gutters': {
-      backgroundColor: 'transparent',
-      color: '#4a5164',
-      border: 'none',
-    },
-    '.cm-activeLine': { backgroundColor: '#ffffff08' },
-    '.cm-activeLineGutter': { backgroundColor: 'transparent', color: '#8b93a7' },
-    '.cm-selectionBackground, ::selection': { backgroundColor: '#3d5afe33' },
-    '&.cm-focused .cm-selectionBackground': { backgroundColor: '#3d5afe44' },
-    '.cm-tooltip': {
-      backgroundColor: '#1a1e28',
-      border: '1px solid #262b38',
-      borderRadius: '6px',
-    },
-    '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: '#4f6bff',
-      color: '#fff',
-    },
+const theme = EditorView.theme({
+  '&': { backgroundColor: 'transparent', color: 'var(--color-text)' },
+  '.cm-gutters': {
+    backgroundColor: 'transparent',
+    color: 'var(--color-muted)',
+    opacity: '0.6',
+    border: 'none',
   },
-  { dark: true },
-);
+  '.cm-activeLine': {
+    backgroundColor: 'color-mix(in oklab, var(--color-text) 4%, transparent)',
+  },
+  '.cm-activeLineGutter': {
+    backgroundColor: 'transparent',
+    color: 'var(--color-muted)',
+  },
+  '.cm-selectionBackground, ::selection': {
+    backgroundColor: 'color-mix(in oklab, var(--color-accent) 22%, transparent)',
+  },
+  '&.cm-focused .cm-selectionBackground': {
+    backgroundColor: 'color-mix(in oklab, var(--color-accent) 32%, transparent)',
+  },
+  '.cm-cursor': { borderLeftColor: 'var(--color-accent)' },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--color-panel-2)',
+    border: '1px solid var(--color-border)',
+    borderRadius: '6px',
+    color: 'var(--color-text)',
+  },
+  '.cm-tooltip-autocomplete ul li[aria-selected]': {
+    backgroundColor: 'color-mix(in oklab, var(--color-accent) 22%, transparent)',
+    color: 'var(--color-text)',
+  },
+});
 
 export interface EditorConfig {
   dialect: string;

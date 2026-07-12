@@ -78,7 +78,7 @@ export function DdlDialog({
                 onClick={() => apply.mutate()}
                 disabled={apply.isPending}
               >
-                {apply.isPending && <Spinner className="text-white" />}
+                {apply.isPending && <Spinner className="text-current" />}
                 Appliquer
               </Button>
             </div>

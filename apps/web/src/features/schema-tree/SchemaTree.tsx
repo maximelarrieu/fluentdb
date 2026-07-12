@@ -271,7 +271,7 @@ export function SchemaTree() {
         <Button
           size="sm"
           variant="subtle"
-          className="w-full justify-center"
+          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
           onClick={openErd}
         >
           <Workflow size={13} /> Diagramme ERD
@@ -279,7 +279,7 @@ export function SchemaTree() {
         <Button
           size="sm"
           variant="subtle"
-          className="w-full justify-center"
+          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
           onClick={openHealth}
         >
           <HeartPulse size={13} /> Bilan de santé
@@ -288,7 +288,7 @@ export function SchemaTree() {
           <Button
             size="sm"
             variant="subtle"
-            className="w-full justify-center"
+            className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
             onClick={openActivity}
           >
             <Activity size={13} /> Activité
@@ -298,7 +298,7 @@ export function SchemaTree() {
           <Button
             size="sm"
             variant="subtle"
-            className="w-full justify-center"
+            className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
             onClick={openRoles}
           >
             <Users size={13} /> Rôles &amp; privilèges
@@ -307,12 +307,12 @@ export function SchemaTree() {
         <Button
           size="sm"
           variant="subtle"
-          className="w-full justify-center"
+          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
           onClick={openDashboard}
         >
           <LayoutDashboard size={13} /> Tableau de bord
           {unseenCount > 0 && (
-            <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] flex items-center justify-center">
+            <span className="ml-auto min-w-4 h-4 px-1 rounded-full bg-accent/20 text-accent text-[10px] font-semibold flex items-center justify-center">
               {unseenCount}
             </span>
           )}
@@ -320,12 +320,12 @@ export function SchemaTree() {
         <Button
           size="sm"
           variant="subtle"
-          className="w-full justify-center"
+          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
           onClick={() => openTasks()}
         >
           <Clock size={13} /> Tâches planifiées
           {unseenCount > 0 && (
-            <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] flex items-center justify-center">
+            <span className="ml-auto min-w-4 h-4 px-1 rounded-full bg-accent/20 text-accent text-[10px] font-semibold flex items-center justify-center">
               {unseenCount}
             </span>
           )}

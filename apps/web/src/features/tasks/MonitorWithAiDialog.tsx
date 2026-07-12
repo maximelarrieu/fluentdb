@@ -232,7 +232,7 @@ export function MonitorWithAiDialog({ onClose }: { onClose: () => void }) {
                 disabled={!canCreate || create.isPending}
                 onClick={() => create.mutate()}
               >
-                {create.isPending && <Spinner className="text-white" />} Planifier
+                {create.isPending && <Spinner className="text-current" />} Planifier
               </Button>
             </div>
           </div>

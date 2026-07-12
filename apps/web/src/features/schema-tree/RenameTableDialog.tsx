@@ -71,7 +71,7 @@ export function RenameTableDialog({
             disabled={!name.trim() || name.trim() === table || rename.isPending}
             onClick={() => rename.mutate()}
           >
-            {rename.isPending && <Spinner className="text-white" />} Renommer
+            {rename.isPending && <Spinner className="text-current" />} Renommer
           </Button>
         </div>
       </div>
