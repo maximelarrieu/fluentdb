@@ -59,6 +59,11 @@ export function TableView({ table, schema }: { table: string; schema?: string })
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [mockOpen, setMockOpen] = useState(false);
   const [exactCount, setExactCount] = useState(false);
+  // Keyset cursor (fast pagination on big tables); depth 0 = first page.
+  const [cursor, setCursor] = useState<{ after?: CellValue; before?: CellValue }>(
+    {},
+  );
+  const [depth, setDepth] = useState(0);
   const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
 
   // Pop the mock-data dialog when the tree asked for it on this table.
@@ -81,6 +86,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
     sort,
     filters,
     exactCount,
+    cursor,
   ];
   const rowsQuery = useQuery({
     queryKey,
@@ -91,6 +97,8 @@ export function TableView({ table, schema }: { table: string; schema?: string })
         sorts: sort ? [sort] : [],
         filters,
         exactCount,
+        after: cursor.after as string | number | undefined,
+        before: cursor.before as string | number | undefined,
         database,
         schema,
       }),
@@ -183,6 +191,13 @@ export function TableView({ table, schema }: { table: string; schema?: string })
     });
   };
 
+  // Any change to sort/filters restarts paging from the first page.
+  const resetPaging = () => {
+    setPage(0);
+    setCursor({});
+    setDepth(0);
+  };
+
   const onSort = (column: string) => {
     setSort((prev) =>
       prev?.column === column
@@ -191,11 +206,48 @@ export function TableView({ table, schema }: { table: string; schema?: string })
           : null
         : { column, dir: 'asc' },
     );
-    setPage(0);
+    resetPaging();
   };
 
   const columns = data?.columns ?? [];
   const totalPages = data?.total ? Math.ceil(data.total / PAGE_SIZE) : 1;
+  const keysetCol = data?.keysetColumn ?? null;
+  const keysetIdx = keysetCol
+    ? columns.findIndex((c) => c.name === keysetCol)
+    : -1;
+  const serverRows = data?.rows ?? [];
+
+  const goNext = () => {
+    if (keysetCol && keysetIdx >= 0) {
+      const last = serverRows.at(-1);
+      if (!last) return;
+      setCursor({ after: last[keysetIdx] as CellValue });
+      setDepth((d) => d + 1);
+    } else {
+      setPage((p) => p + 1);
+    }
+  };
+  const goPrev = () => {
+    if (keysetCol && keysetIdx >= 0) {
+      const first = serverRows[0];
+      if (depth <= 1) {
+        resetPaging();
+        return;
+      }
+      if (first) {
+        setCursor({ before: first[keysetIdx] as CellValue });
+        setDepth((d) => Math.max(0, d - 1));
+      }
+    } else {
+      setPage((p) => Math.max(0, p - 1));
+    }
+  };
+  const prevDisabled = keysetCol ? depth === 0 : page === 0;
+  const nextDisabled = keysetCol
+    ? serverRows.length < PAGE_SIZE
+    : data?.approximate
+      ? serverRows.length < PAGE_SIZE
+      : page + 1 >= totalPages;
 
   const addRow = () => {
     setNewRows((r) => [...r, {}]);
@@ -223,7 +275,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
         icon={<ArrowUp size={14} />}
         onSelect={() => {
           setSort({ column: col.name, dir: 'asc' });
-          setPage(0);
+          resetPaging();
         }}
       >
         Trier croissant
@@ -232,7 +284,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
         icon={<ArrowDown size={14} />}
         onSelect={() => {
           setSort({ column: col.name, dir: 'desc' });
-          setPage(0);
+          resetPaging();
         }}
       >
         Trier décroissant
@@ -245,7 +297,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               ? f
               : [...f, { column: col.name, op: 'eq', value: '' }],
           );
-          setPage(0);
+          resetPaging();
         }}
       >
         Filtrer par cette colonne
@@ -311,7 +363,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
                 ? { column: col.name, op: 'is_null' }
                 : { column: col.name, op: 'eq', value: String(value) },
             ]);
-            setPage(0);
+            resetPaging();
           }}
         >
           Filtrer par cette valeur
@@ -376,7 +428,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
         filters={filters}
         onChange={(f) => {
           setFilters(f);
-          setPage(0);
+          resetPaging();
         }}
       />
 
@@ -484,23 +536,23 @@ export function TableView({ table, schema }: { table: string; schema?: string })
             <Button
               size="icon"
               variant="ghost"
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={prevDisabled}
+              onClick={goPrev}
             >
               <ChevronLeft size={14} />
             </Button>
             <span className="text-muted tabular-nums">
-              {data?.approximate ? `page ${page + 1}` : `${page + 1} / ${totalPages}`}
+              {keysetCol
+                ? `page ${depth + 1}`
+                : data?.approximate
+                  ? `page ${page + 1}`
+                  : `${page + 1} / ${totalPages}`}
             </span>
             <Button
               size="icon"
               variant="ghost"
-              disabled={
-                data?.approximate
-                  ? (data?.rows.length ?? 0) < PAGE_SIZE
-                  : page + 1 >= totalPages
-              }
-              onClick={() => setPage((p) => p + 1)}
+              disabled={nextDisabled}
+              onClick={goNext}
             >
               <ChevronRight size={14} />
             </Button>

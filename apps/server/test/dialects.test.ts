@@ -6,7 +6,12 @@ import { buildSqliteDdl } from '../src/drivers/sqlite/ddl.js';
 import { postgresDialect } from '../src/drivers/postgres/dialect.js';
 import { mysqlDialect } from '../src/drivers/mysql/dialect.js';
 import { sqliteDialect } from '../src/drivers/sqlite/dialect.js';
-import { buildMutations, buildSelectPage } from '../src/drivers/sqlBuilder.js';
+import {
+  buildMutations,
+  buildSelectPage,
+  buildPage,
+  keysetOrder,
+} from '../src/drivers/sqlBuilder.js';
 import { splitSqlStatements } from '../src/drivers/sqlSplit.js';
 
 const createTable: DdlChange = {
@@ -126,6 +131,63 @@ describe('sqlBuilder', () => {
     expect(built.sql).toBe(
       "SELECT * FROM `albums` WHERE `name` LIKE ? ESCAPE '!' ORDER BY `year` DESC LIMIT ? OFFSET ?",
     );
+  });
+
+  it('chooses a keyset order only for a single-column PK view', () => {
+    expect(keysetOrder({ page: 0, pageSize: 50, sorts: [], filters: [] }, ['id'])).toEqual({ column: 'id', dir: 'asc' });
+    // explicit sort on the PK keeps keyset, honoring the direction
+    expect(
+      keysetOrder({ page: 0, pageSize: 50, sorts: [{ column: 'id', dir: 'desc' }], filters: [] }, ['id']),
+    ).toEqual({ column: 'id', dir: 'desc' });
+    // sort on a non-PK column → no keyset (would skip rows)
+    expect(
+      keysetOrder({ page: 0, pageSize: 50, sorts: [{ column: 'year', dir: 'asc' }], filters: [] }, ['id']),
+    ).toBeNull();
+    // composite / missing PK → no keyset
+    expect(keysetOrder({ page: 0, pageSize: 50, sorts: [], filters: [] }, ['a', 'b'])).toBeNull();
+    expect(keysetOrder({ page: 0, pageSize: 50, sorts: [], filters: [] }, [])).toBeNull();
+  });
+
+  it('builds a keyset "after" page (no OFFSET)', () => {
+    const r = buildPage(
+      postgresDialect,
+      { name: 'albums' },
+      { page: 5, pageSize: 50, sorts: [], filters: [], after: 100 },
+      known,
+      ['id'],
+    );
+    expect(r.keysetColumn).toBe('id');
+    expect(r.reversed).toBe(false);
+    expect(r.built.sql).toBe(
+      'SELECT * FROM "albums" WHERE "id" > $1 ORDER BY "id" ASC LIMIT $2',
+    );
+    expect(r.built.params).toEqual([100, 50]);
+  });
+
+  it('builds a keyset "before" page that reverses rows', () => {
+    const r = buildPage(
+      postgresDialect,
+      { name: 'albums' },
+      { page: 0, pageSize: 50, sorts: [], filters: [], before: 100 },
+      known,
+      ['id'],
+    );
+    expect(r.reversed).toBe(true);
+    expect(r.built.sql).toBe(
+      'SELECT * FROM "albums" WHERE "id" < $1 ORDER BY "id" DESC LIMIT $2',
+    );
+  });
+
+  it('falls back to OFFSET when no single-column PK', () => {
+    const r = buildPage(
+      postgresDialect,
+      { name: 'albums' },
+      { page: 2, pageSize: 50, sorts: [], filters: [] },
+      known,
+      [],
+    );
+    expect(r.keysetColumn).toBeNull();
+    expect(r.built.sql).toContain('OFFSET');
   });
 
   it('requires the full primary key for updates', () => {

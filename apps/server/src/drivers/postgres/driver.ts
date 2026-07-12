@@ -28,7 +28,7 @@ import {
 import {
   buildCount,
   buildMutations,
-  buildSelectPage,
+  buildPage,
 } from '../sqlBuilder.js';
 import { postgresDialect } from './dialect.js';
 import { buildPostgresDdl } from './ddl.js';
@@ -662,7 +662,7 @@ export class PostgresDriver implements Driver {
     const known = new Set(structure.columns.map((c) => c.name));
     const scoped = { ...ref, schema: ref.schema ?? DEFAULT_SCHEMA };
 
-    const page = buildSelectPage(this.dialect, scoped, q, known);
+    const page = buildPage(this.dialect, scoped, q, known, structure.primaryKey);
     const db = this.db();
 
     // Fast path: no filter + no exact request → use the planner's row estimate
@@ -674,10 +674,12 @@ export class PostgresDriver implements Driver {
     }
 
     const pageRes = await db.query({
-      text: page.sql,
-      values: page.params,
+      text: page.built.sql,
+      values: page.built.params,
       rowMode: 'array',
     });
+    let rows = (pageRes.rows as unknown[][]).map((r) => r.map(normalizeCell));
+    if (page.reversed) rows = rows.reverse();
 
     let total: number | null;
     let approximate: boolean;
@@ -696,9 +698,10 @@ export class PostgresDriver implements Driver {
         name: c.name,
         dataType: c.dataType,
       })),
-      rows: (pageRes.rows as unknown[][]).map((r) => r.map(normalizeCell)),
+      rows,
       total,
       approximate,
+      keysetColumn: page.keysetColumn,
       pkColumns: structure.primaryKey,
     };
   }
