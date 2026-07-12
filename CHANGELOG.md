@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Moniteur d'activité + kill (DBA)** : un onglet « Activité » liste les
+  sessions serveur en direct (PostgreSQL `pg_stat_activity`, MySQL processlist)
+  — utilisateur, base, état, wait event, durée, requête — et permet d'**annuler
+  la requête** en cours (`pg_cancel_backend` / `KILL QUERY`) ou de **terminer la
+  session** (`pg_terminate_backend` / `KILL`). Rafraîchissement automatique.
+  Indisponible sur SQLite (mono-processus).
 - **Menu contextuel sur les connexions** : clic droit sur une connexion dans la
   barre latérale (connecter / déconnecter, nouvelle requête, copier le nom,
   modifier, supprimer) — en complément du bouton `⋮`.

@@ -3,6 +3,7 @@ import type {
   AutocompleteCatalog,
   ConnectionConfig,
   DatabaseInfo,
+  DbSession,
   DdlChange,
   DdlPreview,
   HealthFinding,
@@ -88,6 +89,7 @@ export class PostgresDriver implements Driver {
     explain: true,
     explainAnalyze: true,
     materializedViews: true,
+    activityMonitor: true,
   };
 
   private pool: pg.Pool | null = null;
@@ -484,6 +486,42 @@ export class PostgresDriver implements Driver {
     } catch {
       return null;
     }
+  }
+
+  async activeSessions(): Promise<DbSession[]> {
+    const res = await this.db().query(
+      `SELECT pid,
+              usename AS "user",
+              datname AS database,
+              state,
+              CASE WHEN wait_event IS NOT NULL
+                   THEN wait_event_type || ': ' || wait_event END AS wait_event,
+              EXTRACT(MILLISECONDS FROM (now() - state_change))::bigint AS duration_ms,
+              left(query, 500) AS query,
+              pid = pg_backend_pid() AS current
+       FROM pg_stat_activity
+       WHERE backend_type = 'client backend'
+       ORDER BY state_change DESC NULLS LAST`,
+    );
+    return res.rows.map((r) => ({
+      id: String(r.pid),
+      user: r.user ?? null,
+      database: r.database ?? null,
+      state: r.state ?? null,
+      waitEvent: r.wait_event ?? null,
+      durationMs: r.duration_ms != null ? Number(r.duration_ms) : null,
+      query: r.query ?? null,
+      current: r.current === true,
+    }));
+  }
+
+  async killSession(
+    id: string,
+    opts: { terminate: boolean },
+  ): Promise<boolean> {
+    const fn = opts.terminate ? 'pg_terminate_backend' : 'pg_cancel_backend';
+    const res = await this.db().query(`SELECT ${fn}($1) AS ok`, [Number(id)]);
+    return res.rows[0]?.ok === true;
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

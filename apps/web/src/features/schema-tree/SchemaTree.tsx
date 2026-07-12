@@ -15,6 +15,7 @@ import {
   Clock,
   LayoutDashboard,
   HeartPulse,
+  Activity,
   Sparkles,
   Copy,
   Pencil,
@@ -54,6 +55,7 @@ export function SchemaTree() {
     openTasks,
     openDashboard,
     openHealth,
+    openActivity,
     requestMockData,
     schemaVersion,
     toggleAi,
@@ -280,6 +282,16 @@ export function SchemaTree() {
         >
           <HeartPulse size={13} /> Bilan de santé
         </Button>
+        {active.capabilities.activityMonitor && (
+          <Button
+            size="sm"
+            variant="subtle"
+            className="w-full justify-center"
+            onClick={openActivity}
+          >
+            <Activity size={13} /> Activité
+          </Button>
+        )}
         <Button
           size="sm"
           variant="subtle"

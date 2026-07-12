@@ -22,6 +22,27 @@ export function registerQueryRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): void {
+  /** Live server sessions (activity monitor). */
+  app.get('/api/connections/:id/activity', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database } = healthQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    return driver.activeSessions();
+  });
+
+  /** Cancel a running query or terminate a session. */
+  app.post('/api/connections/:id/activity/:pid/kill', async (req) => {
+    const { id, pid } = z
+      .object({ id: z.string(), pid: z.string() })
+      .parse(req.params);
+    const { database, terminate } = z
+      .object({ database: z.string().optional(), terminate: z.boolean().default(false) })
+      .parse(req.body ?? {});
+    const driver = await ctx.manager.getDriver(id, database);
+    const killed = await driver.killSession(pid, { terminate });
+    return { killed };
+  });
+
   /** Read-only diagnostic report over the engine's catalogs / stat views. */
   app.get('/api/connections/:id/health', async (req) => {
     const { id } = idParams.parse(req.params);

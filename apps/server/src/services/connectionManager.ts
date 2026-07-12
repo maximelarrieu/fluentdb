@@ -48,6 +48,7 @@ export class ConnectionManager {
       explain: driver.capabilities.explain,
       explainAnalyze: driver.capabilities.explainAnalyze,
       materializedViews: driver.capabilities.materializedViews,
+      activityMonitor: driver.capabilities.activityMonitor,
       serverVersion: version,
     };
   }

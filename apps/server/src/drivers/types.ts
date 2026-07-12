@@ -3,6 +3,7 @@ import type {
   CellValue,
   ConnectionConfig,
   DatabaseInfo,
+  DbSession,
   DdlChange,
   DdlPreview,
   EngineKind,
@@ -47,6 +48,8 @@ export interface DriverCapabilities {
   explainAnalyze: boolean;
   /** Whether materialized views exist (refresh, populated state) */
   materializedViews: boolean;
+  /** Whether the server exposes live sessions (activity monitor + kill) */
+  activityMonitor: boolean;
 }
 
 export interface RunQueryOptions {
@@ -116,6 +119,18 @@ export interface Driver {
   /** Pure: DdlChange -> SQL statements + warnings. Never executes. */
   buildDdl(change: DdlChange): DdlPreview;
   applyDdl(statements: string[]): Promise<void>;
+
+  /**
+   * Live server sessions for the activity monitor. Empty when unsupported
+   * (SQLite). Excludes nothing but flags FluentDB's own backend as `current`.
+   */
+  activeSessions(): Promise<DbSession[]>;
+
+  /**
+   * Cancel the running query (terminate=false) or terminate the whole session
+   * (terminate=true) identified by `id`. Returns true when a kill was issued.
+   */
+  killSession(id: string, opts: { terminate: boolean }): Promise<boolean>;
 
   /**
    * Read-only diagnostic checks over the engine's catalogs / stat views:
