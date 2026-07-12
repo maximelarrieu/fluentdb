@@ -441,12 +441,32 @@ export class MysqlDriver implements Driver {
     const known = new Set(structure.columns.map((c) => c.name));
 
     const page = buildSelectPage(this.dialect, ref, q, known);
-    const count = buildCount(this.dialect, ref, q.filters, known);
     const db = this.db();
-    const [[pageRows], [countRows]] = await Promise.all([
-      db.query({ sql: page.sql, values: page.params, rowsAsArray: true }),
-      db.query({ sql: count.sql, values: count.params }),
-    ]);
+
+    const wantExact = q.exactCount || q.filters.length > 0;
+    let estimate: number | null = null;
+    if (!wantExact) estimate = await this.approxRowCount(ref);
+
+    const [pageRows] = await db.query({
+      sql: page.sql,
+      values: page.params,
+      rowsAsArray: true,
+    });
+
+    let total: number | null;
+    let approximate: boolean;
+    if (!wantExact && estimate != null && estimate > 0) {
+      total = estimate;
+      approximate = true;
+    } else {
+      const count = buildCount(this.dialect, ref, q.filters, known);
+      const [countRows] = await db.query({
+        sql: count.sql,
+        values: count.params,
+      });
+      total = Number((countRows as { n: unknown }[])[0]?.n ?? 0);
+      approximate = false;
+    }
 
     return {
       columns: structure.columns.map((c) => ({
@@ -454,9 +474,25 @@ export class MysqlDriver implements Driver {
         dataType: c.dataType,
       })),
       rows: (pageRows as unknown[][]).map((r) => r.map(normalizeCell)),
-      total: Number((countRows as { n: unknown }[])[0]?.n ?? 0),
+      total,
+      approximate,
       pkColumns: structure.primaryKey,
     };
+  }
+
+  /** Approximate row count from information_schema; null when unavailable. */
+  private async approxRowCount(ref: TableRef): Promise<number | null> {
+    try {
+      const [rows] = await this.db().query({
+        sql: `SELECT table_rows AS n FROM information_schema.tables
+              WHERE table_schema = COALESCE(?, DATABASE()) AND table_name = ?`,
+        values: [ref.schema ?? this.database ?? null, ref.name],
+      });
+      const n = Number((rows as { n: unknown }[])[0]?.n ?? -1);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch {
+      return null;
+    }
   }
 
   async mutateRows(ref: TableRef, changes: RowChanges): Promise<MutationResult> {

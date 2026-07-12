@@ -100,6 +100,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Compte de lignes approximatif (perf gros volumes)** : à l'ouverture d'une
+  table, le total affiché provient désormais de l'estimation du planificateur
+  (`reltuples` en PostgreSQL, `information_schema` en MySQL) — « ~1,2 M » — au
+  lieu d'un `COUNT(*)` complet systématique, qui pouvait prendre plusieurs
+  secondes sur les grosses tables. Un lien **« compter »** lance le comptage
+  exact à la demande, et l'application d'un filtre force toujours un compte
+  exact. SQLite (fichier local) reste en comptage exact.
 - **Espace de travail persistant** : les onglets ouverts (tables, requêtes SQL
   et leur contenu, structure, ERD, tableau de bord, tâches) et la connexion
   active sont conservés entre les sessions (stockage local). Au redémarrage, la

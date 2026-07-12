@@ -103,8 +103,25 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
       },
     );
     expect(page.total).toBe(2);
+    // A filter forces an exact count, never an estimate.
+    expect(page.approximate).toBe(false);
     const titleIdx = page.columns.findIndex((c) => c.name === 'title');
     expect(page.rows[0]?.[titleIdx]).toBe('One More Time');
+  });
+
+  it('uses an estimated count on an unfiltered page, exact on request', async () => {
+    await driver.runQuery('ANALYZE it_bands', { queryId: 'an', maxRows: 1 });
+    const est = await driver.selectRows(
+      { name: 'it_bands' },
+      { page: 0, pageSize: 5, sorts: [], filters: [] },
+    );
+    expect(est.approximate).toBe(true);
+    const exact = await driver.selectRows(
+      { name: 'it_bands' },
+      { page: 0, pageSize: 5, sorts: [], filters: [], exactCount: true },
+    );
+    expect(exact.approximate).toBe(false);
+    expect(typeof exact.total).toBe('number');
   });
 
   it('mutates rows transactionally', async () => {

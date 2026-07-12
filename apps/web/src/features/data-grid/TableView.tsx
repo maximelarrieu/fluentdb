@@ -58,6 +58,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
   const [newRows, setNewRows] = useState<Record<string, CellValue>[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [mockOpen, setMockOpen] = useState(false);
+  const [exactCount, setExactCount] = useState(false);
   const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
 
   // Pop the mock-data dialog when the tree asked for it on this table.
@@ -79,6 +80,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
     page,
     sort,
     filters,
+    exactCount,
   ];
   const rowsQuery = useQuery({
     queryKey,
@@ -88,6 +90,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
         pageSize: PAGE_SIZE,
         sorts: sort ? [sort] : [],
         filters,
+        exactCount,
         database,
         schema,
       }),
@@ -464,8 +467,18 @@ export function TableView({ table, schema }: { table: string; schema?: string })
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-muted">
+          <span className="text-muted flex items-center gap-1.5">
+            {data?.approximate ? '~' : ''}
             {formatNumber(data?.total ?? 0)} ligne(s)
+            {data?.approximate && (
+              <button
+                className="text-accent hover:underline"
+                title="Compter exactement (COUNT(*))"
+                onClick={() => setExactCount(true)}
+              >
+                compter
+              </button>
+            )}
           </span>
           <div className="flex items-center gap-1">
             <Button
@@ -477,12 +490,16 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               <ChevronLeft size={14} />
             </Button>
             <span className="text-muted tabular-nums">
-              {page + 1} / {totalPages}
+              {data?.approximate ? `page ${page + 1}` : `${page + 1} / ${totalPages}`}
             </span>
             <Button
               size="icon"
               variant="ghost"
-              disabled={page + 1 >= totalPages}
+              disabled={
+                data?.approximate
+                  ? (data?.rows.length ?? 0) < PAGE_SIZE
+                  : page + 1 >= totalPages
+              }
               onClick={() => setPage((p) => p + 1)}
             >
               <ChevronRight size={14} />
