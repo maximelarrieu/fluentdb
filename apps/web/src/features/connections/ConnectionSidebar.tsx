@@ -12,6 +12,8 @@ import {
   Circle,
   PanelLeftClose,
   PanelLeftOpen,
+  Copy,
+  FileCode2,
 } from 'lucide-react';
 import {
   engineLabels,
@@ -21,6 +23,12 @@ import {
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
+import {
+  ContextMenu,
+  CtxItem,
+  CtxSeparator,
+  CtxLabel,
+} from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { ConnectionForm } from './ConnectionForm.js';
@@ -38,7 +46,8 @@ const COLOR_HEX: Record<string, string> = {
 export function ConnectionSidebar() {
   const toast = useToast();
   const qc = useQueryClient();
-  const { active, setActive, sidebarCollapsed, toggleSidebar } = useWorkspace();
+  const { active, setActive, openQuery, sidebarCollapsed, toggleSidebar } =
+    useWorkspace();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ConnectionSummary | null>(null);
   const [initial, setInitial] = useState<Partial<ConnectionInput> | undefined>();
@@ -134,8 +143,66 @@ export function ConnectionSidebar() {
             </p>
           )}
           {connections.data?.map((c) => (
-            <div
+            <ContextMenu
               key={c.id}
+              menu={
+                <>
+                  <CtxLabel>{c.name}</CtxLabel>
+                  {c.connected ? (
+                    <CtxItem
+                      icon={<PowerOff size={14} />}
+                      onSelect={() => disconnect.mutate(c.id)}
+                    >
+                      Déconnecter
+                    </CtxItem>
+                  ) : (
+                    <CtxItem
+                      icon={<Power size={14} />}
+                      onSelect={() => connect.mutate(c)}
+                    >
+                      Connecter
+                    </CtxItem>
+                  )}
+                  {active?.id === c.id && (
+                    <CtxItem
+                      icon={<FileCode2 size={14} />}
+                      onSelect={() => openQuery()}
+                    >
+                      Nouvelle requête
+                    </CtxItem>
+                  )}
+                  <CtxSeparator />
+                  <CtxItem
+                    icon={<Copy size={14} />}
+                    onSelect={() => {
+                      void navigator.clipboard?.writeText(c.name);
+                      toast.push('info', 'Nom copié');
+                    }}
+                  >
+                    Copier le nom
+                  </CtxItem>
+                  <CtxItem
+                    icon={<Pencil size={14} />}
+                    onSelect={() => {
+                      setEditing(c);
+                      setInitial(undefined);
+                      setFormOpen(true);
+                    }}
+                  >
+                    Modifier
+                  </CtxItem>
+                  <CtxSeparator />
+                  <CtxItem
+                    danger
+                    icon={<Trash2 size={14} />}
+                    onSelect={() => remove.mutate(c.id)}
+                  >
+                    Supprimer
+                  </CtxItem>
+                </>
+              }
+            >
+            <div
               className={`group flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
                 active?.id === c.id ? 'bg-panel-2' : 'hover:bg-panel-2/60'
               }`}
@@ -210,6 +277,7 @@ export function ConnectionSidebar() {
                 </Dropdown.Portal>
               </Dropdown.Root>
             </div>
+            </ContextMenu>
           ))}
         </div>
 
