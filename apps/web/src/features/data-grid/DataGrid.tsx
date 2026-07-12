@@ -1,4 +1,12 @@
-import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  forwardRef,
+  type ReactNode,
+  type HTMLAttributes,
+} from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { CellValue, PageResult, QueryColumn } from '@fluentdb/shared';
@@ -27,6 +35,8 @@ interface Props {
   editable?: boolean;
   /** Right-click menu for a column header. */
   columnMenu?: (col: QueryColumn) => ReactNode;
+  /** Right-click menu for a data cell. */
+  cellMenu?: (rowIndex: number, col: QueryColumn, value: CellValue) => ReactNode;
 }
 
 const editKey = (rowIndex: number, column: string) => `${rowIndex}::${column}`;
@@ -44,6 +54,7 @@ export function DataGrid({
   onSelectRow,
   editable,
   columnMenu,
+  cellMenu,
 }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ row: number; col: string } | null>(
@@ -155,9 +166,8 @@ export function DataGrid({
                     const value = hasEdit ? edits!.get(k)! : row[ci]!;
                     const isEditing =
                       editing?.row === vRow.index && editing?.col === c.name;
-                    return (
+                    const cell = (
                       <Cell
-                        key={c.name}
                         value={value ?? null}
                         dirty={hasEdit}
                         editable={editable && !!onEdit}
@@ -171,6 +181,18 @@ export function DataGrid({
                         }}
                         onCancel={() => setEditing(null)}
                       />
+                    );
+                    return cellMenu && !isEditing ? (
+                      <ContextMenu
+                        key={c.name}
+                        menu={cellMenu(vRow.index, c, value ?? null)}
+                      >
+                        {cell}
+                      </ContextMenu>
+                    ) : (
+                      <div key={c.name} className="contents">
+                        {cell}
+                      </div>
                     );
                   })}
                   <div />
@@ -190,23 +212,30 @@ export function DataGrid({
   );
 }
 
-function Cell({
-  value,
-  dirty,
-  editable,
-  editing,
-  onStartEdit,
-  onCommit,
-  onCancel,
-}: {
-  value: CellValue;
-  dirty?: boolean;
-  editable?: boolean;
-  editing: boolean;
-  onStartEdit: () => void;
-  onCommit: (value: CellValue) => void;
-  onCancel: () => void;
-}) {
+const Cell = forwardRef<
+  HTMLDivElement,
+  {
+    value: CellValue;
+    dirty?: boolean;
+    editable?: boolean;
+    editing: boolean;
+    onStartEdit: () => void;
+    onCommit: (value: CellValue) => void;
+    onCancel: () => void;
+  } & HTMLAttributes<HTMLDivElement>
+>(function Cell(
+  {
+    value,
+    dirty,
+    editable,
+    editing,
+    onStartEdit,
+    onCommit,
+    onCancel,
+    ...rest
+  },
+  ref,
+) {
   const { text, kind } = formatCell(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(value === null ? '' : String(value));
@@ -237,6 +266,8 @@ function Cell({
 
   return (
     <div
+      ref={ref}
+      {...rest}
       className={cn(
         'px-2.5 flex items-center border-r border-border-soft truncate cursor-default',
         'mono',
@@ -260,6 +291,6 @@ function Cell({
       </span>
     </div>
   );
-}
+});
 
 export type { PageResult };

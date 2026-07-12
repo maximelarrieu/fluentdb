@@ -9,6 +9,10 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Menu contextuel sur les cellules/lignes** : clic droit sur une cellule de
+  la grille — copier la valeur, copier la ligne (JSON), filtrer par cette
+  valeur, et (tables éditables) mettre à NULL ou marquer la ligne pour
+  suppression.
 - **Menu contextuel sur les colonnes** : clic droit sur un **en-tête de colonne**
   de la grille (copier le nom, trier ↑/↓, filtrer par cette colonne, créer un
   index, supprimer la colonne) et sur une **ligne de la vue Structure** (copier,
