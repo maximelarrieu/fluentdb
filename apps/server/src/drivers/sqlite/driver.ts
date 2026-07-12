@@ -391,7 +391,9 @@ export class SqliteDriver implements Driver {
         dataType: c.dataType,
       })),
       rows: page.rows.map((r) => r.map(normalizeCell)),
+      // SQLite is a local file — an exact COUNT is cheap, so no estimate needed.
       total: Number(count.rows[0]?.[0] ?? 0),
+      approximate: false,
       pkColumns: structure.primaryKey,
     };
   }

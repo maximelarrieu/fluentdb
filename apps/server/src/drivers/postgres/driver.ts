@@ -663,12 +663,33 @@ export class PostgresDriver implements Driver {
     const scoped = { ...ref, schema: ref.schema ?? DEFAULT_SCHEMA };
 
     const page = buildSelectPage(this.dialect, scoped, q, known);
-    const count = buildCount(this.dialect, scoped, q.filters, known);
     const db = this.db();
-    const [pageRes, countRes] = await Promise.all([
-      db.query({ text: page.sql, values: page.params, rowMode: 'array' }),
-      db.query({ text: count.sql, values: count.params }),
-    ]);
+
+    // Fast path: no filter + no exact request → use the planner's row estimate
+    // (reltuples) instead of a full COUNT(*), which is slow on big tables.
+    const wantExact = q.exactCount || q.filters.length > 0;
+    let estimate: number | null = null;
+    if (!wantExact) {
+      estimate = await this.approxRowCount(scoped);
+    }
+
+    const pageRes = await db.query({
+      text: page.sql,
+      values: page.params,
+      rowMode: 'array',
+    });
+
+    let total: number | null;
+    let approximate: boolean;
+    if (!wantExact && estimate != null && estimate >= 0) {
+      total = estimate;
+      approximate = true;
+    } else {
+      const count = buildCount(this.dialect, scoped, q.filters, known);
+      const countRes = await db.query({ text: count.sql, values: count.params });
+      total = Number(countRes.rows[0]?.n ?? 0);
+      approximate = false;
+    }
 
     return {
       columns: structure.columns.map((c) => ({
@@ -676,9 +697,26 @@ export class PostgresDriver implements Driver {
         dataType: c.dataType,
       })),
       rows: (pageRes.rows as unknown[][]).map((r) => r.map(normalizeCell)),
-      total: Number(countRes.rows[0]?.n ?? 0),
+      total,
+      approximate,
       pkColumns: structure.primaryKey,
     };
+  }
+
+  /** Planner row estimate from pg_class.reltuples; null when unavailable. */
+  private async approxRowCount(ref: TableRef): Promise<number | null> {
+    const qualified = ref.schema ? `${ref.schema}.${ref.name}` : ref.name;
+    try {
+      const res = await this.db().query(
+        `SELECT reltuples::bigint AS n FROM pg_class WHERE oid = $1::regclass`,
+        [qualified],
+      );
+      const n = Number(res.rows[0]?.n ?? -1);
+      // reltuples is -1 (or 0) before the table has ever been analyzed.
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch {
+      return null;
+    }
   }
 
   async mutateRows(ref: TableRef, changes: RowChanges): Promise<MutationResult> {

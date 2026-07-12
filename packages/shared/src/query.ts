@@ -71,6 +71,8 @@ export const rowQuerySchema = z.object({
   pageSize: z.number().int().min(1).max(1000).default(100),
   sorts: z.array(sortSpecSchema).default([]),
   filters: z.array(filterSpecSchema).default([]),
+  /** Force an exact COUNT(*) instead of the planner estimate. */
+  exactCount: z.boolean().optional(),
 });
 export type RowQuery = z.infer<typeof rowQuerySchema>;
 
@@ -79,6 +81,8 @@ export interface PageResult {
   rows: CellValue[][];
   /** Total row count for the current filters (exact or estimated). */
   total: number | null;
+  /** True when `total` is a planner estimate, not an exact count. */
+  approximate: boolean;
   pkColumns: string[];
 }
 

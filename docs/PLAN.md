@@ -166,6 +166,40 @@ PR par phase) :
    ligne, filtrer par cette valeur, mettre à NULL, supprimer la/les ligne(s).
 4. **Connexion** — clic droit dans la barre latérale (en plus du menu `⋮`).
 
+### Perf sur gros volumes & fonctions DBA
+
+Deux axes issus des frictions marché (DBeaver lent sur gros volumes ;
+TablePlus/Beekeeper pauvres en DBA). Une PR par item, dans cet ordre :
+
+**Axe 1 — Perf sur gros volumes**
+
+1. **Compte approximatif + exact à la demande** — remplacer le `COUNT(*)`
+   systématique à l'ouverture d'une table par l'estimation du planificateur
+   (`reltuples` en PostgreSQL, `information_schema.table_rows` en MySQL),
+   affichée « ~1,2 M », avec un bouton « compter exactement ». Un filtre force
+   un comptage exact (l'estimation ne reflète pas le `WHERE`). Supprime la
+   latence n°1 à l'ouverture des grosses tables.
+2. **Pagination keyset (curseur)** — naviguer par `WHERE clé > dernière_vue`
+   plutôt qu'`OFFSET`, pour un défilement à coût constant quel que soit le
+   volume. Navigation Précédent/Suivant par curseur (repli sur `OFFSET` quand
+   aucune clé d'ordre total n'est disponible).
+3. **Export en flux (streaming)** — exporter une table/requête en CSV/JSON via
+   un curseur serveur, sans charger toutes les lignes en mémoire (aujourd'hui
+   borné par `maxRows`).
+
+**Axe 2 — Fonctions DBA**
+
+4. **Moniteur d'activité + kill** — vue live de `pg_stat_activity` (requêtes en
+   cours, état, durée, wait events) avec annulation/terminaison d'une session
+   (`pg_cancel_backend` / `pg_terminate_backend`). Équivalents MySQL
+   (`SHOW PROCESSLIST` / `KILL`).
+5. **Arbre des verrous / blocages** — qui bloque qui (blocking tree) à partir
+   de `pg_locks` / `pg_stat_activity`.
+6. **Explorateur de tailles** — top tables/index par espace disque avec part
+   relative ; réutilise les catalogues du Bilan de santé.
+7. **Rôles & privilèges** — navigateur des utilisateurs/rôles et de leurs
+   droits.
+
 ## 6. Qualité et vérification
 
 - Tests unitaires + API (vitest via `fastify.inject()`), fixture SQLite universelle.
