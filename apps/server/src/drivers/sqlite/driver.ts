@@ -33,7 +33,7 @@ import { splitSqlStatements } from '../sqlSplit.js';
 import {
   buildCount,
   buildMutations,
-  buildSelectPage,
+  buildPage,
   type BuiltQuery,
 } from '../sqlBuilder.js';
 import { sqliteDialect } from './dialect.js';
@@ -382,18 +382,22 @@ export class SqliteDriver implements Driver {
     const structure = await this.getTableStructure(ref);
     const known = new Set(structure.columns.map((c) => c.name));
 
-    const page = this.exec(buildSelectPage(this.dialect, ref, q, known));
+    const built = buildPage(this.dialect, ref, q, known, structure.primaryKey);
+    const page = this.exec(built.built);
     const count = this.exec(buildCount(this.dialect, ref, q.filters, known));
+    let rows = page.rows.map((r) => r.map(normalizeCell));
+    if (built.reversed) rows = rows.reverse();
 
     return {
       columns: structure.columns.map((c) => ({
         name: c.name,
         dataType: c.dataType,
       })),
-      rows: page.rows.map((r) => r.map(normalizeCell)),
+      rows,
       // SQLite is a local file — an exact COUNT is cheap, so no estimate needed.
       total: Number(count.rows[0]?.[0] ?? 0),
       approximate: false,
+      keysetColumn: built.keysetColumn,
       pkColumns: structure.primaryKey,
     };
   }

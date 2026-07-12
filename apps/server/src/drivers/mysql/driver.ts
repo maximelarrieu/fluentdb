@@ -28,7 +28,7 @@ import {
 import {
   buildCount,
   buildMutations,
-  buildSelectPage,
+  buildPage,
 } from '../sqlBuilder.js';
 import { mysqlDialect } from './dialect.js';
 import { buildMysqlDdl } from './ddl.js';
@@ -440,7 +440,7 @@ export class MysqlDriver implements Driver {
     const structure = await this.getTableStructure(ref);
     const known = new Set(structure.columns.map((c) => c.name));
 
-    const page = buildSelectPage(this.dialect, ref, q, known);
+    const page = buildPage(this.dialect, ref, q, known, structure.primaryKey);
     const db = this.db();
 
     const wantExact = q.exactCount || q.filters.length > 0;
@@ -448,10 +448,12 @@ export class MysqlDriver implements Driver {
     if (!wantExact) estimate = await this.approxRowCount(ref);
 
     const [pageRows] = await db.query({
-      sql: page.sql,
-      values: page.params,
+      sql: page.built.sql,
+      values: page.built.params,
       rowsAsArray: true,
     });
+    let rows = (pageRows as unknown[][]).map((r) => r.map(normalizeCell));
+    if (page.reversed) rows = rows.reverse();
 
     let total: number | null;
     let approximate: boolean;
@@ -473,9 +475,10 @@ export class MysqlDriver implements Driver {
         name: c.name,
         dataType: c.dataType,
       })),
-      rows: (pageRows as unknown[][]).map((r) => r.map(normalizeCell)),
+      rows,
       total,
       approximate,
+      keysetColumn: page.keysetColumn,
       pkColumns: structure.primaryKey,
     };
   }

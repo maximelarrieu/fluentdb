@@ -73,6 +73,10 @@ export const rowQuerySchema = z.object({
   filters: z.array(filterSpecSchema).default([]),
   /** Force an exact COUNT(*) instead of the planner estimate. */
   exactCount: z.boolean().optional(),
+  /** Keyset cursor: fetch the page after this key value (next). */
+  after: z.union([z.string(), z.number()]).optional(),
+  /** Keyset cursor: fetch the page before this key value (previous). */
+  before: z.union([z.string(), z.number()]).optional(),
 });
 export type RowQuery = z.infer<typeof rowQuerySchema>;
 
@@ -83,6 +87,11 @@ export interface PageResult {
   total: number | null;
   /** True when `total` is a planner estimate, not an exact count. */
   approximate: boolean;
+  /**
+   * When set, the grid is keyset-paginated: this column's value in the first /
+   * last row is the cursor for previous / next. Null → OFFSET pagination.
+   */
+  keysetColumn: string | null;
   pkColumns: string[];
 }
 

@@ -33,12 +33,12 @@ export function assertKnownColumns(
   }
 }
 
-function buildFilterClause(
+/** SQL conditions (bound) for a set of filters, one string per filter. */
+function filterConditions(
   dialect: Dialect,
   filters: FilterSpec[],
   params: CellValue[],
-): string {
-  if (filters.length === 0) return '';
+): string[] {
   const parts: string[] = [];
   for (const f of filters) {
     const col = dialect.quoteIdent(f.column);
@@ -66,7 +66,16 @@ function buildFilterClause(
       }
     }
   }
-  return ` WHERE ${parts.join(' AND ')}`;
+  return parts;
+}
+
+function buildFilterClause(
+  dialect: Dialect,
+  filters: FilterSpec[],
+  params: CellValue[],
+): string {
+  const parts = filterConditions(dialect, filters, params);
+  return parts.length === 0 ? '' : ` WHERE ${parts.join(' AND ')}`;
 }
 
 // '!' as LIKE escape char: portable across pg/mysql/sqlite string literals
@@ -100,6 +109,85 @@ export function buildSelectPage(
   params.push(q.pageSize, q.page * q.pageSize);
   sql += ` LIMIT ${dialect.placeholder(params.length - 1)} OFFSET ${dialect.placeholder(params.length)}`;
   return { sql, params };
+}
+
+/**
+ * A single-column, UNIQUE order key enables keyset pagination. Only the
+ * primary key qualifies (a user sort on a non-unique column would skip/repeat
+ * rows at page boundaries), and only when the view is ordered by it (default,
+ * or an explicit sort on the PK). Returns null → caller uses OFFSET.
+ */
+export function keysetOrder(
+  q: RowQuery,
+  pkColumns: string[],
+): { column: string; dir: 'asc' | 'desc' } | null {
+  if (pkColumns.length !== 1) return null;
+  const pk = pkColumns[0]!;
+  if (q.sorts.length === 0) return { column: pk, dir: 'asc' };
+  if (q.sorts.length === 1 && q.sorts[0]!.column === pk) {
+    return { column: pk, dir: q.sorts[0]!.dir };
+  }
+  return null;
+}
+
+export interface PageBuild {
+  built: BuiltQuery;
+  /** Rows come back in reverse display order (a "before" keyset page). */
+  reversed: boolean;
+  /** Column whose value is the keyset cursor, or null in OFFSET mode. */
+  keysetColumn: string | null;
+}
+
+/**
+ * Build a page query, preferring keyset pagination (WHERE key </> cursor) over
+ * OFFSET when a unique order key is available. Falls back to OFFSET otherwise.
+ */
+export function buildPage(
+  dialect: Dialect,
+  ref: TableRef,
+  q: RowQuery,
+  knownColumns: Set<string>,
+  pkColumns: string[],
+): PageBuild {
+  const ks = keysetOrder(q, pkColumns);
+  if (!ks) {
+    return {
+      built: buildSelectPage(dialect, ref, q, knownColumns),
+      reversed: false,
+      keysetColumn: null,
+    };
+  }
+  assertKnownColumns(
+    [ks.column, ...q.filters.map((f) => f.column)],
+    knownColumns,
+  );
+  const params: CellValue[] = [];
+  const conds = filterConditions(dialect, q.filters, params);
+  const col = dialect.quoteIdent(ks.column);
+  let orderDir = ks.dir;
+  let reversed = false;
+
+  if (q.before !== undefined && q.before !== null) {
+    // Page immediately before the cursor: invert order, reverse rows after.
+    params.push(q.before);
+    conds.push(
+      `${col} ${ks.dir === 'asc' ? '<' : '>'} ${dialect.placeholder(params.length)}`,
+    );
+    orderDir = ks.dir === 'asc' ? 'desc' : 'asc';
+    reversed = true;
+  } else if (q.after !== undefined && q.after !== null) {
+    params.push(q.after);
+    conds.push(
+      `${col} ${ks.dir === 'asc' ? '>' : '<'} ${dialect.placeholder(params.length)}`,
+    );
+  }
+
+  let sql = `SELECT * FROM ${qualifiedName(dialect, ref)}`;
+  if (conds.length > 0) sql += ` WHERE ${conds.join(' AND ')}`;
+  sql += ` ORDER BY ${col} ${orderDir === 'desc' ? 'DESC' : 'ASC'}`;
+  params.push(q.pageSize);
+  sql += ` LIMIT ${dialect.placeholder(params.length)}`;
+  return { built: { sql, params }, reversed, keysetColumn: ks.column };
 }
 
 export function buildCount(

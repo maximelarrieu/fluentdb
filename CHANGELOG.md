@@ -100,6 +100,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Pagination keyset (perf gros volumes)** : la navigation Précédent/Suivant
+  dans la grille utilise désormais un curseur (`WHERE clé > dernière_vue`) au
+  lieu d'`OFFSET` quand la table a une clé primaire mono-colonne — coût constant
+  quel que soit le numéro de page (fini le ralentissement en profondeur de
+  pagination). Repli automatique sur `OFFSET` sinon (PK composite, tri sur une
+  colonne non unique).
 - **Compte de lignes approximatif (perf gros volumes)** : à l'ouverture d'une
   table, le total affiché provient désormais de l'estimation du planificateur
   (`reltuples` en PostgreSQL, `information_schema` en MySQL) — « ~1,2 M » — au
