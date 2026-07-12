@@ -9,6 +9,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Explorateur de tailles (DBA)** : le Bilan de santé ouvre sur une section
+  « Stockage » listant les plus grosses tables par espace disque (données +
+  index), avec une barre proportionnelle et le détail de la part d'index
+  (PostgreSQL `pg_total_relation_size`, MySQL `information_schema`, SQLite
+  `dbstat` si disponible).
 - **Blocages / verrous (DBA)** : l'onglet « Activité » affiche en tête un
   encart « Blocages » listant les sessions en attente d'un verrou et qui les
   bloque (PostgreSQL `pg_blocking_pids`, MySQL `sys.innodb_lock_waits`), avec un

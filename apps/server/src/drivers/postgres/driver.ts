@@ -8,6 +8,7 @@ import type {
   DdlChange,
   DdlPreview,
   HealthFinding,
+  TableSize,
   MutationResult,
   PageResult,
   QueryPlan,
@@ -547,6 +548,28 @@ export class PostgresDriver implements Driver {
       blockingUser: r.blocking_user ?? null,
       blockingQuery: r.blocking_query ?? null,
       waitedMs: r.waited_ms != null ? Number(r.waited_ms) : null,
+    }));
+  }
+
+  async tableSizes(): Promise<TableSize[]> {
+    const res = await this.db().query(
+      `SELECT n.nspname AS schema, c.relname AS name,
+              pg_total_relation_size(c.oid) AS total,
+              pg_table_size(c.oid) AS table_bytes,
+              pg_indexes_size(c.oid) AS index_bytes
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE c.relkind IN ('r', 'm')
+             AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+       ORDER BY total DESC
+       LIMIT 50`,
+    );
+    return res.rows.map((r) => ({
+      name: r.name,
+      schema: r.schema ?? null,
+      totalBytes: Number(r.total),
+      tableBytes: Number(r.table_bytes),
+      indexBytes: Number(r.index_bytes),
     }));
   }
 

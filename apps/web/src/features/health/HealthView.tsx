@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Info,
   FileCode2,
+  HardDrive,
 } from 'lucide-react';
 import {
   healthCategoryLabels,
@@ -18,6 +19,61 @@ import { api } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner, EmptyState } from '../../components/ui/misc.js';
 import { useWorkspace } from '../../stores/workspace.js';
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} o`;
+  const units = ['Ko', 'Mo', 'Go', 'To'];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+function StorageSection({ connId, database }: { connId: string; database?: string }) {
+  const sizes = useQuery({
+    queryKey: ['sizes', connId, database],
+    queryFn: () => api.sizes(connId, database),
+  });
+  const rows = sizes.data ?? [];
+  if (sizes.isLoading || rows.length === 0) return null;
+  const max = rows[0]?.totalBytes || 1;
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wide text-muted mb-2 flex items-center gap-1.5">
+        <HardDrive size={12} /> Stockage — plus grosses tables
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {rows.slice(0, 15).map((t) => {
+          const idxPct = t.totalBytes ? (t.indexBytes / max) * 100 : 0;
+          const tablePct = t.totalBytes ? (t.tableBytes / max) * 100 : 0;
+          return (
+            <div key={`${t.schema ?? ''}.${t.name}`} className="text-[12px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate mono">{t.name}</span>
+                <span className="text-muted tabular-nums shrink-0">
+                  {fmtBytes(t.totalBytes)}
+                  {t.indexBytes > 0 && (
+                    <span className="text-muted/60">
+                      {' '}
+                      · idx {fmtBytes(t.indexBytes)}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="h-1.5 mt-0.5 rounded-full bg-panel-2 overflow-hidden flex">
+                <div className="h-full bg-accent" style={{ width: `${tablePct}%` }} />
+                <div className="h-full bg-amber/70" style={{ width: `${idxPct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const SEVERITY_ORDER: Record<HealthSeverity, number> = {
   critical: 0,
@@ -165,15 +221,16 @@ export function HealthView() {
         <div className="p-4 text-sm text-red">
           {(report.error as Error).message}
         </div>
-      ) : findings.length === 0 ? (
-        <EmptyState
-          icon={<CheckCircle2 size={40} strokeWidth={1.2} className="text-green" />}
-          title="Rien à signaler"
-          hint="Aucun problème détecté par les vérifications disponibles pour ce moteur."
-        />
       ) : (
         <div className="p-4 flex flex-col gap-5">
-          {grouped.map((g) => (
+          <StorageSection connId={active.id} database={database} />
+          {findings.length === 0 ? (
+            <div className="flex items-center gap-2 text-[13px] text-green">
+              <CheckCircle2 size={16} /> Aucun problème détecté par les
+              vérifications disponibles pour ce moteur.
+            </div>
+          ) : (
+            grouped.map((g) => (
             <div key={g.cat}>
               <div className="text-[11px] uppercase tracking-wide text-muted mb-2">
                 {healthCategoryLabels[g.cat]}
@@ -184,7 +241,8 @@ export function HealthView() {
                 ))}
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import type {
   DdlPreview,
   EngineKind,
   HealthFinding,
+  TableSize,
   MutationResult,
   PageResult,
   QueryPlan,
@@ -135,6 +136,9 @@ export interface Driver {
 
   /** Sessions currently blocked by another session (lock waits). */
   blockingLocks(): Promise<LockWait[]>;
+
+  /** Largest tables by disk usage (data + indexes), for the storage explorer. */
+  tableSizes(): Promise<TableSize[]>;
 
   /**
    * Read-only diagnostic checks over the engine's catalogs / stat views:

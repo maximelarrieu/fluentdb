@@ -11,6 +11,7 @@ import type {
   DdlPreview,
   ForeignKeyInfo,
   HealthFinding,
+  TableSize,
   IndexInfo,
   MutationResult,
   PageResult,
@@ -300,6 +301,45 @@ export class SqliteDriver implements Driver {
 
   async blockingLocks(): Promise<LockWait[]> {
     return [];
+  }
+
+  async tableSizes(): Promise<TableSize[]> {
+    const db = this.conn();
+    try {
+      // dbstat is a virtual table; not always compiled in.
+      const pages = db.prepare('SELECT name, SUM(pgsize) AS bytes FROM dbstat GROUP BY name').all() as {
+        name: string;
+        bytes: number;
+      }[];
+      const byName = new Map(pages.map((p) => [p.name, Number(p.bytes)]));
+      const tables = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
+        )
+        .all() as { name: string }[];
+      const sizes = tables.map((t) => {
+        const idxNames = (
+          db
+            .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name=?`)
+            .all(t.name) as { name: string }[]
+        ).map((i) => i.name);
+        const tableBytes = byName.get(t.name) ?? 0;
+        const indexBytes = idxNames.reduce((s, n) => s + (byName.get(n) ?? 0), 0);
+        return {
+          name: t.name,
+          schema: null,
+          totalBytes: tableBytes + indexBytes,
+          tableBytes,
+          indexBytes,
+        };
+      });
+      return sizes
+        .filter((s) => s.totalBytes > 0)
+        .sort((a, b) => b.totalBytes - a.totalBytes)
+        .slice(0, 50);
+    } catch {
+      return [];
+    }
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

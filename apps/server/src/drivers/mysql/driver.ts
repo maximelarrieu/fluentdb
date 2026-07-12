@@ -8,6 +8,7 @@ import type {
   DdlChange,
   DdlPreview,
   HealthFinding,
+  TableSize,
   MutationResult,
   PageResult,
   QueryPlan,
@@ -464,6 +465,35 @@ export class MysqlDriver implements Driver {
     } catch {
       return [];
     }
+  }
+
+  async tableSizes(): Promise<TableSize[]> {
+    if (!this.database) return [];
+    const [rows] = await this.db().query(
+      `SELECT table_name AS name,
+              data_length + index_length AS total,
+              data_length AS table_bytes,
+              index_length AS index_bytes
+       FROM information_schema.tables
+       WHERE table_schema = ? AND table_type = 'BASE TABLE'
+       ORDER BY total DESC
+       LIMIT 50`,
+      [this.database],
+    );
+    return (
+      rows as {
+        name: string;
+        total: number | null;
+        table_bytes: number | null;
+        index_bytes: number | null;
+      }[]
+    ).map((r) => ({
+      name: r.name,
+      schema: this.database ?? null,
+      totalBytes: Number(r.total ?? 0),
+      tableBytes: Number(r.table_bytes ?? 0),
+      indexBytes: Number(r.index_bytes ?? 0),
+    }));
   }
 
   async healthChecks(): Promise<HealthFinding[]> {
