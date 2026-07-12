@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  LockWait,
   DdlChange,
   DdlPreview,
   EngineKind,
@@ -131,6 +132,9 @@ export interface Driver {
    * (terminate=true) identified by `id`. Returns true when a kill was issued.
    */
   killSession(id: string, opts: { terminate: boolean }): Promise<boolean>;
+
+  /** Sessions currently blocked by another session (lock waits). */
+  blockingLocks(): Promise<LockWait[]>;
 
   /**
    * Read-only diagnostic checks over the engine's catalogs / stat views:

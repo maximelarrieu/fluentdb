@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  LockWait,
   DdlChange,
   DdlPreview,
   HealthFinding,
@@ -522,6 +523,31 @@ export class PostgresDriver implements Driver {
     const fn = opts.terminate ? 'pg_terminate_backend' : 'pg_cancel_backend';
     const res = await this.db().query(`SELECT ${fn}($1) AS ok`, [Number(id)]);
     return res.rows[0]?.ok === true;
+  }
+
+  async blockingLocks(): Promise<LockWait[]> {
+    const res = await this.db().query(
+      `SELECT bd.pid AS blocked_pid,
+              bd.usename AS blocked_user,
+              left(bd.query, 300) AS blocked_query,
+              bg.pid AS blocking_pid,
+              bg.usename AS blocking_user,
+              left(bg.query, 300) AS blocking_query,
+              EXTRACT(MILLISECONDS FROM (now() - bd.query_start))::bigint AS waited_ms
+       FROM pg_stat_activity bd
+       JOIN LATERAL unnest(pg_blocking_pids(bd.pid)) AS blk(pid) ON true
+       JOIN pg_stat_activity bg ON bg.pid = blk.pid
+       ORDER BY waited_ms DESC NULLS LAST`,
+    );
+    return res.rows.map((r) => ({
+      blockedPid: String(r.blocked_pid),
+      blockedUser: r.blocked_user ?? null,
+      blockedQuery: r.blocked_query ?? null,
+      blockingPid: String(r.blocking_pid),
+      blockingUser: r.blocking_user ?? null,
+      blockingQuery: r.blocking_query ?? null,
+      waitedMs: r.waited_ms != null ? Number(r.waited_ms) : null,
+    }));
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

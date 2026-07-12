@@ -6,6 +6,7 @@ import type {
   ConnectionConfig,
   DatabaseInfo,
   DbSession,
+  LockWait,
   DdlChange,
   DdlPreview,
   ForeignKeyInfo,
@@ -295,6 +296,10 @@ export class SqliteDriver implements Driver {
 
   async killSession(): Promise<boolean> {
     return false;
+  }
+
+  async blockingLocks(): Promise<LockWait[]> {
+    return [];
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

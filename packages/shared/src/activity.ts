@@ -15,3 +15,15 @@ export interface DbSession {
   /** True for FluentDB's own backend (never offered for killing). */
   current: boolean;
 }
+
+/** One "session A is blocked by session B" edge for the lock/blocking view. */
+export interface LockWait {
+  blockedPid: string;
+  blockedUser: string | null;
+  blockedQuery: string | null;
+  blockingPid: string;
+  blockingUser: string | null;
+  blockingQuery: string | null;
+  /** How long the blocked session has been waiting, milliseconds. */
+  waitedMs: number | null;
+}

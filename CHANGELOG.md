@@ -9,6 +9,10 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Blocages / verrous (DBA)** : l'onglet « Activité » affiche en tête un
+  encart « Blocages » listant les sessions en attente d'un verrou et qui les
+  bloque (PostgreSQL `pg_blocking_pids`, MySQL `sys.innodb_lock_waits`), avec un
+  bouton pour **terminer la session bloquante**.
 - **Moniteur d'activité + kill (DBA)** : un onglet « Activité » liste les
   sessions serveur en direct (PostgreSQL `pg_stat_activity`, MySQL processlist)
   — utilisateur, base, état, wait event, durée, requête — et permet d'**annuler
