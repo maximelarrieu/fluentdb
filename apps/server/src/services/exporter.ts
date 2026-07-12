@@ -1,6 +1,6 @@
 import type { CellValue, QueryResultSet } from '@fluentdb/shared';
 
-function csvEscape(value: CellValue): string {
+export function csvEscape(value: CellValue): string {
   if (value === null) return '';
   const s = typeof value === 'string' ? value : String(value);
   if (/[",\n\r]/.test(s)) {

@@ -10,6 +10,7 @@ import type {
   MutationResult,
   PageResult,
   QueryPlan,
+  QueryColumn,
   QueryResultSet,
   RowChanges,
   RowQuery,
@@ -53,6 +54,12 @@ export interface RunQueryOptions {
   maxRows: number;
 }
 
+/** Incremental sink for streaming exports (columns once, then each row). */
+export interface ExportSink {
+  columns(cols: QueryColumn[]): void;
+  row(values: CellValue[]): void;
+}
+
 /**
  * One Driver instance == one live connection (pool) to one database.
  * All introspection results are normalized to the shared types — the rest
@@ -83,6 +90,13 @@ export interface Driver {
   runQuery(sql: string, opts: RunQueryOptions): Promise<QueryResultSet[]>;
   /** Returns true if a running query was found and a cancel was issued. */
   cancelQuery(queryId: string): Promise<boolean>;
+
+  /**
+   * Stream a query's rows to `sink` incrementally (server-side cursor /
+   * iterator), never materializing the whole result set in memory. Powers
+   * large CSV/JSON exports.
+   */
+  streamQuery(sql: string, sink: ExportSink): Promise<void>;
 
   /**
    * Estimate how many rows a statement would affect, via a dry-run EXPLAIN

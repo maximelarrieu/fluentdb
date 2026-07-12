@@ -24,6 +24,7 @@ import {
   type Driver,
   type DriverCapabilities,
   type RunQueryOptions,
+  type ExportSink,
 } from '../types.js';
 import {
   buildCount,
@@ -440,6 +441,37 @@ export class PostgresDriver implements Driver {
       return true;
     } finally {
       await side.end().catch(() => {});
+    }
+  }
+
+  async streamQuery(sql: string, sink: ExportSink): Promise<void> {
+    const client = await this.db().connect();
+    const BATCH = 1000;
+    let sentCols = false;
+    try {
+      await client.query('BEGIN READ ONLY');
+      await client.query(`DECLARE fluent_export NO SCROLL CURSOR FOR ${sql}`);
+      for (;;) {
+        const res = await client.query({
+          text: `FETCH ${BATCH} FROM fluent_export`,
+          rowMode: 'array',
+        });
+        if (!sentCols) {
+          sink.columns(res.fields.map((f) => ({ name: f.name })));
+          sentCols = true;
+        }
+        for (const r of res.rows as unknown[][]) {
+          sink.row(r.map(normalizeCell));
+        }
+        if (res.rows.length < BATCH) break;
+      }
+      await client.query('CLOSE fluent_export');
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw new DriverError((err as Error).message);
+    } finally {
+      client.release();
     }
   }
 

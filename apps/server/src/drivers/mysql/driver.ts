@@ -24,12 +24,20 @@ import {
   type Driver,
   type DriverCapabilities,
   type RunQueryOptions,
+  type ExportSink,
 } from '../types.js';
 import {
   buildCount,
   buildMutations,
   buildPage,
 } from '../sqlBuilder.js';
+
+/** Minimal shape of mysql2's event-based query emitter (streaming path). */
+interface MysqlEmitter {
+  query(opts: { sql: string; rowsAsArray: boolean }): {
+    on(event: string, cb: (arg: never) => void): unknown;
+  };
+}
 import { mysqlDialect } from './dialect.js';
 import { buildMysqlDdl } from './ddl.js';
 import { normalizeMysqlPlan } from './explain.js';
@@ -328,6 +336,28 @@ export class MysqlDriver implements Driver {
       return true;
     } finally {
       await side.end().catch(() => {});
+    }
+  }
+
+  async streamQuery(sql: string, sink: ExportSink): Promise<void> {
+    const conn = await this.db().getConnection();
+    // The promise wrapper buffers; the underlying core connection exposes the
+    // event-based streaming API (fields → result rows → end).
+    const core = (conn as unknown as { connection: MysqlEmitter }).connection;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const q = core.query({ sql, rowsAsArray: true });
+        q.on('fields', (fields: { name: string }[]) => {
+          sink.columns(fields.map((f) => ({ name: f.name })));
+        });
+        q.on('result', (row: unknown[]) => {
+          sink.row(row.map(normalizeCell));
+        });
+        q.on('error', (err: Error) => reject(new DriverError(err.message)));
+        q.on('end', () => resolve());
+      });
+    } finally {
+      conn.release();
     }
   }
 
