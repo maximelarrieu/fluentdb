@@ -11,6 +11,7 @@ import type {
   DdlPreview,
   DetectedDbContainer,
   DockerStatus,
+  DbSession,
   ErdSchema,
   HealthReport,
   HistoryEntry,
@@ -227,6 +228,23 @@ export const api = {
     request<HealthReport>(
       'GET',
       `/api/connections/${id}/health${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+
+  // activity monitor
+  activity: (id: string, database?: string) =>
+    request<DbSession[]>(
+      'GET',
+      `/api/connections/${id}/activity${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+  killSession: (
+    id: string,
+    pid: string,
+    body: { terminate: boolean; database?: string },
+  ) =>
+    request<{ killed: boolean }>(
+      'POST',
+      `/api/connections/${id}/activity/${encodeURIComponent(pid)}/kill`,
+      body,
     ),
 
   // scheduled tasks

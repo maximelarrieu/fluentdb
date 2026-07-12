@@ -3,6 +3,7 @@ import type {
   AutocompleteCatalog,
   ConnectionConfig,
   DatabaseInfo,
+  DbSession,
   DdlChange,
   DdlPreview,
   HealthFinding,
@@ -66,6 +67,7 @@ export class MysqlDriver implements Driver {
     explain: true,
     explainAnalyze: false,
     materializedViews: false,
+    activityMonitor: true,
   };
 
   private pool: mysql.Pool | null = null;
@@ -380,6 +382,57 @@ export class MysqlDriver implements Driver {
       return seen ? total : null;
     } catch {
       return null;
+    }
+  }
+
+  async activeSessions(): Promise<DbSession[]> {
+    const [rows] = await this.db().query(
+      `SELECT id, user, db, command, time, state, info
+       FROM information_schema.processlist
+       ORDER BY time DESC`,
+    );
+    const [conn] = await this.db().query('SELECT CONNECTION_ID() AS id');
+    const myId = String((conn as { id: unknown }[])[0]?.id ?? '');
+    return (
+      rows as {
+        id: number;
+        user: string | null;
+        db: string | null;
+        command: string | null;
+        time: number | null;
+        state: string | null;
+        info: string | null;
+      }[]
+    ).map((r) => ({
+      id: String(r.id),
+      user: r.user ?? null,
+      database: r.db ?? null,
+      state: r.command ?? r.state ?? null,
+      waitEvent: r.state ?? null,
+      durationMs: r.time != null ? Number(r.time) * 1000 : null,
+      query: r.info ?? null,
+      current: String(r.id) === myId,
+    }));
+  }
+
+  async killSession(
+    id: string,
+    opts: { terminate: boolean },
+  ): Promise<boolean> {
+    const side = await mysql.createConnection({
+      ...this.poolConfig(),
+      multipleStatements: false,
+    });
+    try {
+      await side.query(
+        opts.terminate ? `KILL ?` : `KILL QUERY ?`,
+        [Number(id)],
+      );
+      return true;
+    } catch {
+      return false;
+    } finally {
+      await side.end().catch(() => {});
     }
   }
 

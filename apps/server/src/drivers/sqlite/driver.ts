@@ -5,6 +5,7 @@ import type {
   CellValue,
   ConnectionConfig,
   DatabaseInfo,
+  DbSession,
   DdlChange,
   DdlPreview,
   ForeignKeyInfo,
@@ -59,6 +60,7 @@ export class SqliteDriver implements Driver {
     explain: true,
     explainAnalyze: false,
     materializedViews: false,
+    activityMonitor: false,
   };
 
   private db: Database.Database | null = null;
@@ -285,6 +287,14 @@ export class SqliteDriver implements Driver {
   async estimateRows(): Promise<number | null> {
     // SQLite's EXPLAIN QUERY PLAN gives no row-count estimate.
     return null;
+  }
+
+  async activeSessions(): Promise<DbSession[]> {
+    return []; // SQLite is a single-process local file — no server sessions.
+  }
+
+  async killSession(): Promise<boolean> {
+    return false;
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

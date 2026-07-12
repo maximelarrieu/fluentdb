@@ -6,6 +6,7 @@ import {
   Clock,
   LayoutDashboard,
   HeartPulse,
+  Activity,
   X,
   Plus,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ const icons: Record<Tab['kind'], React.ReactNode> = {
   tasks: <Clock size={13} className="text-accent" />,
   dashboard: <LayoutDashboard size={13} className="text-accent" />,
   health: <HeartPulse size={13} className="text-accent" />,
+  activity: <Activity size={13} className="text-accent" />,
 };
 
 export function TabBar() {

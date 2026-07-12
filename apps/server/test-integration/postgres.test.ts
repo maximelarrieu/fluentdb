@@ -269,6 +269,17 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     expect(Number(after[0]?.rows[0]?.[0])).toBe(countBefore);
   });
 
+  it('lists active sessions including its own backend', async () => {
+    const sessions = await driver.activeSessions();
+    expect(sessions.length).toBeGreaterThan(0);
+    const me = sessions.find((s) => s.current);
+    expect(me).toBeTruthy();
+    expect(me!.id).toMatch(/^\d+$/);
+    // killing a non-backend pid is a no-op, never throws
+    const killed = await driver.killSession('1', { terminate: false });
+    expect(typeof killed).toBe('boolean');
+  });
+
   it('produces a health report from the catalogs', async () => {
     const findings = await driver.healthChecks();
     expect(Array.isArray(findings)).toBe(true);

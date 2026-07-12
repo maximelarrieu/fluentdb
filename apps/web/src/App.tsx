@@ -18,6 +18,7 @@ import { CommandPalette } from './features/search/CommandPalette.js';
 import { TasksView } from './features/tasks/TasksView.js';
 import { DashboardView } from './features/tasks/DashboardView.js';
 import { HealthView } from './features/health/HealthView.js';
+import { ActivityView } from './features/activity/ActivityView.js';
 import { TaskNotifier } from './features/tasks/TaskNotifier.js';
 
 /**
@@ -121,6 +122,8 @@ function Workspace() {
             <DashboardView key={activeTab.id} />
           ) : activeTab.kind === 'health' ? (
             <HealthView key={activeTab.id} />
+          ) : activeTab.kind === 'activity' ? (
+            <ActivityView key={activeTab.id} />
           ) : (
             <QueryEditor
               key={activeTab.id}
