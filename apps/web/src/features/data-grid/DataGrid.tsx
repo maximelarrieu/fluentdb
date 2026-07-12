@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { CellValue, PageResult, QueryColumn } from '@fluentdb/shared';
 import { formatCell } from '../../lib/format.js';
 import { cn } from '../../lib/cn.js';
+import { ContextMenu } from '../../components/ui/ContextMenu.js';
 
 export interface EditedCell {
   rowIndex: number;
@@ -24,6 +25,8 @@ interface Props {
   selectedRows?: Set<number>;
   onSelectRow?: (rowIndex: number, selected: boolean) => void;
   editable?: boolean;
+  /** Right-click menu for a column header. */
+  columnMenu?: (col: QueryColumn) => ReactNode;
 }
 
 const editKey = (rowIndex: number, column: string) => `${rowIndex}::${column}`;
@@ -40,6 +43,7 @@ export function DataGrid({
   selectedRows,
   onSelectRow,
   editable,
+  columnMenu,
 }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ row: number; col: string } | null>(
@@ -74,30 +78,40 @@ export function DataGrid({
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {onSelectRow && <div className="border-r border-border-soft" />}
-            {columns.map((c) => (
-              <button
-                key={c.name}
-                onClick={() => onSort?.(c.name)}
-                disabled={!onSort}
-                className={cn(
-                  'flex items-center gap-1 px-2.5 h-8 text-left border-r border-border-soft',
-                  'font-medium truncate hover:bg-panel-2 disabled:hover:bg-transparent',
-                )}
-                title={c.dataType}
-              >
-                {pkSet.has(c.name) && (
-                  <span className="text-amber text-[10px]" title="Clé primaire">
-                    ★
-                  </span>
-                )}
-                <span className="truncate">{c.name}</span>
-                {sortState?.column === c.name && (
-                  <span className="text-accent ml-auto">
-                    {sortState.dir === 'asc' ? '↑' : '↓'}
-                  </span>
-                )}
-              </button>
-            ))}
+            {columns.map((c) => {
+              const header = (
+                <button
+                  onClick={() => onSort?.(c.name)}
+                  disabled={!onSort}
+                  className={cn(
+                    'flex items-center gap-1 px-2.5 h-8 text-left border-r border-border-soft w-full',
+                    'font-medium truncate hover:bg-panel-2 disabled:hover:bg-transparent',
+                  )}
+                  title={c.dataType}
+                >
+                  {pkSet.has(c.name) && (
+                    <span className="text-amber text-[10px]" title="Clé primaire">
+                      ★
+                    </span>
+                  )}
+                  <span className="truncate">{c.name}</span>
+                  {sortState?.column === c.name && (
+                    <span className="text-accent ml-auto">
+                      {sortState.dir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </button>
+              );
+              return columnMenu ? (
+                <ContextMenu key={c.name} menu={columnMenu(c)}>
+                  {header}
+                </ContextMenu>
+              ) : (
+                <div key={c.name} className="contents">
+                  {header}
+                </div>
+              );
+            })}
             <div className="h-8" />
           </div>
 

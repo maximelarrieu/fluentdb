@@ -9,30 +9,45 @@ import {
   Undo2,
   RefreshCw,
   Sparkles,
+  Copy,
+  ArrowUp,
+  ArrowDown,
+  Filter,
+  KeyRound,
 } from 'lucide-react';
 import type {
   CellValue,
+  DdlChange,
   FilterSpec,
+  QueryColumn,
   RowChanges,
   SortSpec,
 } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
+import {
+  CtxItem,
+  CtxSeparator,
+  CtxLabel,
+} from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { formatNumber } from '../../lib/format.js';
 import { DataGrid } from './DataGrid.js';
 import { FilterBar } from './FilterBar.js';
 import { MockDataDialog } from './MockDataDialog.js';
+import { DdlDialog } from '../structure/DdlDialog.js';
 
 const PAGE_SIZE = 100;
 const editKey = (rowIndex: number, column: string) => `${rowIndex}::${column}`;
 
 export function TableView({ table, schema }: { table: string; schema?: string }) {
-  const { active, database, mockRequest, clearMockRequest } = useWorkspace();
+  const { active, database, mockRequest, clearMockRequest, bumpSchema } =
+    useWorkspace();
   const toast = useToast();
   const qc = useQueryClient();
+  const [ddl, setDdl] = useState<DdlChange | null>(null);
 
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<SortSpec | null>(null);
@@ -185,6 +200,77 @@ export function TableView({ table, schema }: { table: string; schema?: string })
     );
   };
 
+  // Right-click menu for a column header.
+  const columnMenu = (col: QueryColumn) => (
+    <>
+      <CtxLabel>{col.name}</CtxLabel>
+      <CtxItem
+        icon={<Copy size={14} />}
+        onSelect={() => {
+          void navigator.clipboard?.writeText(col.name);
+          toast.push('info', 'Nom copié');
+        }}
+      >
+        Copier le nom
+      </CtxItem>
+      <CtxSeparator />
+      <CtxItem
+        icon={<ArrowUp size={14} />}
+        onSelect={() => {
+          setSort({ column: col.name, dir: 'asc' });
+          setPage(0);
+        }}
+      >
+        Trier croissant
+      </CtxItem>
+      <CtxItem
+        icon={<ArrowDown size={14} />}
+        onSelect={() => {
+          setSort({ column: col.name, dir: 'desc' });
+          setPage(0);
+        }}
+      >
+        Trier décroissant
+      </CtxItem>
+      <CtxItem
+        icon={<Filter size={14} />}
+        onSelect={() => {
+          setFilters((f) =>
+            f.some((x) => x.column === col.name && !x.value)
+              ? f
+              : [...f, { column: col.name, op: 'eq', value: '' }],
+          );
+          setPage(0);
+        }}
+      >
+        Filtrer par cette colonne
+      </CtxItem>
+      <CtxSeparator />
+      <CtxItem
+        icon={<KeyRound size={14} />}
+        onSelect={() =>
+          setDdl({
+            kind: 'createIndex',
+            table,
+            schema,
+            name: `idx_${table}_${col.name}`,
+            columns: [col.name],
+            unique: false,
+          })
+        }
+      >
+        Créer un index…
+      </CtxItem>
+      <CtxItem
+        danger
+        icon={<Trash2 size={14} />}
+        onSelect={() => setDdl({ kind: 'dropColumn', table, schema, column: col.name })}
+      >
+        Supprimer la colonne…
+      </CtxItem>
+    </>
+  );
+
   return (
     <div className="h-full flex flex-col">
       {mockOpen && (
@@ -197,6 +283,19 @@ export function TableView({ table, schema }: { table: string; schema?: string })
           onInserted={() =>
             qc.invalidateQueries({ queryKey: ['rows', connId] })
           }
+        />
+      )}
+      {ddl && (
+        <DdlDialog
+          change={ddl}
+          table={table}
+          schema={schema}
+          onClose={() => setDdl(null)}
+          onApplied={() => {
+            setDdl(null);
+            qc.invalidateQueries({ queryKey: ['rows', connId] });
+            bumpSchema();
+          }}
         />
       )}
       <FilterBar
@@ -227,6 +326,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
             onEdit={onEdit}
             onSort={onSort}
             sortState={sort}
+            columnMenu={columnMenu}
             selectedRows={editable ? selected : undefined}
             onSelectRow={
               editable
