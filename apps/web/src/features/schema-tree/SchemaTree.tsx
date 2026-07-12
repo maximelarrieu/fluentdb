@@ -23,6 +23,8 @@ import {
   Trash2,
   Eraser,
   Hash,
+  Database,
+  X,
 } from 'lucide-react';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
 import type { TableInfo, TableKind } from '@fluentdb/shared';
@@ -47,6 +49,8 @@ export function SchemaTree() {
     active,
     database,
     schema,
+    tabs,
+    activeTabId,
     setDatabase,
     setSchema,
     openTable,
@@ -125,6 +129,17 @@ export function SchemaTree() {
   const tablesList = filtered.filter((t) => t.kind === 'table');
   const viewsList = filtered.filter((t) => t.kind === 'view');
   const matviewsList = filtered.filter((t) => t.kind === 'matview');
+  const totalObjects = (tables.data ?? []).length;
+  const shownObjects = filtered.length;
+
+  // Active tab drives in-tree / toolbar highlighting so the panel reflects
+  // what's open (nav-state-active).
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeView = activeTab?.kind;
+  const activeObjKey =
+    activeTab && (activeTab.kind === 'table' || activeTab.kind === 'structure')
+      ? `${activeTab.schema ?? ''}.${activeTab.table}`
+      : null;
 
   const aiOn = aiStatus.data?.configured ?? false;
   const qc2 = active.engine === 'mysql' ? '`' : '"';
@@ -230,32 +245,89 @@ export function SchemaTree() {
 
   return (
     <div className="w-60 shrink-0 flex flex-col border-r border-border bg-panel h-full">
-      <div className="px-2.5 pt-2.5 pb-2 flex flex-col gap-2 border-b border-border-soft">
-        {active.capabilities.multipleDatabases && (
-          <Select
-            value={database ?? ''}
-            onChange={(e) => setDatabase(e.target.value || undefined)}
-          >
-            {databases.data?.map((d) => (
-              <option key={d.name} value={d.name}>
-                {d.name}
-              </option>
-            ))}
-          </Select>
+      {/* Workspace tools — compact icon toolbar (was six full-height rows
+          that pushed the object list out of view). */}
+      <div className="px-2 pt-2 pb-1.5 flex items-center gap-0.5 border-b border-border-soft">
+        <ToolButton
+          icon={<Workflow size={15} />}
+          label="Diagramme ERD"
+          active={activeView === 'erd'}
+          onClick={openErd}
+        />
+        <ToolButton
+          icon={<HeartPulse size={15} />}
+          label="Bilan de santé"
+          active={activeView === 'health'}
+          onClick={openHealth}
+        />
+        {active.capabilities.activityMonitor && (
+          <ToolButton
+            icon={<Activity size={15} />}
+            label="Activité"
+            active={activeView === 'activity'}
+            onClick={openActivity}
+          />
         )}
-        {active.capabilities.schemas && (schemas.data?.length ?? 0) > 0 && (
-          <Select
-            value={schema ?? ''}
-            onChange={(e) => setSchema(e.target.value || undefined)}
-          >
-            <option value="">public (défaut)</option>
-            {schemas.data?.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
+        {active.capabilities.activityMonitor && (
+          <ToolButton
+            icon={<Users size={15} />}
+            label="Rôles & privilèges"
+            active={activeView === 'roles'}
+            onClick={openRoles}
+          />
         )}
+        <ToolButton
+          icon={<LayoutDashboard size={15} />}
+          label="Tableau de bord"
+          active={activeView === 'dashboard'}
+          badge={unseenCount > 0}
+          onClick={openDashboard}
+        />
+        <ToolButton
+          icon={<Clock size={15} />}
+          label="Tâches planifiées"
+          active={activeView === 'tasks'}
+          badge={unseenCount > 0}
+          onClick={() => openTasks()}
+        />
+      </div>
+
+      {/* Connection context: database + schema pickers. */}
+      {(active.capabilities.multipleDatabases ||
+        (active.capabilities.schemas && (schemas.data?.length ?? 0) > 0)) && (
+        <div className="px-2.5 pt-2 flex flex-col gap-1.5">
+          {active.capabilities.multipleDatabases && (
+            <PickerSelect
+              icon={<Database size={12} />}
+              value={database ?? ''}
+              onChange={(v) => setDatabase(v || undefined)}
+            >
+              {databases.data?.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </PickerSelect>
+          )}
+          {active.capabilities.schemas && (schemas.data?.length ?? 0) > 0 && (
+            <PickerSelect
+              icon={<Layers size={12} />}
+              value={schema ?? ''}
+              onChange={(v) => setSchema(v || undefined)}
+            >
+              <option value="">public (défaut)</option>
+              {schemas.data?.map((s) => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </PickerSelect>
+          )}
+        </div>
+      )}
+
+      {/* Search across objects. */}
+      <div className="px-2.5 pt-2 pb-2 border-b border-border-soft">
         <div className="relative">
           <Search
             size={13}
@@ -264,72 +336,26 @@ export function SchemaTree() {
           <Input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filtrer les tables…"
-            className="pl-7 h-7"
+            placeholder="Rechercher tables & vues…"
+            className="pl-7 pr-12 h-7"
+            aria-label="Rechercher parmi les tables et vues"
           />
+          {filter ? (
+            <button
+              onClick={() => setFilter('')}
+              aria-label="Effacer la recherche"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted hover:text-text p-0.5"
+            >
+              <X size={13} aria-hidden="true" />
+            </button>
+          ) : (
+            totalObjects > 0 && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted/70 tabular-nums pointer-events-none">
+                {totalObjects}
+              </span>
+            )
+          )}
         </div>
-        <Button
-          size="sm"
-          variant="subtle"
-          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
-          onClick={openErd}
-        >
-          <Workflow size={13} /> Diagramme ERD
-        </Button>
-        <Button
-          size="sm"
-          variant="subtle"
-          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
-          onClick={openHealth}
-        >
-          <HeartPulse size={13} /> Bilan de santé
-        </Button>
-        {active.capabilities.activityMonitor && (
-          <Button
-            size="sm"
-            variant="subtle"
-            className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
-            onClick={openActivity}
-          >
-            <Activity size={13} /> Activité
-          </Button>
-        )}
-        {active.capabilities.activityMonitor && (
-          <Button
-            size="sm"
-            variant="subtle"
-            className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
-            onClick={openRoles}
-          >
-            <Users size={13} /> Rôles &amp; privilèges
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="subtle"
-          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
-          onClick={openDashboard}
-        >
-          <LayoutDashboard size={13} /> Tableau de bord
-          {unseenCount > 0 && (
-            <span className="ml-auto min-w-4 h-4 px-1 rounded-full bg-accent/20 text-accent text-[10px] font-semibold flex items-center justify-center">
-              {unseenCount}
-            </span>
-          )}
-        </Button>
-        <Button
-          size="sm"
-          variant="subtle"
-          className="w-full justify-start gap-2 text-muted hover:text-text [&>svg]:text-muted"
-          onClick={() => openTasks()}
-        >
-          <Clock size={13} /> Tâches planifiées
-          {unseenCount > 0 && (
-            <span className="ml-auto min-w-4 h-4 px-1 rounded-full bg-accent/20 text-accent text-[10px] font-semibold flex items-center justify-center">
-              {unseenCount}
-            </span>
-          )}
-        </Button>
       </div>
 
       <div className="flex-1 overflow-auto py-1">
@@ -339,23 +365,40 @@ export function SchemaTree() {
             {(tables.error as Error).message}
           </p>
         )}
+        {!tables.isLoading &&
+          !tables.isError &&
+          totalObjects > 0 &&
+          shownObjects === 0 && (
+            <p className="text-xs text-muted px-3 py-4 text-center">
+              Aucun objet ne correspond à «&nbsp;{filter}&nbsp;».
+            </p>
+          )}
+        {!tables.isLoading && !tables.isError && totalObjects === 0 && (
+          <p className="text-xs text-muted px-3 py-4 text-center">
+            Aucune table dans ce schéma.
+          </p>
+        )}
 
-        <TreeSection
-          label="Tables"
-          count={tablesList.length}
-          items={tablesList}
-          kind="table"
-          onOpen={(t) => openTable(t.name, t.schema)}
-          onStructure={(t) => openStructure(t.name, t.schema)}
-          onExplain={aiStatus.data?.configured ? explainObject : undefined}
-          menuItems={objectMenu}
-        />
+        {tablesList.length > 0 && (
+          <TreeSection
+            label="Tables"
+            count={tablesList.length}
+            items={tablesList}
+            kind="table"
+            activeKey={activeObjKey}
+            onOpen={(t) => openTable(t.name, t.schema)}
+            onStructure={(t) => openStructure(t.name, t.schema)}
+            onExplain={aiStatus.data?.configured ? explainObject : undefined}
+            menuItems={objectMenu}
+          />
+        )}
         {viewsList.length > 0 && (
           <TreeSection
             label="Vues"
             count={viewsList.length}
             items={viewsList}
             kind="view"
+            activeKey={activeObjKey}
             onOpen={(t) => openTable(t.name, t.schema)}
             onStructure={(t) => openStructure(t.name, t.schema)}
             onDefinition={setDefTarget}
@@ -369,6 +412,7 @@ export function SchemaTree() {
             count={matviewsList.length}
             items={matviewsList}
             kind="matview"
+            activeKey={activeObjKey}
             onOpen={(t) => openTable(t.name, t.schema)}
             onStructure={(t) => openStructure(t.name, t.schema)}
             onDefinition={setDefTarget}
@@ -414,6 +458,71 @@ export function SchemaTree() {
   );
 }
 
+/** Compact workspace-tool button (icon + tooltip) with active + badge state. */
+function ToolButton({
+  icon,
+  label,
+  active,
+  badge,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  active?: boolean;
+  badge?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-current={active ? 'page' : undefined}
+      className={`relative flex-1 h-8 rounded-md flex items-center justify-center transition-colors ${
+        active
+          ? 'bg-accent/12 text-accent'
+          : 'text-muted hover:text-text hover:bg-panel-2'
+      }`}
+    >
+      <span aria-hidden="true">{icon}</span>
+      {badge && (
+        <span className="absolute top-1 right-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+      )}
+    </button>
+  );
+}
+
+/** Native select with a leading icon, styled to match the quiet chrome. */
+function PickerSelect({
+  icon,
+  value,
+  onChange,
+  children,
+}: {
+  icon: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <span
+        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <Select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-7 pl-6 text-[12px]"
+      >
+        {children}
+      </Select>
+    </div>
+  );
+}
+
 const KIND_ICON: Record<TableKind, typeof Table2> = {
   table: Table2,
   view: Eye,
@@ -430,6 +539,7 @@ function TreeSection({
   count,
   items,
   kind,
+  activeKey,
   onOpen,
   onStructure,
   onDefinition,
@@ -442,6 +552,7 @@ function TreeSection({
   count: number;
   items: TableInfo[];
   kind: TableKind;
+  activeKey?: string | null;
   onOpen: (t: TableInfo) => void;
   onStructure: (t: TableInfo) => void;
   onDefinition?: (t: TableInfo) => void;
@@ -456,7 +567,7 @@ function TreeSection({
     <div className="mb-1">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 w-full px-2 py-1 text-[11px] uppercase tracking-wide text-muted hover:text-text"
+        className="sticky top-0 z-[1] bg-panel flex items-center gap-1 w-full px-2 py-1 text-[11px] uppercase tracking-wide text-muted hover:text-text"
       >
         <ChevronDown
           size={12}
@@ -469,13 +580,25 @@ function TreeSection({
         items.map((t) => {
           const refreshing = refreshingName === t.name;
           const key = `${t.schema ?? ''}.${t.name}`;
+          const isActive = activeKey === key;
           const row = (
             <div
-              className="group flex items-center gap-2 pl-6 pr-2 py-1 hover:bg-panel-2 cursor-pointer"
+              className={`group flex items-center gap-2 pl-6 pr-2 py-1 cursor-pointer border-l-2 ${
+                isActive
+                  ? 'bg-panel-2 border-accent'
+                  : 'border-transparent hover:bg-panel-2'
+              }`}
               onClick={() => onOpen(t)}
             >
-              <Icon size={13} className={`${KIND_COLOR[kind]} shrink-0`} />
-              <span className="text-[13px] truncate flex-1">{t.name}</span>
+              <Icon
+                size={13}
+                className={`${isActive ? 'text-accent' : KIND_COLOR[kind]} shrink-0`}
+              />
+              <span
+                className={`text-[13px] truncate flex-1 ${isActive ? 'font-medium text-text' : ''}`}
+              >
+                {t.name}
+              </span>
               {kind === 'matview' && t.isPopulated === false && (
                 <span
                   className="text-[9px] uppercase tracking-wide text-amber shrink-0"
