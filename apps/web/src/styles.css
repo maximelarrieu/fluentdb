@@ -53,12 +53,13 @@
     --color-border: #d6dae1;
     --color-border-soft: #e4e7ec;
     --color-text: #1a1e24;
-    --color-muted: #667080;
-    --color-accent: #0f766e;
-    --color-accent-strong: #0c5f59;
-    --color-green: #15935f;
-    --color-red: #d14843;
-    --color-amber: #b7791f;
+    /* All text tokens below verified ≥4.5:1 (WCAG AA) on light surfaces. */
+    --color-muted: #5b6472;
+    --color-accent: #0d6b62;
+    --color-accent-strong: #0a534c;
+    --color-green: #0d7a4e;
+    --color-red: #c23a35;
+    --color-amber: #8a5d0a;
     --color-num: #0e7d5e;
     --scrollbar-thumb: #cbd2da;
     --scrollbar-thumb-hover: #b3bcc7;

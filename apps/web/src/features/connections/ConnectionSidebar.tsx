@@ -109,8 +109,9 @@ export function ConnectionSidebar() {
           variant="ghost"
           onClick={() => toggleSidebar(false)}
           title="Afficher les connexions"
+          aria-label="Afficher le panneau des connexions"
         >
-          <PanelLeftOpen size={16} />
+          <PanelLeftOpen size={16} aria-hidden="true" />
         </Button>
       </div>
     );
@@ -128,19 +129,31 @@ export function ConnectionSidebar() {
             variant="ghost"
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'}
+            aria-label={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
           >
-            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            {theme === 'dark' ? (
+              <Sun size={15} aria-hidden="true" />
+            ) : (
+              <Moon size={15} aria-hidden="true" />
+            )}
           </Button>
-          <Button size="icon" variant="ghost" onClick={() => openNew()} title="Nouvelle connexion">
-            <Plus size={16} />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => openNew()}
+            title="Nouvelle connexion"
+            aria-label="Nouvelle connexion"
+          >
+            <Plus size={16} aria-hidden="true" />
           </Button>
           <Button
             size="icon"
             variant="ghost"
             onClick={() => toggleSidebar(true)}
             title="Masquer le panneau"
+            aria-label="Masquer le panneau des connexions"
           >
-            <PanelLeftClose size={16} />
+            <PanelLeftClose size={16} aria-hidden="true" />
           </Button>
         </div>
       </div>
