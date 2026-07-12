@@ -9,6 +9,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Menu contextuel sur les colonnes** : clic droit sur un **en-tête de colonne**
+  de la grille (copier le nom, trier ↑/↓, filtrer par cette colonne, créer un
+  index, supprimer la colonne) et sur une **ligne de la vue Structure** (copier,
+  modifier, créer un index, supprimer). Les actions DDL passent par l'aperçu +
+  confirmation existant.
 - **Menu contextuel au clic droit (arbre de schéma)** : un clic droit sur une
   table, une vue ou une vue matérialisée ouvre un menu d'actions — ouvrir les
   données, voir la structure, voir la définition (vues), `SELECT *` ou compter

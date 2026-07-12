@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, KeyRound, Trash2, Pencil } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Pencil, Copy } from 'lucide-react';
 import type { ColumnInfo, DdlChange, TableStructure } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Badge, Spinner } from '../../components/ui/misc.js';
+import {
+  ContextMenu,
+  CtxItem,
+  CtxSeparator,
+  CtxLabel,
+} from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { DdlDialog } from './DdlDialog.js';
@@ -94,8 +100,64 @@ export function StructureView({
             </thead>
             <tbody>
               {s.columns.map((c) => (
-                <tr
+                <ContextMenu
                   key={c.name}
+                  menu={
+                    <>
+                      <CtxLabel>{c.name}</CtxLabel>
+                      <CtxItem
+                        icon={<Copy size={14} />}
+                        onSelect={() => {
+                          void navigator.clipboard?.writeText(c.name);
+                          toast.push('info', 'Nom copié');
+                        }}
+                      >
+                        Copier le nom
+                      </CtxItem>
+                      {canAlter && (
+                        <CtxItem
+                          icon={<Pencil size={14} />}
+                          onSelect={() =>
+                            setColumnDialog({ mode: 'edit', column: c })
+                          }
+                        >
+                          Modifier…
+                        </CtxItem>
+                      )}
+                      <CtxItem
+                        icon={<KeyRound size={14} />}
+                        onSelect={() =>
+                          setPendingChange({
+                            kind: 'createIndex',
+                            table,
+                            schema,
+                            name: `idx_${table}_${c.name}`,
+                            columns: [c.name],
+                            unique: false,
+                          })
+                        }
+                      >
+                        Créer un index…
+                      </CtxItem>
+                      <CtxSeparator />
+                      <CtxItem
+                        danger
+                        icon={<Trash2 size={14} />}
+                        onSelect={() =>
+                          setPendingChange({
+                            kind: 'dropColumn',
+                            table,
+                            schema,
+                            column: c.name,
+                          })
+                        }
+                      >
+                        Supprimer la colonne…
+                      </CtxItem>
+                    </>
+                  }
+                >
+                <tr
                   className="group border-b border-border-soft/50 hover:bg-panel-2/40"
                 >
                   <td className="py-1.5 px-2 mono">
@@ -142,6 +204,7 @@ export function StructureView({
                     </div>
                   </td>
                 </tr>
+                </ContextMenu>
               ))}
             </tbody>
           </table>
