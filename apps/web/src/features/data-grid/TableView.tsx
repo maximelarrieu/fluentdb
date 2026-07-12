@@ -14,6 +14,8 @@ import {
   ArrowDown,
   Filter,
   KeyRound,
+  Braces,
+  Ban,
 } from 'lucide-react';
 import type {
   CellValue,
@@ -271,6 +273,74 @@ export function TableView({ table, schema }: { table: string; schema?: string })
     </>
   );
 
+  // Right-click menu for a data cell / row.
+  const cellMenu = (rowIndex: number, col: QueryColumn, value: CellValue) => {
+    const rowObj = Object.fromEntries(
+      columns.map((c, i) => [c.name, displayRows[rowIndex]?.[i] ?? null]),
+    );
+    return (
+      <>
+        <CtxItem
+          icon={<Copy size={14} />}
+          onSelect={() => {
+            void navigator.clipboard?.writeText(value === null ? '' : String(value));
+            toast.push('info', 'Valeur copiée');
+          }}
+        >
+          Copier la valeur
+        </CtxItem>
+        <CtxItem
+          icon={<Braces size={14} />}
+          onSelect={() => {
+            void navigator.clipboard?.writeText(JSON.stringify(rowObj, null, 2));
+            toast.push('info', 'Ligne copiée (JSON)');
+          }}
+        >
+          Copier la ligne (JSON)
+        </CtxItem>
+        <CtxSeparator />
+        <CtxItem
+          icon={<Filter size={14} />}
+          onSelect={() => {
+            setFilters((f) => [
+              ...f.filter((x) => x.column !== col.name),
+              value === null
+                ? { column: col.name, op: 'is_null' }
+                : { column: col.name, op: 'eq', value: String(value) },
+            ]);
+            setPage(0);
+          }}
+        >
+          Filtrer par cette valeur
+        </CtxItem>
+        {editable && (
+          <>
+            <CtxSeparator />
+            <CtxItem
+              icon={<Ban size={14} />}
+              onSelect={() => onEdit(rowIndex, col.name, null)}
+            >
+              Mettre à NULL
+            </CtxItem>
+            <CtxItem
+              danger
+              icon={<Trash2 size={14} />}
+              onSelect={() => {
+                setSelected((prev) => new Set(prev).add(rowIndex));
+                toast.push(
+                  'info',
+                  'Ligne marquée pour suppression — Enregistrer pour appliquer',
+                );
+              }}
+            >
+              Supprimer la ligne
+            </CtxItem>
+          </>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="h-full flex flex-col">
       {mockOpen && (
@@ -327,6 +397,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
             onSort={onSort}
             sortState={sort}
             columnMenu={columnMenu}
+            cellMenu={cellMenu}
             selectedRows={editable ? selected : undefined}
             onSelectRow={
               editable
