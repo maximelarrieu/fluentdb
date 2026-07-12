@@ -71,6 +71,8 @@ interface WorkspaceState {
   schemaVersion: number;
   /** Task the tasks view should select when opened (e.g. from the dashboard). */
   focusTaskId: string | null;
+  /** Table whose data view should auto-open the mock-data dialog (from the tree). */
+  mockRequest: { table: string; schema?: string } | null;
 
   setActive: (conn: ActiveConnection | null) => void;
   setDatabase: (database: string | undefined) => void;
@@ -82,6 +84,9 @@ interface WorkspaceState {
   openTasks: (taskId?: string) => void;
   openDashboard: () => void;
   openHealth: () => void;
+  /** Open a table's data view and flag it to pop the mock-data dialog. */
+  requestMockData: (table: string, schema?: string) => void;
+  clearMockRequest: () => void;
   setTabSql: (id: string, sql: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -110,6 +115,7 @@ export const useWorkspace = create<WorkspaceState>()(
   sidebarCollapsed: false,
   schemaVersion: 0,
   focusTaskId: null,
+  mockRequest: null,
   skipExecConfirm: false,
 
   setActive: (conn) =>
@@ -208,6 +214,12 @@ export const useWorkspace = create<WorkspaceState>()(
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },
+
+  requestMockData: (table, schema) => {
+    get().openTable(table, schema);
+    set({ mockRequest: { table, schema } });
+  },
+  clearMockRequest: () => set({ mockRequest: null }),
 
   setTabSql: (id, sql) =>
     set((s) => ({

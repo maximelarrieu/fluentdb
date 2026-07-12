@@ -151,6 +151,21 @@ et des tendances IA (chat conscient du schéma, MCP). Ordre d'exécution acté :
 4. **Quick wins** — favoris / snippets de requêtes nommés ; bouton
    « Corriger avec l'IA » directement sur les erreurs d'exécution.
 
+### Menus contextuels (clic droit) — standard des clients modernes
+
+Système de menus au clic droit à la Chat2DB / DBeaver, découpé en phases (une
+PR par phase) :
+
+1. **Objets de l'arbre** *(fait)* — clic droit sur table / vue / vue
+   matérialisée : ouvrir, structure, définition, `SELECT *`, compter, mock IA,
+   expliquer IA, copier le nom, renommer, vider, supprimer. Actions
+   destructrices ouvertes dans l'éditeur (→ confirmation d'écriture existante).
+2. **Colonnes** — en-têtes de la grille + vue Structure : copier, trier,
+   filtrer, créer un index, supprimer la colonne.
+3. **Grille de données** — clic droit sur cellule/ligne : copier la valeur / la
+   ligne, filtrer par cette valeur, mettre à NULL, supprimer la/les ligne(s).
+4. **Connexion** — clic droit dans la barre latérale (en plus du menu `⋮`).
+
 ## 6. Qualité et vérification
 
 - Tests unitaires + API (vitest via `fastify.inject()`), fixture SQLite universelle.

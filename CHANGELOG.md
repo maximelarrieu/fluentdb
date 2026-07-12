@@ -9,6 +9,14 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Menu contextuel au clic droit (arbre de schéma)** : un clic droit sur une
+  table, une vue ou une vue matérialisée ouvre un menu d'actions — ouvrir les
+  données, voir la structure, voir la définition (vues), `SELECT *` ou compter
+  les lignes dans un nouvel éditeur, générer des données de test (IA), expliquer
+  avec l'IA, copier le nom, renommer, vider et supprimer. Les actions
+  destructrices (vider / supprimer) ouvrent leur SQL dans un éditeur et passent
+  par la confirmation d'écriture habituelle. Les items s'adaptent au type d'objet
+  et à la disponibilité de l'IA.
 - **Snippets SQL (favoris)** : depuis l'éditeur, un bouton « Snippets » permet
   d'enregistrer la requête courante sous un nom et de recharger n'importe quel
   snippet en un clic. Conservés localement entre les sessions.
