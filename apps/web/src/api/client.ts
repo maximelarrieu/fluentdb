@@ -15,6 +15,7 @@ import type {
   LockWait,
   ErdSchema,
   HealthReport,
+  TableSize,
   HistoryEntry,
   MutationResult,
   PageResult,
@@ -225,6 +226,11 @@ export const api = {
     request<ErdSchema>('GET', `/api/connections/${id}/erd${scope(database, schema)}`),
 
   // health
+  sizes: (id: string, database?: string) =>
+    request<TableSize[]>(
+      'GET',
+      `/api/connections/${id}/sizes${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
   health: (id: string, database?: string) =>
     request<HealthReport>(
       'GET',

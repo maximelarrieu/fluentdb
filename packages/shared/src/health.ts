@@ -27,6 +27,15 @@ export interface HealthReport {
   findings: HealthFinding[];
 }
 
+/** Disk usage of one table (data + indexes) for the storage explorer. */
+export interface TableSize {
+  name: string;
+  schema: string | null;
+  totalBytes: number;
+  tableBytes: number;
+  indexBytes: number;
+}
+
 export const healthCategoryLabels: Record<HealthCategory, string> = {
   performance: 'Performance',
   indexes: 'Index',
