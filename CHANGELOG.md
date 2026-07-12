@@ -100,6 +100,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Export en flux (perf gros volumes)** : l'export CSV/JSON d'une table ou
+  d'une requête passe désormais par un **curseur serveur** (curseur PostgreSQL,
+  itérateur SQLite, flux MySQL) et écrit les lignes au fil de l'eau, sans
+  matérialiser tout le résultat en mémoire ni le plafond de 100 000 lignes
+  précédent.
 - **Pagination keyset (perf gros volumes)** : la navigation Précédent/Suivant
   dans la grille utilise désormais un curseur (`WHERE clé > dernière_vue`) au
   lieu d'`OFFSET` quand la table a une clé primaire mono-colonne — coût constant

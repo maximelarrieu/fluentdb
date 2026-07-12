@@ -28,6 +28,7 @@ import {
   type Driver,
   type DriverCapabilities,
   type RunQueryOptions,
+  type ExportSink,
 } from '../types.js';
 import { splitSqlStatements } from '../sqlSplit.js';
 import {
@@ -267,6 +268,18 @@ export class SqliteDriver implements Driver {
 
   async cancelQuery(): Promise<boolean> {
     return false;
+  }
+
+  async streamQuery(sql: string, sink: ExportSink): Promise<void> {
+    const stmt = this.conn().prepare(sql);
+    if (!stmt.reader) {
+      sink.columns([]);
+      return;
+    }
+    sink.columns(stmt.columns().map((c) => ({ name: c.name })));
+    for (const row of stmt.raw(true).iterate() as Iterable<unknown[]>) {
+      sink.row(row.map(normalizeCell));
+    }
   }
 
   async estimateRows(): Promise<number | null> {
