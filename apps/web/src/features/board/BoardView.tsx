@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 import {
   LayoutGrid,
   Plus,
@@ -7,8 +10,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
+  GripVertical,
 } from 'lucide-react';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
 import type { DashboardWidget, WidgetSize } from '@fluentdb/shared';
@@ -20,11 +22,29 @@ import { useWorkspace } from '../../stores/workspace.js';
 import { WidgetChart } from './WidgetChart.js';
 import { WidgetBuilder } from './WidgetBuilder.js';
 
-const SPAN: Record<WidgetSize, string> = {
-  sm: 'col-span-6 sm:col-span-3 lg:col-span-2',
-  md: 'col-span-6 lg:col-span-3',
-  lg: 'col-span-6',
-};
+const Grid = WidthProvider(GridLayout);
+const COLS = 12;
+const DEFAULT_W: Record<WidgetSize, number> = { sm: 4, md: 6, lg: 12 };
+const DEFAULT_H = 4;
+
+/** Layout for RGL: stored placement when present, else a simple left→right flow. */
+function buildLayout(widgets: DashboardWidget[]): Layout[] {
+  let x = 0;
+  let y = 0;
+  return widgets.map((w) => {
+    if (w.layout) {
+      return { i: w.id, ...w.layout, minW: 2, minH: 2 };
+    }
+    const ww = DEFAULT_W[w.size];
+    if (x + ww > COLS) {
+      x = 0;
+      y += DEFAULT_H;
+    }
+    const item = { i: w.id, x, y, w: ww, h: DEFAULT_H, minW: 2, minH: 2 };
+    x += ww;
+    return item;
+  });
+}
 
 export function BoardView() {
   const { active, database } = useWorkspace();
@@ -48,30 +68,31 @@ export function BoardView() {
       toast.push('error', e instanceof ApiError ? e.message : String(e)),
   });
 
-  const reorder = useMutation({
-    mutationFn: (ids: string[]) => api.reorderWidgets(active!.id, ids),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['widgets', active!.id, database] }),
+  const saveLayout = useMutation({
+    mutationFn: (layout: Layout[]) =>
+      api.setWidgetLayout(
+        active!.id,
+        layout.map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })),
+      ),
+    // Don't invalidate: keep RGL's live positions (a refetch would jump).
+    onError: (e) =>
+      toast.push('error', e instanceof ApiError ? e.message : String(e)),
   });
+
+  const list = useMemo(() => widgets.data ?? [], [widgets.data]);
+  const layout = useMemo(() => buildLayout(list), [list]);
 
   if (!active) return <EmptyState title="Aucune connexion active" />;
 
-  const list = widgets.data ?? [];
-
-  const move = (index: number, dir: -1 | 1) => {
-    const next = [...list];
-    const j = index + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[index], next[j]] = [next[j]!, next[index]!];
-    reorder.mutate(next.map((w) => w.id));
-  };
-
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 px-4 h-11 border-b border-border sticky top-0 bg-bg z-10">
+      <div className="flex items-center gap-3 px-4 h-11 border-b border-border bg-bg z-10 shrink-0">
         <LayoutGrid size={15} className="text-accent" />
-        <span className="text-[13px] font-semibold">Tableaux de bord</span>
+        <span className="text-[13px] font-semibold">Tableau de bord</span>
         <span className="text-[11px] text-muted">{list.length} widget(s)</span>
+        <span className="text-[11px] text-muted/60 hidden sm:inline">
+          · glisse par la poignée, redimensionne par le coin
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <Button
             size="sm"
@@ -82,11 +103,7 @@ export function BoardView() {
           >
             {widgets.isFetching ? <Spinner /> : <RefreshCw size={13} />}
           </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => setBuilder({ widget: null })}
-          >
+          <Button size="sm" variant="primary" onClick={() => setBuilder({ widget: null })}>
             <Plus size={14} /> Nouveau widget
           </Button>
         </div>
@@ -106,22 +123,30 @@ export function BoardView() {
           }
         />
       ) : (
-        <div className="flex-1 overflow-auto p-3">
-          <div className="grid grid-cols-6 gap-3 auto-rows-[260px]">
-            {list.map((w, i) => (
-              <div key={w.id} className={SPAN[w.size]}>
+        <div className="flex-1 overflow-auto p-2">
+          <Grid
+            className="layout"
+            layout={layout}
+            cols={COLS}
+            rowHeight={64}
+            margin={[12, 12]}
+            isBounded
+            draggableHandle=".widget-drag"
+            onDragStop={(l) => saveLayout.mutate(l)}
+            onResizeStop={(l) => saveLayout.mutate(l)}
+          >
+            {list.map((w) => (
+              <div key={w.id}>
                 <WidgetCard
                   connId={active.id}
                   database={database}
                   widget={w}
                   onEdit={() => setBuilder({ widget: w })}
                   onDelete={() => del.mutate(w.id)}
-                  onMoveLeft={i > 0 ? () => move(i, -1) : undefined}
-                  onMoveRight={i < list.length - 1 ? () => move(i, 1) : undefined}
                 />
               </div>
             ))}
-          </div>
+          </Grid>
         </div>
       )}
 
@@ -143,16 +168,12 @@ function WidgetCard({
   widget,
   onEdit,
   onDelete,
-  onMoveLeft,
-  onMoveRight,
 }: {
   connId: string;
   database?: string;
   widget: DashboardWidget;
   onEdit: () => void;
   onDelete: () => void;
-  onMoveLeft?: () => void;
-  onMoveRight?: () => void;
 }) {
   const q = useQuery({
     queryKey: ['widget-data', connId, database, widget.id, widget.sql],
@@ -168,31 +189,24 @@ function WidgetCard({
 
   return (
     <div className="h-full flex flex-col rounded-xl border border-border bg-panel overflow-hidden">
-      <div className="flex items-center gap-2 px-3 h-9 border-b border-border-soft shrink-0">
-        <span className="text-[12px] font-medium truncate flex-1" title={widget.title}>
-          {widget.title}
+      <div className="flex items-center gap-2 px-2 h-9 border-b border-border-soft shrink-0">
+        <span className="widget-drag flex items-center gap-1.5 flex-1 min-w-0 cursor-move">
+          <GripVertical size={13} className="text-muted/50 shrink-0" />
+          <span className="text-[12px] font-medium truncate" title={widget.title}>
+            {widget.title}
+          </span>
         </span>
-        {onMoveLeft && (
-          <button onClick={onMoveLeft} title="Déplacer à gauche" aria-label="Déplacer à gauche" className="text-muted hover:text-text">
-            <ChevronLeft size={14} aria-hidden="true" />
-          </button>
-        )}
-        {onMoveRight && (
-          <button onClick={onMoveRight} title="Déplacer à droite" aria-label="Déplacer à droite" className="text-muted hover:text-text">
-            <ChevronRight size={14} aria-hidden="true" />
-          </button>
-        )}
         <button
           onClick={() => q.refetch()}
           title="Actualiser"
           aria-label="Actualiser le widget"
-          className="text-muted hover:text-text"
+          className="text-muted hover:text-text shrink-0"
         >
           <RefreshCw size={12} aria-hidden="true" className={q.isFetching ? 'animate-spin' : ''} />
         </button>
         <Dropdown.Root>
           <Dropdown.Trigger asChild>
-            <button className="text-muted hover:text-text" aria-label="Options du widget">
+            <button className="text-muted hover:text-text shrink-0" aria-label="Options du widget">
               <MoreVertical size={14} />
             </button>
           </Dropdown.Trigger>
