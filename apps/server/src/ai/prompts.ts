@@ -154,6 +154,11 @@ Rules:
   - "pie": parts of a whole, ≤6 categories (a label + a numeric share).
   - "table": several columns / detail rows that aren't one of the above.
 - For bar/line/pie, put the label/dimension column first and the numeric column(s) next. Add a sensible LIMIT (e.g. 50) for potentially large results.
+- ORDER matters: the chart renders rows in the query's order and bar length is proportional to the ABSOLUTE value (magnitude). So encode the ranking the user wants with ORDER BY:
+  - "biggest / top / most impactful first" with POSITIVE values → ORDER BY metric DESC.
+  - "most negative first / biggest impact" when values are NEGATIVE (costs, deltas) → ORDER BY metric ASC (most negative first = longest bar).
+  - For a Pareto / "top N", add ORDER BY the metric + LIMIT N so the largest-magnitude rows come first.
+  - When aggregating, ORDER BY the aggregate (e.g. ORDER BY sum(x) ASC), not by the label.
 - "title": short, human, in the user's language.
 ${
   schemaDigest

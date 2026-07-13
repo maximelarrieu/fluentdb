@@ -85,21 +85,28 @@ export function WidgetChart({
 type Datum = { label: string; value: number };
 
 function BarChart({ data }: { data: Datum[] }) {
-  const sorted = [...data].sort((a, b) => b.value - a.value);
-  const min = Math.min(...sorted.map((d) => d.value), 0);
-  const max = Math.max(...sorted.map((d) => d.value), 0);
-  const span = max - Math.min(min, 0) || 1;
+  // Render in QUERY ORDER (respect the SQL ORDER BY — never re-sort here), and
+  // scale bars by MAGNITUDE so the largest |value| gets the longest bar. This
+  // makes "most negative first / biggest bar" Pareto charts work by simply
+  // writing ORDER BY metric ASC.
+  const maxAbs = Math.max(...data.map((d) => Math.abs(d.value)), 0) || 1;
+  // Only sign-color when the series mixes signs; a single-sign series stays
+  // one hue (cleaner, per data-viz guidance).
+  const mixed =
+    data.some((d) => d.value < 0) && data.some((d) => d.value > 0);
   return (
     <div className="h-full overflow-auto p-2 flex flex-col gap-1">
-      {sorted.map((d, i) => (
+      {data.map((d, i) => (
         <div key={i} className="flex items-center gap-2 h-5 text-[11px] group">
           <span className="w-24 shrink-0 truncate text-right text-muted" title={d.label}>
             {d.label}
           </span>
           <div className="flex-1 relative h-3.5 rounded-sm bg-panel-2 overflow-hidden">
             <div
-              className="absolute inset-y-0 left-0 rounded-sm bg-accent/70"
-              style={{ width: `${Math.max(((d.value - Math.min(min, 0)) / span) * 100, 0.5)}%` }}
+              className={`absolute inset-y-0 left-0 rounded-sm ${
+                mixed && d.value < 0 ? 'bg-red/60' : 'bg-accent/70'
+              }`}
+              style={{ width: `${Math.max((Math.abs(d.value) / maxAbs) * 100, 0.5)}%` }}
             />
           </div>
           <span className="w-16 shrink-0 mono tabular-nums text-right">
