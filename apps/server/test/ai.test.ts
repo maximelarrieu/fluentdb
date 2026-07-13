@@ -152,6 +152,64 @@ describe('AI chat endpoint', () => {
     expect(captured.toLowerCase()).toContain('create view');
     await closeTestApp(app);
   });
+
+  it('stores and returns per-connection AI context (roundtrip)', async () => {
+    const t2 = await makeTestApp({ ai: new FakeAiProvider(['ok']) });
+    const id = await createAndConnect(t2);
+    // empty by default
+    const empty = await t2.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/ai-context`,
+    });
+    expect(empty.json()).toEqual({ content: '' });
+    // set then read back
+    await t2.app.inject({
+      method: 'PUT',
+      url: `/api/connections/${id}/ai-context`,
+      payload: { content: 'albums.year is a release year (integer).' },
+    });
+    const got = await t2.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/ai-context`,
+    });
+    expect(got.json()).toEqual({
+      content: 'albums.year is a release year (integer).',
+    });
+    await closeTestApp(t2);
+  });
+
+  it('injects the user business context into the chat system prompt', async () => {
+    let captured = '';
+    const recorder = {
+      id: 'rec',
+      model: 'rec-1',
+      // eslint-disable-next-line require-yield
+      async *chatStream(opts: { system: string }) {
+        captured = opts.system;
+        return;
+      },
+    };
+    const app = await makeTestApp({ ai: recorder as never });
+    const id = await createAndConnect(app);
+    await app.app.inject({
+      method: 'PUT',
+      url: `/api/connections/${id}/ai-context`,
+      payload: { content: 'MAGIC_CONTEXT: prices are stored in cents.' },
+    });
+    const res = await app.app.inject({
+      method: 'POST',
+      url: '/api/ai/chat',
+      payload: {
+        connectionId: id,
+        mode: 'generate_sql',
+        messages: [{ role: 'user', content: 'total revenue' }],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(captured).toContain('Business context provided by the user');
+    expect(captured).toContain('MAGIC_CONTEXT: prices are stored in cents.');
+    await closeTestApp(app);
+  });
 });
 
 describe('extractJson', () => {

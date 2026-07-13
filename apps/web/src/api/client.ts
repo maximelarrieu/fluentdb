@@ -301,6 +301,17 @@ export const api = {
       'GET',
       '/api/ai/status',
     ),
+  getAiContext: (id: string, database?: string) =>
+    request<{ content: string }>(
+      'GET',
+      `/api/connections/${id}/ai-context${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+  setAiContext: (id: string, content: string, database?: string) =>
+    request<{ ok: boolean; content: string }>(
+      'PUT',
+      `/api/connections/${id}/ai-context`,
+      { content, database },
+    ),
   aiMonitor: (body: {
     connectionId: string;
     database?: string;

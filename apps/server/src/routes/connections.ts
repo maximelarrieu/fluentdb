@@ -47,6 +47,7 @@ export function registerConnectionRoutes(
     if (!ctx.store.delete(id)) {
       return reply.code(404).send({ error: 'Connection not found' });
     }
+    ctx.aiContext.clear(id);
     return { ok: true };
   });
 

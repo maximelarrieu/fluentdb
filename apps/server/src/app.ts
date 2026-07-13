@@ -5,6 +5,7 @@ import { SecretBox } from './security/secrets.js';
 import { registerHostGuard } from './security/hostGuard.js';
 import { ConnectionsStore } from './store/connectionsStore.js';
 import { HistoryStore } from './store/historyStore.js';
+import { AiContextStore } from './store/aiContextStore.js';
 import { ConnectionManager } from './services/connectionManager.js';
 import { QueryRunner } from './services/queryRunner.js';
 import { TasksStore } from './store/tasksStore.js';
@@ -42,6 +43,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   const secrets = new SecretBox(opts.dataDir);
   const store = new ConnectionsStore(opts.dataDir, secrets);
   const history = new HistoryStore(opts.dataDir);
+  const aiContext = new AiContextStore(opts.dataDir);
   const manager = new ConnectionManager(store);
   const runner = new QueryRunner(history);
   const tasks = new TasksStore(opts.dataDir);
@@ -61,6 +63,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
     store,
     history,
     tasks,
+    aiContext,
     manager,
     runner,
     scheduler,
@@ -104,6 +107,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
     scheduler.stop();
     await manager.disconnectAll();
     history.close();
+    aiContext.close();
     tasks.close();
   });
 

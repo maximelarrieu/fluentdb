@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Contexte IA par base** : chaque (connexion + base) peut recevoir un document
+  de contexte métier en Markdown (unités, sens des codes/enums, jointures
+  canoniques, règles) — édité depuis l'en-tête de l'assistant (icône livre,
+  pastille quand défini) et **injecté avant le schéma** dans le prompt système.
+  L'assistant interprète ainsi correctement les tables au-delà de la seule
+  structure. Persisté côté serveur, borné en tokens.
 - **Fonctions, procédures & triggers dans l'arbre** : l'explorateur liste
   désormais les routines stockées (fonctions / procédures) et les triggers de
   table, en sections dédiées avec compteur ; clic → « Voir la définition »

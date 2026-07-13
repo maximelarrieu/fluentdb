@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import {
   aiChatRequestSchema,
   monitorRequestSchema,
@@ -93,6 +94,27 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     provider: ctx.ai?.id ?? null,
     model: ctx.ai?.model ?? null,
   }));
+
+  /** Per-(connection, database) business context fed to the assistant. */
+  app.get('/api/connections/:id/ai-context', async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { database } = z
+      .object({ database: z.string().optional() })
+      .parse(req.query);
+    return { content: ctx.aiContext.get(id, database) };
+  });
+
+  app.put('/api/connections/:id/ai-context', async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { database, content } = z
+      .object({
+        database: z.string().optional(),
+        content: z.string().max(200_000),
+      })
+      .parse(req.body ?? {});
+    ctx.aiContext.set(id, database ?? null, content);
+    return { ok: true, content: content.trim() };
+  });
 
   app.post('/api/ai/monitor', async (req, reply) => {
     const body = monitorRequestSchema.parse(req.body);
@@ -274,7 +296,17 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       }
     }
 
-    const system = buildSystemPrompt(body, schemaDigest, dialectInfo, objectDetail);
+    const userContext = body.connectionId
+      ? ctx.aiContext.get(body.connectionId, body.database)
+      : '';
+
+    const system = buildSystemPrompt(
+      body,
+      schemaDigest,
+      dialectInfo,
+      objectDetail,
+      userContext,
+    );
 
     reply.raw.writeHead(200, {
       'content-type': 'text/event-stream',

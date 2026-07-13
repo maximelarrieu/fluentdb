@@ -86,16 +86,29 @@ ${columnLines.join('\n')}`,
   return parts.join('\n\n');
 }
 
+/** Hard cap on user-supplied context (~4k tokens) so it can't crowd out the schema. */
+const CONTEXT_CHAR_BUDGET = 16_000;
+
 export function buildSystemPrompt(
   req: AiChatRequest,
   schemaDigest: string | null,
   dialectInfo: string | null,
   objectDetail?: string | null,
+  userContext?: string | null,
 ): string {
   const parts = [BASE];
   const modeInstruction = MODE_INSTRUCTIONS[req.mode];
   if (modeInstruction) parts.push(modeInstruction);
   if (dialectInfo) parts.push(`SQL dialect: ${dialectInfo}`);
+  // User's business context comes BEFORE the schema: it's the authoritative
+  // domain knowledge the model should trust for meaning (units, enums, joins).
+  if (userContext && userContext.trim()) {
+    const trimmed = userContext.trim().slice(0, CONTEXT_CHAR_BUDGET);
+    parts.push(
+      `Business context provided by the user for this database (authoritative — ` +
+        `use it to interpret tables, columns, codes and relationships):\n${trimmed}`,
+    );
+  }
   if (objectDetail) parts.push(`Object to explain:\n${objectDetail}`);
   if (schemaDigest) {
     parts.push(`Connected database schema:\n${schemaDigest}`);
