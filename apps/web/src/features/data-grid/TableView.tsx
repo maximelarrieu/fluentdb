@@ -538,8 +538,10 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               variant="ghost"
               disabled={prevDisabled}
               onClick={goPrev}
+              title="Page précédente"
+              aria-label="Page précédente"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={14} aria-hidden="true" />
             </Button>
             <span className="text-muted tabular-nums">
               {keysetCol
@@ -553,16 +555,20 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               variant="ghost"
               disabled={nextDisabled}
               onClick={goNext}
+              title="Page suivante"
+              aria-label="Page suivante"
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={14} aria-hidden="true" />
             </Button>
           </div>
           <Button
             size="icon"
             variant="ghost"
             onClick={() => rowsQuery.refetch()}
+            title="Rafraîchir"
+            aria-label="Rafraîchir les données"
           >
-            <RefreshCw size={13} />
+            <RefreshCw size={13} aria-hidden="true" />
           </Button>
         </div>
       </div>
