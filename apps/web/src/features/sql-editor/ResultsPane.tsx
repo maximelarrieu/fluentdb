@@ -6,12 +6,15 @@ import {
   Wrench,
   Search,
   X,
+  Table as TableIcon,
+  BarChart3,
 } from 'lucide-react';
 import type { CellValue, QueryResponse } from '@fluentdb/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/misc.js';
 import { formatDuration, formatNumber } from '../../lib/format.js';
 import { DataGrid } from '../data-grid/DataGrid.js';
+import { ResultChart } from './ResultChart.js';
 
 /** Case-insensitive substring match across every cell of a row. */
 function rowMatches(row: CellValue[], needle: string): boolean {
@@ -36,11 +39,13 @@ export function ResultsPane({
 }) {
   const [activeSet, setActiveSet] = useState(0);
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<'grid' | 'chart'>('grid');
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Reset the in-result search when the result or the active set changes.
+  // Reset the in-result search + view when the result or active set changes.
   useEffect(() => {
     setSearch('');
+    setView('grid');
   }, [result, activeSet]);
 
   const sets = result?.resultSets;
@@ -120,20 +125,50 @@ export function ResultsPane({
             <span>· {current.affectedRows} ligne(s) affectée(s)</span>
           )}
           {hasRows && (
-            <div className="flex items-center gap-1 ml-1">
-              <Button size="sm" variant="ghost" onClick={() => onExport('csv')}>
-                <Download size={12} /> CSV
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => onExport('json')}>
-                <Download size={12} /> JSON
-              </Button>
-            </div>
+            <>
+              <div className="flex items-center rounded-md border border-border overflow-hidden ml-1">
+                <button
+                  onClick={() => setView('grid')}
+                  title="Vue grille"
+                  aria-label="Vue grille"
+                  aria-pressed={view === 'grid'}
+                  className={`flex items-center gap-1 px-2 h-6 ${
+                    view === 'grid'
+                      ? 'bg-accent/12 text-accent'
+                      : 'hover:bg-panel-2 hover:text-text'
+                  }`}
+                >
+                  <TableIcon size={12} aria-hidden="true" /> Grille
+                </button>
+                <button
+                  onClick={() => setView('chart')}
+                  title="Vue graphique"
+                  aria-label="Vue graphique"
+                  aria-pressed={view === 'chart'}
+                  className={`flex items-center gap-1 px-2 h-6 border-l border-border ${
+                    view === 'chart'
+                      ? 'bg-accent/12 text-accent'
+                      : 'hover:bg-panel-2 hover:text-text'
+                  }`}
+                >
+                  <BarChart3 size={12} aria-hidden="true" /> Graphique
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => onExport('csv')}>
+                  <Download size={12} /> CSV
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => onExport('json')}>
+                  <Download size={12} /> JSON
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </div>
 
       {/* In-result search (⌘F): filters the loaded rows client-side. */}
-      {hasRows && (
+      {hasRows && view === 'grid' && (
         <div className="flex items-center gap-2 px-2 h-8 border-b border-border-soft bg-panel/60">
           <div className="relative flex-1 max-w-sm">
             <Search
@@ -169,7 +204,9 @@ export function ResultsPane({
 
       <div className="flex-1 min-h-0">
         {hasRows ? (
-          needle && filteredRows.length === 0 ? (
+          view === 'chart' ? (
+            <ResultChart columns={current.columns} rows={current.rows} />
+          ) : needle && filteredRows.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted text-sm">
               Aucune ligne ne contient «&nbsp;{search}&nbsp;».
             </div>

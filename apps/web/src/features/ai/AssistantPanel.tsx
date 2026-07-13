@@ -7,6 +7,7 @@ import {
   Play,
   ClipboardCopy,
   CornerDownLeft,
+  Table2,
 } from 'lucide-react';
 import type { AiMode, AiStreamEvent, ChatMessage } from '@fluentdb/shared';
 import { api } from '../../api/client.js';
@@ -18,15 +19,60 @@ interface Msg extends ChatMessage {
   suggestions?: string[];
 }
 
+/** Detect an in-progress "@table" mention immediately before the caret. */
+function detectMention(
+  value: string,
+  caret: number,
+): { query: string; start: number } | null {
+  const before = value.slice(0, caret);
+  const m = before.match(/(?:^|\s)@(\w*)$/);
+  if (!m) return null;
+  return { query: m[1] ?? '', start: caret - (m[1]?.length ?? 0) - 1 };
+}
+
 export function AssistantPanel() {
   const { active, database, aiOpen, toggleAi, openQuery } = useWorkspace();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(
+    null,
+  );
+  const [mentionIdx, setMentionIdx] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
   const status = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+
+  // Table/view names for @-mention autocomplete (schema is already sent as
+  // context; this is a precision + discoverability aid when composing).
+  const catalog = useQuery({
+    queryKey: ['autocomplete', active?.id, database],
+    queryFn: () => api.autocomplete(active!.id, database),
+    enabled: !!active,
+  });
+  const objectNames = Object.keys(catalog.data?.catalog ?? {});
+  const mentionMatches = mention
+    ? objectNames
+        .filter((n) => n.toLowerCase().includes(mention.query.toLowerCase()))
+        .slice(0, 8)
+    : [];
+
+  const insertMention = (name: string) => {
+    const el = taRef.current;
+    const caret = el?.selectionStart ?? input.length;
+    const before = mention ? input.slice(0, mention.start) : input;
+    const after = input.slice(caret);
+    const next = `${before}@${name} ${after}`;
+    setInput(next);
+    setMention(null);
+    requestAnimationFrame(() => {
+      const pos = before.length + name.length + 2;
+      el?.focus();
+      el?.setSelectionRange(pos, pos);
+    });
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -212,17 +258,68 @@ export function AssistantPanel() {
 
           <div className="p-2.5 border-t border-border">
             <div className="relative">
+              {/* @-mention table picker */}
+              {mention && mentionMatches.length > 0 && (
+                <div className="absolute bottom-full mb-1 left-0 right-0 max-h-48 overflow-auto rounded-lg border border-border bg-panel-2 p-1 shadow-xl z-10">
+                  {mentionMatches.map((name, i) => (
+                    <button
+                      key={name}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertMention(name);
+                      }}
+                      onMouseEnter={() => setMentionIdx(i)}
+                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-[13px] text-left ${
+                        i === mentionIdx ? 'bg-accent/12 text-accent' : 'hover:bg-panel'
+                      }`}
+                    >
+                      <Table2 size={13} className="shrink-0 opacity-70" />
+                      <span className="truncate">{name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <textarea
+                ref={taRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  const caret = e.target.selectionStart ?? e.target.value.length;
+                  setMention(detectMention(e.target.value, caret));
+                  setMentionIdx(0);
+                }}
                 onKeyDown={(e) => {
+                  if (mention && mentionMatches.length > 0) {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setMentionIdx((i) => (i + 1) % mentionMatches.length);
+                      return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setMentionIdx(
+                        (i) => (i - 1 + mentionMatches.length) % mentionMatches.length,
+                      );
+                      return;
+                    }
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                      e.preventDefault();
+                      insertMention(mentionMatches[mentionIdx]!);
+                      return;
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setMention(null);
+                      return;
+                    }
+                  }
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     send(input, active ? 'generate_sql' : 'chat');
                   }
                 }}
                 rows={2}
-                placeholder="Pose ta question en langage naturel…"
+                placeholder="Pose ta question…  @ pour citer une table"
                 className="w-full resize-none rounded-lg bg-bg border border-border px-3 py-2 pr-10 text-[13px] outline-none focus:border-accent"
               />
               <button
@@ -235,7 +332,7 @@ export function AssistantPanel() {
             </div>
             <p className="text-[10px] text-muted/60 mt-1 flex items-center gap-1">
               <CornerDownLeft size={10} /> Entrée pour envoyer · Maj+Entrée pour
-              un saut de ligne
+              un saut de ligne · @ pour citer une table
             </p>
           </div>
         </>
