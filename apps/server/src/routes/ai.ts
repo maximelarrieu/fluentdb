@@ -13,6 +13,7 @@ import {
   buildSystemPrompt,
   buildMonitorPrompt,
   buildMockPrompt,
+  buildContextExtractionPrompt,
 } from '../ai/prompts.js';
 import { buildSchemaDigest } from '../ai/schemaContext.js';
 import { extractSqlBlocks, extractJson, collectStream } from '../ai/types.js';
@@ -114,6 +115,34 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       .parse(req.body ?? {});
     ctx.aiContext.set(id, database ?? null, content);
     return { ok: true, content: content.trim() };
+  });
+
+  /**
+   * A ready-to-paste prompt (real schema + instructions) the user gives to
+   * their own coding agent to generate the business-context document.
+   */
+  app.get('/api/connections/:id/ai-context/prompt', async (req, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { database } = z
+      .object({ database: z.string().optional() })
+      .parse(req.query);
+    if (!ctx.manager.isConnected(id)) {
+      return reply
+        .code(409)
+        .send({ error: 'Connect to the database first to read its schema.' });
+    }
+    const driver = await ctx.manager.getDriver(id, database);
+    const [digest, version] = await Promise.all([
+      buildSchemaDigest(driver, []),
+      driver.serverVersion().catch(() => ''),
+    ]);
+    const dialectName = version
+      ? `${driver.dialect.name} (${version})`
+      : driver.dialect.name;
+    const scope = database ?? ctx.manager.getConfig(id)?.name ?? 'base';
+    return {
+      prompt: buildContextExtractionPrompt(digest, dialectName, scope),
+    };
   });
 
   app.post('/api/ai/monitor', async (req, reply) => {

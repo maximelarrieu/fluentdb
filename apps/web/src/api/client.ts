@@ -312,6 +312,11 @@ export const api = {
       `/api/connections/${id}/ai-context`,
       { content, database },
     ),
+  aiContextPrompt: (id: string, database?: string) =>
+    request<{ prompt: string }>(
+      'GET',
+      `/api/connections/${id}/ai-context/prompt${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
   aiMonitor: (body: {
     connectionId: string;
     database?: string;
