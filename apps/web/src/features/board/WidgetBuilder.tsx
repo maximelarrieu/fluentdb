@@ -6,6 +6,7 @@ import type {
   QueryResultSet,
   WidgetSize,
   WidgetViz,
+  WidgetOrientation,
 } from '@fluentdb/shared';
 import { Dialog } from '../../components/ui/Dialog.js';
 import { Button } from '../../components/ui/Button.js';
@@ -42,6 +43,9 @@ export function WidgetBuilder({
   const [sql, setSql] = useState(existing?.sql ?? '');
   const [viz, setViz] = useState<WidgetViz>(existing?.viz ?? 'bar');
   const [size, setSize] = useState<WidgetSize>(existing?.size ?? 'md');
+  const [orientation, setOrientation] = useState<WidgetOrientation>(
+    existing?.orientation ?? 'horizontal',
+  );
   const [description, setDescription] = useState('');
   const [preview, setPreview] = useState<QueryResultSet | null>(null);
   const toast = useToast();
@@ -75,7 +79,7 @@ export function WidgetBuilder({
 
   const save = useMutation({
     mutationFn: () => {
-      const input = { title: title.trim(), sql: sql.trim(), viz, size };
+      const input = { title: title.trim(), sql: sql.trim(), viz, size, orientation };
       return existing
         ? api.updateWidget(connId, existing.id, input)
         : api.createWidget(connId, input, database);
@@ -179,6 +183,27 @@ export function WidgetBuilder({
               ))}
             </div>
           </div>
+          {viz === 'bar' && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted">Sens</span>
+              <div className="flex rounded-md border border-border overflow-hidden">
+                {([
+                  { o: 'horizontal', label: 'Horizontal' },
+                  { o: 'vertical', label: 'Vertical' },
+                ] as const).map((x) => (
+                  <button
+                    key={x.o}
+                    onClick={() => setOrientation(x.o)}
+                    className={`px-2 h-7 text-[12px] border-l border-border first:border-l-0 ${
+                      orientation === x.o ? 'bg-accent/12 text-accent' : 'hover:bg-panel-2'
+                    }`}
+                  >
+                    {x.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <Button
             size="sm"
             variant="subtle"
@@ -193,7 +218,12 @@ export function WidgetBuilder({
 
         {preview && (
           <div className="h-56 rounded-lg border border-border-soft bg-bg overflow-hidden">
-            <WidgetChart columns={preview.columns} rows={preview.rows} viz={viz} />
+            <WidgetChart
+              columns={preview.columns}
+              rows={preview.rows}
+              viz={viz}
+              orientation={orientation}
+            />
           </div>
         )}
 

@@ -226,7 +226,12 @@ function WidgetCard({
             {(q.error as Error).message}
           </div>
         ) : set ? (
-          <WidgetChart columns={set.columns} rows={set.rows} viz={widget.viz} />
+          <WidgetChart
+            columns={set.columns}
+            rows={set.rows}
+            viz={widget.viz}
+            orientation={widget.orientation}
+          />
         ) : (
           <div className="h-full flex items-center justify-center text-muted text-xs">
             Aucun résultat

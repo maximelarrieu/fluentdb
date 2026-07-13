@@ -23,10 +23,20 @@ export class DashboardStore {
         sql TEXT NOT NULL,
         viz TEXT NOT NULL,
         size TEXT NOT NULL DEFAULT 'md',
+        orientation TEXT NOT NULL DEFAULT 'horizontal',
         position INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       )`,
     );
+    // Migrate tables created before the orientation column existed.
+    const cols = this.db
+      .prepare(`PRAGMA table_info(dashboard_widgets)`)
+      .all() as { name: string }[];
+    if (!cols.some((c) => c.name === 'orientation')) {
+      this.db.exec(
+        `ALTER TABLE dashboard_widgets ADD COLUMN orientation TEXT NOT NULL DEFAULT 'horizontal'`,
+      );
+    }
   }
 
   private key(database?: string | null): string {
@@ -40,6 +50,7 @@ export class DashboardStore {
       sql: String(r.sql),
       viz: r.viz as DashboardWidget['viz'],
       size: r.size as DashboardWidget['size'],
+      orientation: (r.orientation ?? 'horizontal') as DashboardWidget['orientation'],
       position: Number(r.position),
     };
   }
@@ -47,7 +58,7 @@ export class DashboardStore {
   list(connectionId: string, database?: string | null): DashboardWidget[] {
     const rows = this.db
       .prepare(
-        `SELECT id, title, sql, viz, size, position FROM dashboard_widgets
+        `SELECT id, title, sql, viz, size, orientation, position FROM dashboard_widgets
          WHERE connection_id = ? AND database = ?
          ORDER BY position, created_at`,
       )
@@ -71,8 +82,8 @@ export class DashboardStore {
     this.db
       .prepare(
         `INSERT INTO dashboard_widgets
-         (id, connection_id, database, title, sql, viz, size, position)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, connection_id, database, title, sql, viz, size, orientation, position)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -82,6 +93,7 @@ export class DashboardStore {
         input.sql,
         input.viz,
         input.size,
+        input.orientation,
         next,
       );
     return { id, position: next, ...input };
@@ -90,7 +102,7 @@ export class DashboardStore {
   update(id: string, patch: WidgetPatch): DashboardWidget | null {
     const fields: string[] = [];
     const params: unknown[] = [];
-    for (const k of ['title', 'sql', 'viz', 'size'] as const) {
+    for (const k of ['title', 'sql', 'viz', 'size', 'orientation'] as const) {
       if (patch[k] !== undefined) {
         fields.push(`${k} = ?`);
         params.push(patch[k]);
@@ -104,7 +116,7 @@ export class DashboardStore {
     }
     const row = this.db
       .prepare(
-        'SELECT id, title, sql, viz, size, position FROM dashboard_widgets WHERE id = ?',
+        'SELECT id, title, sql, viz, size, orientation, position FROM dashboard_widgets WHERE id = ?',
       )
       .get(id) as Record<string, unknown> | undefined;
     return row ? this.map(row) : null;

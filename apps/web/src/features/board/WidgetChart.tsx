@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
-import type { CellValue, QueryColumn, WidgetViz } from '@fluentdb/shared';
+import type {
+  CellValue,
+  QueryColumn,
+  WidgetViz,
+  WidgetOrientation,
+} from '@fluentdb/shared';
 import { formatNumber } from '../../lib/format.js';
 import { DataGrid } from '../data-grid/DataGrid.js';
 import { SERIES_COLORS } from '../tasks/trend.js';
@@ -26,10 +31,12 @@ export function WidgetChart({
   columns,
   rows,
   viz,
+  orientation = 'horizontal',
 }: {
   columns: QueryColumn[];
   rows: CellValue[][];
   viz: WidgetViz;
+  orientation?: WidgetOrientation;
 }) {
   const valueCol = useMemo(() => firstNumericCol(columns, rows), [columns, rows]);
   const labelCol = useMemo(
@@ -77,7 +84,12 @@ export function WidgetChart({
     }))
     .slice(0, viz === 'pie' ? 8 : 50);
 
-  if (viz === 'bar') return <BarChart data={data} />;
+  if (viz === 'bar')
+    return orientation === 'vertical' ? (
+      <VerticalBarChart data={data} />
+    ) : (
+      <BarChart data={data} />
+    );
   if (viz === 'line') return <LineChart data={data} />;
   return <PieChart data={data} />;
 }
@@ -114,6 +126,68 @@ function BarChart({ data }: { data: Datum[] }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function VerticalBarChart({ data }: { data: Datum[] }) {
+  // Zero-baseline vertical bars in query order: positives rise, negatives hang
+  // below zero (matches a classic Pareto of negative impacts).
+  const W = 600;
+  const H = 240;
+  const M = { l: 46, r: 10, t: 12, b: 46 };
+  const vals = data.map((d) => d.value);
+  const yMin = Math.min(...vals, 0);
+  const yMax = Math.max(...vals, 0);
+  const span = yMax - yMin || 1;
+  const plotH = H - M.t - M.b;
+  const y = (v: number) => M.t + ((yMax - v) / span) * plotH;
+  const y0 = y(0);
+  const band = (W - M.l - M.r) / Math.max(data.length, 1);
+  const bw = Math.min(band * 0.7, 46);
+  const mixed = vals.some((v) => v < 0) && vals.some((v) => v > 0);
+  const ticks = [yMax, yMax - span / 2, yMin];
+  return (
+    <div className="h-full w-full p-1">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={M.l} x2={W - M.r} y1={y(t)} y2={y(t)} stroke="var(--color-border)" strokeWidth={1} />
+            <text x={M.l - 6} y={y(t) + 3} textAnchor="end" fontSize={9} fill="var(--color-muted)">
+              {formatNumber(t)}
+            </text>
+          </g>
+        ))}
+        {data.map((d, i) => {
+          const cx = M.l + band * i + band / 2;
+          const top = Math.min(y0, y(d.value));
+          const h = Math.max(Math.abs(y(d.value) - y0), 0.5);
+          const neg = mixed && d.value < 0;
+          return (
+            <g key={i}>
+              <rect
+                x={cx - bw / 2}
+                y={top}
+                width={bw}
+                height={h}
+                rx={2}
+                fill={neg ? 'var(--color-red)' : 'var(--color-accent)'}
+                opacity={0.8}
+              />
+              <text
+                x={cx}
+                y={H - M.b + 12}
+                textAnchor="end"
+                fontSize={8}
+                fill="var(--color-muted)"
+                transform={`rotate(-45 ${cx} ${H - M.b + 12})`}
+              >
+                {d.label.length > 14 ? `${d.label.slice(0, 13)}…` : d.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
