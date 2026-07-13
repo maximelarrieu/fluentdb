@@ -6,6 +6,7 @@ import { registerHostGuard } from './security/hostGuard.js';
 import { ConnectionsStore } from './store/connectionsStore.js';
 import { HistoryStore } from './store/historyStore.js';
 import { AiContextStore } from './store/aiContextStore.js';
+import { DashboardStore } from './store/dashboardStore.js';
 import { ConnectionManager } from './services/connectionManager.js';
 import { QueryRunner } from './services/queryRunner.js';
 import { TasksStore } from './store/tasksStore.js';
@@ -24,6 +25,7 @@ import { registerDockerRoutes } from './routes/docker.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerErdRoutes } from './routes/erd.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerWidgetRoutes } from './routes/widgets.js';
 
 export interface BuildAppOptions {
   dataDir: string;
@@ -44,6 +46,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   const store = new ConnectionsStore(opts.dataDir, secrets);
   const history = new HistoryStore(opts.dataDir);
   const aiContext = new AiContextStore(opts.dataDir);
+  const dashboards = new DashboardStore(opts.dataDir);
   const manager = new ConnectionManager(store);
   const runner = new QueryRunner(history);
   const tasks = new TasksStore(opts.dataDir);
@@ -64,6 +67,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
     history,
     tasks,
     aiContext,
+    dashboards,
     manager,
     runner,
     scheduler,
@@ -102,12 +106,14 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   registerAiRoutes(app, ctx);
   registerErdRoutes(app, ctx);
   registerTaskRoutes(app, ctx);
+  registerWidgetRoutes(app, ctx);
 
   app.addHook('onClose', async () => {
     scheduler.stop();
     await manager.disconnectAll();
     history.close();
     aiContext.close();
+    dashboards.close();
     tasks.close();
   });
 

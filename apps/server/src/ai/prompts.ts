@@ -130,6 +130,39 @@ export function buildSystemPrompt(
 }
 
 /**
+ * One-shot prompt: natural-language request → a dashboard widget as JSON
+ * { title, sql, viz }. The SQL must be a single read-only SELECT; viz is
+ * chosen to fit the shape of the result.
+ */
+export function buildWidgetPrompt(
+  schemaDigest: string | null,
+  dialectInfo: string | null,
+): string {
+  return `You design a single dashboard widget for the user's database from their natural-language request.
+
+Reply with ONLY a JSON object (no prose, no code fence) of this exact shape:
+{"title": "...", "sql": "...", "viz": "number|bar|line|pie|table"}
+
+Rules:
+- "sql" MUST be a single read-only SELECT (no INSERT/UPDATE/DELETE/DDL, no multiple statements, no trailing semicolon is fine).
+- Match the SQL dialect exactly${dialectInfo ? ` (${dialectInfo})` : ''}.
+- Only use tables/columns present in the schema below. If the request can't be satisfied, still return your best-effort SELECT.
+- Choose "viz" to fit the result:
+  - "number": a single aggregate value (one row, one number) — e.g. total count/sum.
+  - "bar": compare a numeric value across categories (a label column + a numeric column), ~3-40 rows.
+  - "line": a value over an ordered/time dimension (order the query by that dimension).
+  - "pie": parts of a whole, ≤6 categories (a label + a numeric share).
+  - "table": several columns / detail rows that aren't one of the above.
+- For bar/line/pie, put the label/dimension column first and the numeric column(s) next. Add a sensible LIMIT (e.g. 50) for potentially large results.
+- "title": short, human, in the user's language.
+${
+  schemaDigest
+    ? `\nConnected database schema:\n${schemaDigest}`
+    : '\nNo schema available; produce a reasonable generic SELECT.'
+}`;
+}
+
+/**
  * A ready-to-paste prompt the user hands to their own coding agent (e.g.
  * Claude in their project). Given the real schema below plus the agent's
  * knowledge of the codebase, it produces the business-context document that

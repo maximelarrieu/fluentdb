@@ -10,5 +10,6 @@ export * from './mutations.js';
 export * from './ai.js';
 export * from './docker.js';
 export * from './erd.js';
+export * from './widgets.js';
 export * from './plan.js';
 export * from './api.js';

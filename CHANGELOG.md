@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Tableaux de bord personnalisés** : un module « Tableaux de bord » où chaque
+  widget = une requête en lecture seule + une visualisation (nombre, barres,
+  lignes, camembert, table), disposé sur une grille à tailles préréglées
+  (S/M/L) avec réordonnancement. Création par **langage naturel** (l'IA génère
+  la requête + choisit la viz) ou à la main, avec aperçu en direct. Persisté
+  par (connexion + base). Glisser-déposer prévu ultérieurement.
 - **Contexte IA par base** : chaque (connexion + base) peut recevoir un document
   de contexte métier en Markdown (unités, sens des codes/enums, jointures
   canoniques, règles) — édité depuis l'en-tête de l'assistant (icône livre,

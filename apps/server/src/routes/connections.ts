@@ -48,6 +48,7 @@ export function registerConnectionRoutes(
       return reply.code(404).send({ error: 'Connection not found' });
     }
     ctx.aiContext.clear(id);
+    ctx.dashboards.clear(id);
     return { ok: true };
   });
 
