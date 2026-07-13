@@ -8,12 +8,14 @@ import {
   ClipboardCopy,
   CornerDownLeft,
   Table2,
+  BookText,
 } from 'lucide-react';
 import type { AiMode, AiStreamEvent, ChatMessage } from '@fluentdb/shared';
 import { api } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { AiContextDialog } from './AiContextDialog.js';
 
 interface Msg extends ChatMessage {
   suggestions?: string[];
@@ -39,11 +41,20 @@ export function AssistantPanel() {
     null,
   );
   const [mentionIdx, setMentionIdx] = useState(0);
+  const [contextOpen, setContextOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const status = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+
+  // Per-(connection, database) business context — drives the header badge.
+  const aiContext = useQuery({
+    queryKey: ['ai-context', active?.id, database],
+    queryFn: () => api.getAiContext(active!.id, database),
+    enabled: !!active,
+  });
+  const hasContext = (aiContext.data?.content?.trim().length ?? 0) > 0;
 
   // Table/view names for @-mention autocomplete (schema is already sent as
   // context; this is a precision + discoverability aid when composing).
@@ -207,13 +218,44 @@ export function AssistantPanel() {
         <span className="text-[13px] font-semibold flex items-center gap-2">
           <Sparkles size={15} className="text-accent" /> Assistant IA
         </span>
-        <button
-          onClick={() => toggleAi(false)}
-          className="text-muted hover:text-text"
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          {active && (
+            <button
+              onClick={() => setContextOpen(true)}
+              title={
+                hasContext
+                  ? 'Contexte de la base (défini)'
+                  : 'Ajouter du contexte métier à la base'
+              }
+              aria-label="Contexte IA de la base"
+              className="relative text-muted hover:text-text p-1"
+            >
+              <BookText size={16} aria-hidden="true" />
+              {hasContext && (
+                <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => toggleAi(false)}
+            title="Fermer l'assistant"
+            aria-label="Fermer l'assistant"
+            className="text-muted hover:text-text p-1"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
       </div>
+
+      {contextOpen && active && (
+        <AiContextDialog
+          connectionId={active.id}
+          connectionName={active.name}
+          database={database}
+          initialContent={aiContext.data?.content ?? ''}
+          onClose={() => setContextOpen(false)}
+        />
+      )}
 
       {!status.data?.configured ? (
         <div className="p-4 text-[13px] text-muted leading-relaxed">
