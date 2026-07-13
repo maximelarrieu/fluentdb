@@ -95,10 +95,10 @@ export function DataGrid({
                   onClick={() => onSort?.(c.name)}
                   disabled={!onSort}
                   className={cn(
-                    'flex items-center gap-1 px-2.5 h-8 text-left border-r border-border-soft w-full',
+                    'group/h flex items-center gap-1 px-2.5 h-8 text-left border-r border-border-soft w-full',
                     'font-medium truncate hover:bg-panel-2 disabled:hover:bg-transparent',
                   )}
-                  title={c.dataType}
+                  title={onSort ? `${c.dataType} — cliquer pour trier` : c.dataType}
                 >
                   {pkSet.has(c.name) && (
                     <span className="text-amber text-[10px]" title="Clé primaire">
@@ -106,10 +106,16 @@ export function DataGrid({
                     </span>
                   )}
                   <span className="truncate">{c.name}</span>
-                  {sortState?.column === c.name && (
+                  {sortState?.column === c.name ? (
                     <span className="text-accent ml-auto">
                       {sortState.dir === 'asc' ? '↑' : '↓'}
                     </span>
+                  ) : (
+                    onSort && (
+                      <span className="ml-auto text-muted/40 opacity-0 group-hover/h:opacity-100 transition-opacity">
+                        ↕
+                      </span>
+                    )
                   )}
                 </button>
               );
