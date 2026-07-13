@@ -20,6 +20,7 @@ import { DashboardView } from './features/tasks/DashboardView.js';
 import { HealthView } from './features/health/HealthView.js';
 import { ActivityView } from './features/activity/ActivityView.js';
 import { RolesView } from './features/roles/RolesView.js';
+import { BoardView } from './features/board/BoardView.js';
 import { TaskNotifier } from './features/tasks/TaskNotifier.js';
 
 /**
@@ -127,6 +128,8 @@ function Workspace() {
             <ActivityView key={activeTab.id} />
           ) : activeTab.kind === 'roles' ? (
             <RolesView key={activeTab.id} />
+          ) : activeTab.kind === 'board' ? (
+            <BoardView key={activeTab.id} />
           ) : (
             <QueryEditor
               key={activeTab.id}

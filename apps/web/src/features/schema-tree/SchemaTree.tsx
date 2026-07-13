@@ -28,6 +28,7 @@ import {
   Braces,
   Cog,
   Zap,
+  LayoutGrid,
 } from 'lucide-react';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
 import type {
@@ -70,6 +71,7 @@ export function SchemaTree() {
     openHealth,
     openActivity,
     openRoles,
+    openBoard,
     requestMockData,
     schemaVersion,
     toggleAi,
@@ -314,8 +316,14 @@ export function SchemaTree() {
           />
         )}
         <ToolButton
+          icon={<LayoutGrid size={15} />}
+          label="Tableaux de bord"
+          active={activeView === 'board'}
+          onClick={openBoard}
+        />
+        <ToolButton
           icon={<LayoutDashboard size={15} />}
-          label="Tableau de bord"
+          label="Tableau de bord (tâches)"
           active={activeView === 'dashboard'}
           badge={unseenCount > 0}
           onClick={openDashboard}

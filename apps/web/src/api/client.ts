@@ -33,6 +33,9 @@ import type {
   TableInfo,
   RoutineInfo,
   TriggerInfo,
+  DashboardWidget,
+  WidgetInput,
+  AiWidgetProposal,
   TableStructure,
   TaskSnapshot,
 } from '@fluentdb/shared';
@@ -329,6 +332,41 @@ export const api = {
     table: string;
     count: number;
   }) => request<MockRowsPreview>('POST', '/api/ai/mock', body),
+  aiWidget: (body: {
+    connectionId: string;
+    database?: string;
+    description: string;
+  }) => request<AiWidgetProposal>('POST', '/api/ai/widget', body),
+
+  // dashboard widgets
+  widgets: (id: string, database?: string) =>
+    request<DashboardWidget[]>(
+      'GET',
+      `/api/connections/${id}/widgets${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+  createWidget: (id: string, input: WidgetInput, database?: string) =>
+    request<DashboardWidget>(
+      'POST',
+      `/api/connections/${id}/widgets${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+      input,
+    ),
+  updateWidget: (id: string, widgetId: string, patch: Partial<WidgetInput>) =>
+    request<DashboardWidget>(
+      'PATCH',
+      `/api/connections/${id}/widgets/${widgetId}`,
+      patch,
+    ),
+  deleteWidget: (id: string, widgetId: string) =>
+    request<{ ok: boolean }>(
+      'DELETE',
+      `/api/connections/${id}/widgets/${widgetId}`,
+    ),
+  reorderWidgets: (id: string, ids: string[]) =>
+    request<{ ok: boolean }>(
+      'POST',
+      `/api/connections/${id}/widgets/reorder`,
+      { ids },
+    ),
 
   exportUrl: (id: string) => `/api/connections/${id}/export`,
 
