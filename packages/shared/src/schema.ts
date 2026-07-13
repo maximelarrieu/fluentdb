@@ -54,6 +54,34 @@ export interface TableStructure {
   foreignKeys: ForeignKeyInfo[];
 }
 
+export type RoutineKind = 'function' | 'procedure';
+
+/** A stored function or procedure. `definition` is the CREATE statement. */
+export interface RoutineInfo {
+  name: string;
+  schema?: string;
+  kind: RoutineKind;
+  /** Return type (functions) — null for procedures / when unavailable. */
+  returns?: string | null;
+  /** Formatted argument list, e.g. "oid integer". */
+  args?: string | null;
+  language?: string | null;
+  definition?: string | null;
+}
+
+/** A table trigger. */
+export interface TriggerInfo {
+  name: string;
+  schema?: string;
+  /** The table the trigger fires on. */
+  table: string;
+  /** BEFORE / AFTER / INSTEAD OF (when known). */
+  timing?: string | null;
+  /** INSERT / UPDATE / DELETE … */
+  events?: string[];
+  definition?: string | null;
+}
+
 /** { "schema.table" | "table": [columns] } — feeds CodeMirror's schema-aware completion. */
 export type AutocompleteCatalog = Record<string, string[]>;
 

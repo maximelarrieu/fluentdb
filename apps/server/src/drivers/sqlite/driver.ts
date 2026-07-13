@@ -7,6 +7,8 @@ import type {
   DatabaseInfo,
   DbSession,
   DbRole,
+  RoutineInfo,
+  TriggerInfo,
   LockWait,
   DdlChange,
   DdlPreview,
@@ -64,6 +66,8 @@ export class SqliteDriver implements Driver {
     explainAnalyze: false,
     materializedViews: false,
     activityMonitor: false,
+    routines: false,
+    triggers: true,
   };
 
   private db: Database.Database | null = null;
@@ -126,6 +130,35 @@ export class SqliteDriver implements Driver {
       kind: r.type === 'view' ? 'view' : 'table',
       rowEstimate: null,
     }));
+  }
+
+  async listRoutines(): Promise<RoutineInfo[]> {
+    return []; // SQLite has no stored functions/procedures.
+  }
+
+  async listTriggers(): Promise<TriggerInfo[]> {
+    const rows = this.conn()
+      .prepare(
+        `SELECT name, tbl_name AS tbl, sql FROM sqlite_master
+         WHERE type = 'trigger' AND name NOT LIKE 'sqlite_%'
+         ORDER BY tbl_name, name`,
+      )
+      .all() as { name: string; tbl: string; sql: string | null }[];
+    return rows.map((r) => {
+      const def = r.sql ?? '';
+      const timing =
+        /\b(BEFORE|AFTER|INSTEAD OF)\b/i.exec(def)?.[1]?.toUpperCase() ?? null;
+      const events = ['INSERT', 'UPDATE', 'DELETE'].filter((e) =>
+        new RegExp(`\\b${e}\\b`, 'i').test(def.split(/\bON\b/i)[0] ?? def),
+      );
+      return {
+        name: r.name,
+        table: r.tbl,
+        timing,
+        events,
+        definition: r.sql,
+      };
+    });
   }
 
   async getTableStructure(ref: TableRef): Promise<TableStructure> {

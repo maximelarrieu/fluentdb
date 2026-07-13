@@ -18,6 +18,8 @@ import type {
   RowQuery,
   SchemaInfo,
   SearchHit,
+  RoutineInfo,
+  TriggerInfo,
   TableInfo,
   TableRef,
   TableStructure,
@@ -71,6 +73,8 @@ export class MysqlDriver implements Driver {
     explainAnalyze: false,
     materializedViews: false,
     activityMonitor: true,
+    routines: true,
+    triggers: true,
   };
 
   private pool: mysql.Pool | null = null;
@@ -160,6 +164,49 @@ export class MysqlDriver implements Driver {
       kind: String(r.type).includes('VIEW') ? ('view' as const) : ('table' as const),
       rowEstimate: r.row_estimate == null ? null : Number(r.row_estimate),
       comment: r.comment ? String(r.comment) : null,
+    }));
+  }
+
+  async listRoutines(): Promise<RoutineInfo[]> {
+    const [rows] = await this.db().query(
+      `SELECT ROUTINE_NAME AS name, ROUTINE_TYPE AS type,
+              DTD_IDENTIFIER AS returns, ROUTINE_DEFINITION AS body,
+              EXTERNAL_LANGUAGE AS language
+       FROM information_schema.ROUTINES
+       WHERE ROUTINE_SCHEMA = ?
+       ORDER BY ROUTINE_TYPE, ROUTINE_NAME`,
+      [this.dbName()],
+    );
+    return (rows as Record<string, unknown>[]).map((r) => {
+      const kind =
+        String(r.type).toUpperCase() === 'PROCEDURE' ? 'procedure' : 'function';
+      return {
+        name: String(r.name),
+        kind: kind as RoutineInfo['kind'],
+        returns: kind === 'function' && r.returns ? String(r.returns) : null,
+        args: null,
+        language: r.language ? String(r.language) : 'SQL',
+        definition: r.body ? String(r.body) : null,
+      };
+    });
+  }
+
+  async listTriggers(): Promise<TriggerInfo[]> {
+    const [rows] = await this.db().query(
+      `SELECT TRIGGER_NAME AS name, EVENT_OBJECT_TABLE AS tbl,
+              ACTION_TIMING AS timing, EVENT_MANIPULATION AS event,
+              ACTION_STATEMENT AS body
+       FROM information_schema.TRIGGERS
+       WHERE TRIGGER_SCHEMA = ?
+       ORDER BY EVENT_OBJECT_TABLE, TRIGGER_NAME`,
+      [this.dbName()],
+    );
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      name: String(r.name),
+      table: String(r.tbl),
+      timing: r.timing ? String(r.timing) : null,
+      events: r.event ? [String(r.event)] : [],
+      definition: r.body ? String(r.body) : null,
     }));
   }
 
