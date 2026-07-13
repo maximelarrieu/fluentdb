@@ -16,15 +16,22 @@ function downloadText(text: string, filename: string, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
-const BG = '#0d0f14';
+/** Current theme's canvas background, so exports match what's on screen. */
+function bgColor(): string {
+  return (
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-bg')
+      .trim() || '#101215'
+  );
+}
 
 export async function exportPng(el: HTMLElement, name: string): Promise<void> {
-  const url = await toPng(el, { backgroundColor: BG, pixelRatio: 2 });
+  const url = await toPng(el, { backgroundColor: bgColor(), pixelRatio: 2 });
   download(url, `${name}.png`);
 }
 
 export async function exportSvg(el: HTMLElement, name: string): Promise<void> {
-  const url = await toSvg(el, { backgroundColor: BG });
+  const url = await toSvg(el, { backgroundColor: bgColor() });
   download(url, `${name}.svg`);
 }
 

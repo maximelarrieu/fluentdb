@@ -237,7 +237,7 @@ export function ConnectionSidebar() {
             >
               <Circle
                 size={8}
-                fill={c.connected ? '#3fb884' : 'transparent'}
+                fill={c.connected ? 'currentColor' : 'transparent'}
                 className={c.connected ? 'text-green' : 'text-border'}
               />
               <span

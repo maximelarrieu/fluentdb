@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Trend } from './trend.js';
 import { formatNumber } from '../../lib/format.js';
+import { useTheme } from '../../stores/theme.js';
 
 const M = { l: 60, r: 16, t: 16, b: 34 };
 
@@ -40,8 +41,27 @@ export function TrendChart({
   threshold?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [size, setSize] = useState({ W: 800, H: 320 });
+
+  // Theme-resolved chrome colors (grid, axes, crosshair…). Series colors stay
+  // categorical. Recomputed when the theme toggles.
+  const c = useMemo(() => {
+    const cs =
+      typeof document !== 'undefined'
+        ? getComputedStyle(document.documentElement)
+        : null;
+    const read = (name: string, fallback: string) =>
+      cs?.getPropertyValue(name).trim() || fallback;
+    return {
+      grid: read('--color-border', '#2b3038'),
+      axis: read('--color-muted', '#8a93a1'),
+      accent: read('--color-accent', '#3fa89b'),
+      amber: read('--color-amber', '#e0a63a'),
+      text: read('--color-text', '#e6e9ee'),
+    };
+  }, [theme]);
 
   // Render at real pixel size (no SVG stretching → no distorted text).
   useEffect(() => {
@@ -128,7 +148,7 @@ export function TrendChart({
                 x2={W - M.r}
                 y1={model.sy(t)}
                 y2={model.sy(t)}
-                stroke="#262b38"
+                stroke={c.grid}
                 strokeWidth={1}
               />
               <text
@@ -136,7 +156,7 @@ export function TrendChart({
                 y={model.sy(t) + 4}
                 textAnchor="end"
                 fontSize={11}
-                fill="#8b93a7"
+                fill={c.axis}
               >
                 {formatNumber(t)}
               </text>
@@ -155,7 +175,7 @@ export function TrendChart({
                 y={H - M.b + 18}
                 textAnchor="middle"
                 fontSize={10}
-                fill="#8b93a7"
+                fill={c.axis}
               >
                 {fmtTime(x)}
               </text>
@@ -168,7 +188,7 @@ export function TrendChart({
                 x2={W - M.r}
                 y1={model.sy(threshold)}
                 y2={model.sy(threshold)}
-                stroke="#f0b429"
+                stroke={c.amber}
                 strokeWidth={1.5}
                 strokeDasharray="6 4"
               />
@@ -176,7 +196,7 @@ export function TrendChart({
                 x={M.l + 4}
                 y={model.sy(threshold) - 4}
                 fontSize={10}
-                fill="#f0b429"
+                fill={c.amber}
               >
                 seuil {formatNumber(threshold)}
               </text>
@@ -189,7 +209,7 @@ export function TrendChart({
               x2={model.sx(hoverX)}
               y1={M.t}
               y2={H - M.b}
-              stroke="#6d8bff"
+              stroke={c.accent}
               strokeWidth={1}
               strokeDasharray="4 3"
             />
@@ -217,7 +237,7 @@ export function TrendChart({
                     x={Math.min(model.sx(last.x) + 6, W - 2)}
                     y={model.sy(last.y) - 5}
                     fontSize={10}
-                    fill="#e4e7ee"
+                    fill={c.text}
                     textAnchor="end"
                   >
                     {s.key}
