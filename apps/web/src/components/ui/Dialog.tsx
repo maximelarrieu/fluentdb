@@ -39,8 +39,11 @@ export function Dialog({
                 </RD.Description>
               )}
             </div>
-            <RD.Close className="text-muted hover:text-text p-1 -mr-1">
-              <X size={16} />
+            <RD.Close
+              className="text-muted hover:text-text p-1 -mr-1"
+              aria-label="Fermer"
+            >
+              <X size={16} aria-hidden="true" />
             </RD.Close>
           </div>
           <div className="p-5">{children}</div>

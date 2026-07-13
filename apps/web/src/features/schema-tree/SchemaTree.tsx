@@ -520,8 +520,9 @@ export function SchemaTree() {
           variant="ghost"
           onClick={() => tables.refetch()}
           title="Rafraîchir"
+          aria-label="Rafraîchir l'arbre des objets"
         >
-          <RefreshCw size={13} />
+          <RefreshCw size={13} aria-hidden="true" />
         </Button>
       </div>
 
