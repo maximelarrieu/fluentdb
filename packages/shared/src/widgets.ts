@@ -16,7 +16,28 @@ export interface DashboardWidget {
   orientation: WidgetOrientation;
   /** Ordering within the dashboard (ascending). */
   position: number;
+  /** Grid placement (12-col). Null until the user drags/resizes. */
+  layout: WidgetLayout | null;
 }
+
+export interface WidgetLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export const widgetLayoutItemSchema = z.object({
+  id: z.string(),
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  w: z.number().int().min(1),
+  h: z.number().int().min(1),
+});
+export const widgetLayoutSchema = z.object({
+  items: z.array(widgetLayoutItemSchema),
+});
+export type WidgetLayoutItem = z.infer<typeof widgetLayoutItemSchema>;
 
 export const widgetVizSchema = z.enum(['number', 'bar', 'line', 'pie', 'table']);
 export const widgetSizeSchema = z.enum(['sm', 'md', 'lg']);

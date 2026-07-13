@@ -25,17 +25,24 @@ export class DashboardStore {
         size TEXT NOT NULL DEFAULT 'md',
         orientation TEXT NOT NULL DEFAULT 'horizontal',
         position INTEGER NOT NULL DEFAULT 0,
+        gx INTEGER, gy INTEGER, gw INTEGER, gh INTEGER,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       )`,
     );
-    // Migrate tables created before the orientation column existed.
+    // Add columns introduced after the table's first version.
     const cols = this.db
       .prepare(`PRAGMA table_info(dashboard_widgets)`)
       .all() as { name: string }[];
-    if (!cols.some((c) => c.name === 'orientation')) {
+    const has = (n: string) => cols.some((c) => c.name === n);
+    if (!has('orientation')) {
       this.db.exec(
         `ALTER TABLE dashboard_widgets ADD COLUMN orientation TEXT NOT NULL DEFAULT 'horizontal'`,
       );
+    }
+    for (const c of ['gx', 'gy', 'gw', 'gh']) {
+      if (!has(c)) {
+        this.db.exec(`ALTER TABLE dashboard_widgets ADD COLUMN ${c} INTEGER`);
+      }
     }
   }
 
@@ -52,13 +59,17 @@ export class DashboardStore {
       size: r.size as DashboardWidget['size'],
       orientation: (r.orientation ?? 'horizontal') as DashboardWidget['orientation'],
       position: Number(r.position),
+      layout:
+        r.gx != null && r.gy != null && r.gw != null && r.gh != null
+          ? { x: Number(r.gx), y: Number(r.gy), w: Number(r.gw), h: Number(r.gh) }
+          : null,
     };
   }
 
   list(connectionId: string, database?: string | null): DashboardWidget[] {
     const rows = this.db
       .prepare(
-        `SELECT id, title, sql, viz, size, orientation, position FROM dashboard_widgets
+        `SELECT id, title, sql, viz, size, orientation, position, gx, gy, gw, gh FROM dashboard_widgets
          WHERE connection_id = ? AND database = ?
          ORDER BY position, created_at`,
       )
@@ -96,7 +107,7 @@ export class DashboardStore {
         input.orientation,
         next,
       );
-    return { id, position: next, ...input };
+    return { id, position: next, layout: null, ...input };
   }
 
   update(id: string, patch: WidgetPatch): DashboardWidget | null {
@@ -116,7 +127,7 @@ export class DashboardStore {
     }
     const row = this.db
       .prepare(
-        'SELECT id, title, sql, viz, size, orientation, position FROM dashboard_widgets WHERE id = ?',
+        'SELECT id, title, sql, viz, size, orientation, position, gx, gy, gw, gh FROM dashboard_widgets WHERE id = ?',
       )
       .get(id) as Record<string, unknown> | undefined;
     return row ? this.map(row) : null;
@@ -135,6 +146,21 @@ export class DashboardStore {
       list.forEach((id, i) => stmt.run(i, id));
     });
     tx(ids);
+  }
+
+  /** Persist grid placement (x/y/w/h in 12-col units) for many widgets. */
+  setLayout(
+    items: { id: string; x: number; y: number; w: number; h: number }[],
+  ): void {
+    const stmt = this.db.prepare(
+      'UPDATE dashboard_widgets SET gx = ?, gy = ?, gw = ?, gh = ? WHERE id = ?',
+    );
+    const tx = this.db.transaction(
+      (list: typeof items) => {
+        for (const it of list) stmt.run(it.x, it.y, it.w, it.h, it.id);
+      },
+    );
+    tx(items);
   }
 
   clear(connectionId: string): void {

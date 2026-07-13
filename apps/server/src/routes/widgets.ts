@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { widgetInputSchema, widgetPatchSchema } from '@fluentdb/shared';
+import {
+  widgetInputSchema,
+  widgetPatchSchema,
+  widgetLayoutSchema,
+} from '@fluentdb/shared';
 import type { AppContext } from '../context.js';
 
 const idParams = z.object({ id: z.string() });
@@ -41,6 +45,12 @@ export function registerWidgetRoutes(
   app.post('/api/connections/:id/widgets/reorder', async (req) => {
     const { ids } = z.object({ ids: z.array(z.string()) }).parse(req.body ?? {});
     ctx.dashboards.reorder(ids);
+    return { ok: true };
+  });
+
+  app.post('/api/connections/:id/widgets/layout', async (req) => {
+    const { items } = widgetLayoutSchema.parse(req.body ?? {});
+    ctx.dashboards.setLayout(items);
     return { ok: true };
   });
 }

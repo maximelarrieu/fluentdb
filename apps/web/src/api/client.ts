@@ -367,6 +367,15 @@ export const api = {
       `/api/connections/${id}/widgets/reorder`,
       { ids },
     ),
+  setWidgetLayout: (
+    id: string,
+    items: { id: string; x: number; y: number; w: number; h: number }[],
+  ) =>
+    request<{ ok: boolean }>(
+      'POST',
+      `/api/connections/${id}/widgets/layout`,
+      { items },
+    ),
 
   exportUrl: (id: string) => `/api/connections/${id}/export`,
 
