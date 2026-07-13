@@ -25,9 +25,17 @@ import {
   Hash,
   Database,
   X,
+  Braces,
+  Cog,
+  Zap,
 } from 'lucide-react';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
-import type { TableInfo, TableKind } from '@fluentdb/shared';
+import type {
+  TableInfo,
+  TableKind,
+  RoutineInfo,
+  TriggerInfo,
+} from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Input, Select } from '../../components/ui/Input.js';
 import { Button } from '../../components/ui/Button.js';
@@ -70,6 +78,11 @@ export function SchemaTree() {
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const [renameTarget, setRenameTarget] = useState<TableInfo | null>(null);
+  const [codeView, setCodeView] = useState<{
+    title: string;
+    subtitle?: string;
+    code: string;
+  } | null>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -105,6 +118,18 @@ export function SchemaTree() {
     enabled: !!active,
   });
 
+  const routines = useQuery({
+    queryKey: ['routines', active?.id, database, schema, schemaVersion],
+    queryFn: () => api.routines(active!.id, database, schema),
+    enabled: !!active && (active?.capabilities.routines ?? false),
+  });
+
+  const triggers = useQuery({
+    queryKey: ['triggers', active?.id, database, schema, schemaVersion],
+    queryFn: () => api.triggers(active!.id, database, schema),
+    enabled: !!active && (active?.capabilities.triggers ?? false),
+  });
+
   const refresh = useMutation({
     mutationFn: (t: TableInfo) =>
       api.refreshMatview(active!.id, t.name, database, t.schema),
@@ -129,6 +154,18 @@ export function SchemaTree() {
   const tablesList = filtered.filter((t) => t.kind === 'table');
   const viewsList = filtered.filter((t) => t.kind === 'view');
   const matviewsList = filtered.filter((t) => t.kind === 'matview');
+  const flt = filter.toLowerCase();
+  const routinesAll = routines.data ?? [];
+  const functionsList = routinesAll.filter(
+    (r) => r.kind === 'function' && r.name.toLowerCase().includes(flt),
+  );
+  const proceduresList = routinesAll.filter(
+    (r) => r.kind === 'procedure' && r.name.toLowerCase().includes(flt),
+  );
+  const triggersList = (triggers.data ?? []).filter(
+    (t) =>
+      t.name.toLowerCase().includes(flt) || t.table.toLowerCase().includes(flt),
+  );
   const totalObjects = (tables.data ?? []).length;
   const shownObjects = filtered.length;
 
@@ -422,6 +459,56 @@ export function SchemaTree() {
             menuItems={objectMenu}
           />
         )}
+
+        {functionsList.length > 0 && (
+          <RoutineSection
+            label="Fonctions"
+            icon={Braces}
+            iconColor="text-num"
+            items={functionsList}
+            onOpen={(r) =>
+              setCodeView({
+                title: r.name,
+                subtitle: [r.args && `(${r.args})`, r.returns && `→ ${r.returns}`]
+                  .filter(Boolean)
+                  .join(' '),
+                code: r.definition ?? '— définition indisponible —',
+              })
+            }
+            onCopy={(r) => copy(r.name, 'Nom')}
+          />
+        )}
+        {proceduresList.length > 0 && (
+          <RoutineSection
+            label="Procédures"
+            icon={Cog}
+            iconColor="text-accent"
+            items={proceduresList}
+            onOpen={(r) =>
+              setCodeView({
+                title: r.name,
+                subtitle: r.args ? `(${r.args})` : undefined,
+                code: r.definition ?? '— définition indisponible —',
+              })
+            }
+            onCopy={(r) => copy(r.name, 'Nom')}
+          />
+        )}
+        {triggersList.length > 0 && (
+          <TriggerSection
+            items={triggersList}
+            onOpen={(t) =>
+              setCodeView({
+                title: t.name,
+                subtitle: [t.timing, t.events?.join('/'), `sur ${t.table}`]
+                  .filter(Boolean)
+                  .join(' '),
+                code: t.definition ?? '— définition indisponible —',
+              })
+            }
+            onCopy={(t) => copy(t.name, 'Nom')}
+          />
+        )}
       </div>
 
       <div className="flex items-center justify-between px-2 h-9 border-t border-border-soft">
@@ -453,6 +540,20 @@ export function SchemaTree() {
           schema={renameTarget.schema}
           onClose={() => setRenameTarget(null)}
         />
+      )}
+
+      {codeView && (
+        <Dialog
+          open
+          onOpenChange={(o) => !o && setCodeView(null)}
+          title={codeView.title}
+          description={codeView.subtitle}
+          className="w-[680px]"
+        >
+          <pre className="text-[12px] mono whitespace-pre-wrap bg-panel-2 rounded-lg p-3 overflow-auto max-h-[60vh]">
+            {codeView.code}
+          </pre>
+        </Dialog>
       )}
     </div>
   );
@@ -674,6 +775,122 @@ function TreeSection({
             </div>
           );
         })}
+    </div>
+  );
+}
+
+/** Collapsible list of stored functions / procedures. */
+function RoutineSection({
+  label,
+  icon: Icon,
+  iconColor,
+  items,
+  onOpen,
+  onCopy,
+}: {
+  label: string;
+  icon: typeof Table2;
+  iconColor: string;
+  items: RoutineInfo[];
+  onOpen: (r: RoutineInfo) => void;
+  onCopy: (r: RoutineInfo) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-1">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="sticky top-0 z-[1] bg-panel flex items-center gap-1 w-full px-2 py-1 text-[11px] uppercase tracking-wide text-muted hover:text-text"
+      >
+        <ChevronDown size={12} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+        {label}
+        <Badge>{items.length}</Badge>
+      </button>
+      {open &&
+        items.map((r) => (
+          <ContextMenu
+            key={`${r.schema ?? ''}.${r.name}`}
+            menu={
+              <>
+                <CtxLabel>{r.name}</CtxLabel>
+                <CtxItem icon={<FileCode size={14} />} onSelect={() => onOpen(r)}>
+                  Voir la définition
+                </CtxItem>
+                <CtxItem icon={<Copy size={14} />} onSelect={() => onCopy(r)}>
+                  Copier le nom
+                </CtxItem>
+              </>
+            }
+          >
+            <div
+              className="group flex items-center gap-2 pl-6 pr-2 py-1 cursor-pointer hover:bg-panel-2"
+              onClick={() => onOpen(r)}
+              title={r.returns ? `${r.name} → ${r.returns}` : r.name}
+            >
+              <Icon size={13} className={`${iconColor} shrink-0`} />
+              <span className="text-[13px] truncate flex-1">{r.name}</span>
+              {r.returns && (
+                <span className="text-[10px] text-muted/60 mono truncate max-w-[70px] opacity-0 group-hover:opacity-100">
+                  {r.returns}
+                </span>
+              )}
+            </div>
+          </ContextMenu>
+        ))}
+    </div>
+  );
+}
+
+/** Collapsible list of table triggers. */
+function TriggerSection({
+  items,
+  onOpen,
+  onCopy,
+}: {
+  items: TriggerInfo[];
+  onOpen: (t: TriggerInfo) => void;
+  onCopy: (t: TriggerInfo) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-1">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="sticky top-0 z-[1] bg-panel flex items-center gap-1 w-full px-2 py-1 text-[11px] uppercase tracking-wide text-muted hover:text-text"
+      >
+        <ChevronDown size={12} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+        Triggers
+        <Badge>{items.length}</Badge>
+      </button>
+      {open &&
+        items.map((t) => (
+          <ContextMenu
+            key={`${t.schema ?? ''}.${t.table}.${t.name}`}
+            menu={
+              <>
+                <CtxLabel>{t.name}</CtxLabel>
+                <CtxItem icon={<FileCode size={14} />} onSelect={() => onOpen(t)}>
+                  Voir la définition
+                </CtxItem>
+                <CtxItem icon={<Copy size={14} />} onSelect={() => onCopy(t)}>
+                  Copier le nom
+                </CtxItem>
+              </>
+            }
+          >
+            <div
+              className="group flex items-center gap-2 pl-6 pr-2 py-1 cursor-pointer hover:bg-panel-2"
+              onClick={() => onOpen(t)}
+              title={`${t.name} · ${t.timing ?? ''} ${t.events?.join('/') ?? ''} sur ${t.table}`}
+            >
+              <Zap size={13} className="text-amber shrink-0" />
+              <span className="text-[13px] truncate flex-1">{t.name}</span>
+              <span className="text-[10px] text-muted/60 truncate max-w-[80px] opacity-0 group-hover:opacity-100">
+                {t.table}
+              </span>
+            </div>
+          </ContextMenu>
+        ))}
     </div>
   );
 }

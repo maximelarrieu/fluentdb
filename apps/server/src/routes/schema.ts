@@ -33,6 +33,20 @@ export function registerSchemaRoutes(
     return driver.listTables(schema);
   });
 
+  app.get('/api/connections/:id/routines', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database, schema } = scopeQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    return driver.listRoutines(schema);
+  });
+
+  app.get('/api/connections/:id/triggers', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database, schema } = scopeQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    return driver.listTriggers(schema);
+  });
+
   app.get('/api/connections/:id/tables/:table/structure', async (req) => {
     const { id, table } = tableParams.parse(req.params);
     const { database, schema } = scopeQuery.parse(req.query);

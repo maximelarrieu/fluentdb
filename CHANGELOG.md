@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Fonctions, procédures & triggers dans l'arbre** : l'explorateur liste
+  désormais les routines stockées (fonctions / procédures) et les triggers de
+  table, en sections dédiées avec compteur ; clic → « Voir la définition »
+  (CREATE …). PostgreSQL (`pg_proc`, `pg_trigger`), MySQL
+  (`information_schema.ROUTINES` / `TRIGGERS`) ; SQLite : triggers uniquement
+  (`sqlite_master`).
 - **Mode clair / sombre** : bascule dans l'en-tête de la barre latérale
   (persistée), avec application sans flash au chargement. Les deux variantes
   partagent les mêmes tokens sémantiques, contrastes vérifiés des deux côtés.

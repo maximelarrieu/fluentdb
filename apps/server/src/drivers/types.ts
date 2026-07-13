@@ -16,6 +16,7 @@ import type {
   QueryPlan,
   QueryColumn,
   QueryResultSet,
+  RoutineInfo,
   RowChanges,
   RowQuery,
   SchemaInfo,
@@ -23,6 +24,7 @@ import type {
   TableInfo,
   TableRef,
   TableStructure,
+  TriggerInfo,
 } from '@fluentdb/shared';
 
 export interface Dialect {
@@ -53,6 +55,10 @@ export interface DriverCapabilities {
   materializedViews: boolean;
   /** Whether the server exposes live sessions (activity monitor + kill) */
   activityMonitor: boolean;
+  /** Whether stored functions/procedures can be listed */
+  routines: boolean;
+  /** Whether table triggers can be listed */
+  triggers: boolean;
 }
 
 export interface RunQueryOptions {
@@ -84,6 +90,10 @@ export interface Driver {
   listDatabases(): Promise<DatabaseInfo[]>;
   listSchemas(): Promise<SchemaInfo[]>;
   listTables(schema?: string): Promise<TableInfo[]>;
+  /** Stored functions & procedures (empty when unsupported). */
+  listRoutines(schema?: string): Promise<RoutineInfo[]>;
+  /** Table triggers (empty when unsupported). */
+  listTriggers(schema?: string): Promise<TriggerInfo[]>;
   getTableStructure(ref: TableRef): Promise<TableStructure>;
   getAutocompleteCatalog(): Promise<AutocompleteCatalog>;
 

@@ -31,6 +31,8 @@ import type {
   ScheduledTaskInput,
   SearchHit,
   TableInfo,
+  RoutineInfo,
+  TriggerInfo,
   TableStructure,
   TaskSnapshot,
 } from '@fluentdb/shared';
@@ -115,6 +117,16 @@ export const api = {
     request<TableInfo[]>(
       'GET',
       `/api/connections/${id}/tables${scope(database, schema)}`,
+    ),
+  routines: (id: string, database?: string, schema?: string) =>
+    request<RoutineInfo[]>(
+      'GET',
+      `/api/connections/${id}/routines${scope(database, schema)}`,
+    ),
+  triggers: (id: string, database?: string, schema?: string) =>
+    request<TriggerInfo[]>(
+      'GET',
+      `/api/connections/${id}/triggers${scope(database, schema)}`,
     ),
   structure: (id: string, table: string, database?: string, schema?: string) =>
     request<TableStructure>(

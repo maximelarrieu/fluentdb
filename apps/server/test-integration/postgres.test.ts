@@ -303,6 +303,49 @@ describe.skipIf(!PG_URL)('PostgresDriver against a live server', () => {
     }
   });
 
+  it('lists functions and procedures with definitions', async () => {
+    await driver.runQuery(
+      `CREATE OR REPLACE FUNCTION it_track_count(bid int) RETURNS bigint
+         LANGUAGE sql AS $$ SELECT count(*) FROM it_tracks WHERE band_id = bid $$;
+       CREATE OR REPLACE PROCEDURE it_touch(bid int) LANGUAGE sql
+         AS $$ UPDATE it_bands SET country = country WHERE id = bid $$;`,
+      { queryId: 'rt-setup', maxRows: 1 },
+    );
+    const routines = await driver.listRoutines();
+    const fn = routines.find((r) => r.name === 'it_track_count');
+    expect(fn?.kind).toBe('function');
+    expect(fn?.returns).toMatch(/bigint/);
+    expect(fn?.definition).toMatch(/CREATE OR REPLACE FUNCTION/i);
+    const proc = routines.find((r) => r.name === 'it_touch');
+    expect(proc?.kind).toBe('procedure');
+    expect(proc?.returns).toBeNull();
+    await driver.runQuery(
+      'DROP FUNCTION IF EXISTS it_track_count(int); DROP PROCEDURE IF EXISTS it_touch(int)',
+      { queryId: 'rt-teardown', maxRows: 1 },
+    );
+  });
+
+  it('lists table triggers with timing and events', async () => {
+    await driver.runQuery(
+      `CREATE OR REPLACE FUNCTION it_trg_fn() RETURNS trigger LANGUAGE plpgsql
+         AS $$ BEGIN RETURN NEW; END $$;
+       DROP TRIGGER IF EXISTS it_bands_trg ON it_bands;
+       CREATE TRIGGER it_bands_trg BEFORE INSERT ON it_bands
+         FOR EACH ROW EXECUTE FUNCTION it_trg_fn();`,
+      { queryId: 'trg-setup', maxRows: 1 },
+    );
+    const triggers = await driver.listTriggers();
+    const trg = triggers.find((t) => t.name === 'it_bands_trg');
+    expect(trg?.table).toBe('it_bands');
+    expect(trg?.timing).toBe('BEFORE');
+    expect(trg?.events).toContain('INSERT');
+    expect(trg?.definition).toMatch(/CREATE TRIGGER/i);
+    await driver.runQuery(
+      'DROP TRIGGER IF EXISTS it_bands_trg ON it_bands; DROP FUNCTION IF EXISTS it_trg_fn()',
+      { queryId: 'trg-teardown', maxRows: 1 },
+    );
+  });
+
   it('produces a health report from the catalogs', async () => {
     const findings = await driver.healthChecks();
     expect(Array.isArray(findings)).toBe(true);

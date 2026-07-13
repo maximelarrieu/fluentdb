@@ -18,6 +18,8 @@ import type {
   RowQuery,
   SchemaInfo,
   SearchHit,
+  RoutineInfo,
+  TriggerInfo,
   TableInfo,
   TableRef,
   TableStructure,
@@ -92,6 +94,8 @@ export class PostgresDriver implements Driver {
     explain: true,
     explainAnalyze: true,
     materializedViews: true,
+    routines: true,
+    triggers: true,
     activityMonitor: true,
   };
 
@@ -194,6 +198,64 @@ export class PostgresDriver implements Driver {
       isPopulated: r.is_populated,
       comment: r.comment,
     }));
+  }
+
+  async listRoutines(schema = DEFAULT_SCHEMA): Promise<RoutineInfo[]> {
+    const res = await this.db().query(
+      `SELECT p.proname AS name,
+              n.nspname AS schema,
+              CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END AS kind,
+              pg_get_function_result(p.oid) AS returns,
+              pg_get_function_arguments(p.oid) AS args,
+              l.lanname AS language,
+              pg_get_functiondef(p.oid) AS definition
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       JOIN pg_language l ON l.oid = p.prolang
+       WHERE n.nspname = $1 AND p.prokind IN ('f', 'p')
+       ORDER BY kind, p.proname`,
+      [schema],
+    );
+    return res.rows.map((r) => ({
+      name: r.name,
+      schema: r.schema,
+      kind: r.kind,
+      returns: r.kind === 'procedure' ? null : r.returns,
+      args: r.args || null,
+      language: r.language,
+      definition: r.definition,
+    }));
+  }
+
+  async listTriggers(schema = DEFAULT_SCHEMA): Promise<TriggerInfo[]> {
+    const res = await this.db().query(
+      `SELECT t.tgname AS name,
+              n.nspname AS schema,
+              c.relname AS table,
+              pg_get_triggerdef(t.oid) AS definition
+       FROM pg_trigger t
+       JOIN pg_class c ON c.oid = t.tgrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE NOT t.tgisinternal AND n.nspname = $1
+       ORDER BY c.relname, t.tgname`,
+      [schema],
+    );
+    return res.rows.map((r) => {
+      const def: string = r.definition ?? '';
+      const timing =
+        /\b(BEFORE|AFTER|INSTEAD OF)\b/i.exec(def)?.[1]?.toUpperCase() ?? null;
+      const events = ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'].filter((e) =>
+        new RegExp(`\\b${e}\\b`, 'i').test(def.split(/\bON\b/i)[0] ?? def),
+      );
+      return {
+        name: r.name,
+        schema: r.schema,
+        table: r.table,
+        timing,
+        events,
+        definition: r.definition,
+      };
+    });
   }
 
   async getTableStructure(ref: TableRef): Promise<TableStructure> {
