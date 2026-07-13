@@ -128,3 +128,49 @@ export function buildSystemPrompt(
   }
   return parts.join('\n\n');
 }
+
+/**
+ * A ready-to-paste prompt the user hands to their own coding agent (e.g.
+ * Claude in their project). Given the real schema below plus the agent's
+ * knowledge of the codebase, it produces the business-context document that
+ * the user then pastes back into FluentDB's per-database AI context.
+ */
+export function buildContextExtractionPrompt(
+  schemaDigest: string,
+  dialectName: string,
+  scope: string,
+): string {
+  return `Tu es un expert en modélisation de données. Je te fournis, en fin de message, le schéma réel d'une base **${dialectName}** (${scope}) qu'utilise mon projet — celui sur lequel tu travailles avec moi.
+
+Objectif : rédiger un **document de contexte métier** destiné à un assistant IA SQL intégré à mon client de base de données. Cet assistant connaît DÉJÀ la structure (tables, colonnes, types, clés) ci-dessous : n'la répète pas. Apporte le **SENS** que le schéma seul ne donne pas, pour qu'il écrive des requêtes correctes et interprète bien les résultats.
+
+Appuie-toi sur **le code de mon projet** (modèles, migrations, requêtes, logique métier) ET sur le schéma ci-dessous. **N'invente rien** : si tu n'es pas certain, écris « (à confirmer) ».
+
+Réponds UNIQUEMENT avec un document **Markdown**, concis et factuel, avec ces sections (omets celles sans information utile) :
+
+## Domaine
+But de l'application et rôle de chaque table importante (1 ligne par table : que représente une ligne ?).
+
+## Unités & formats
+Colonnes dont la valeur brute induit en erreur : montants (centimes ? devise ?), durées, timestamps (UTC ? fuseau ?), booléens stockés en entier, JSON, etc.
+
+## Codes & énumérations
+Pour chaque colonne de type statut / état / type : la signification de chaque valeur (ex. \`status\`: 1=créée, 2=payée, 3=expédiée…).
+
+## Relations & jointures canoniques
+Jointures habituelles entre tables + cardinalité ; clés étrangères **implicites** non déclarées au niveau SQL.
+
+## Règles métier
+Filtres à toujours appliquer (soft-delete \`deleted_at IS NULL\`, multi-tenant), invariants, définitions métier (« client actif = … »).
+
+## Pièges
+Colonnes dépréciées, doublons de sens, tables à éviter, champs dénormalisés, unités incohérentes.
+
+## Requêtes types
+2 à 4 requêtes fréquentes, commentées.
+
+Contraintes : reste sous ~400 lignes, va à l'essentiel, pas de bla-bla d'introduction ni de conclusion — juste le document, prêt à coller.
+
+--- SCHÉMA DE LA BASE ---
+${schemaDigest}`;
+}

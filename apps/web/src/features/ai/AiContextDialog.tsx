@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Sparkles, Copy } from 'lucide-react';
 import { Dialog } from '../../components/ui/Dialog.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
@@ -72,6 +73,23 @@ export function AiContextDialog({
       toast.push('error', e instanceof ApiError ? e.message : String(e)),
   });
 
+  const genPrompt = useMutation({
+    mutationFn: () => api.aiContextPrompt(connectionId, database),
+    onSuccess: async (r) => {
+      try {
+        await navigator.clipboard.writeText(r.prompt);
+        toast.push(
+          'success',
+          'Prompt copié — colle-le à Claude dans ton projet, puis colle sa réponse ici.',
+        );
+      } catch {
+        toast.push('info', 'Impossible de copier automatiquement.');
+      }
+    },
+    onError: (e) =>
+      toast.push('error', e instanceof ApiError ? e.message : String(e)),
+  });
+
   const scope = database ? `${connectionName} · ${database}` : connectionName;
 
   return (
@@ -95,6 +113,31 @@ export function AiContextDialog({
             aria-label="Contexte métier de la base"
             className="w-full resize-y rounded-lg bg-bg border border-border px-3 py-2 text-[12px] mono leading-relaxed outline-none focus:border-accent focus:ring-1 focus:ring-accent/40"
           />
+          <div className="rounded-lg border border-border-soft bg-panel-2/50 p-2.5 flex items-start gap-2.5">
+            <Sparkles size={15} className="text-accent shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] text-text">
+                Pas d'idée quoi écrire&nbsp;? Génère le prompt parfait à donner à
+                Claude dans ton projet — il inclut le schéma réel de cette base.
+                Claude te renverra le contexte, que tu colles ci-dessus.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="default"
+              className="shrink-0"
+              onClick={() => genPrompt.mutate()}
+              disabled={genPrompt.isPending}
+            >
+              {genPrompt.isPending ? (
+                <Spinner className="text-current" />
+              ) : (
+                <Copy size={13} />
+              )}
+              Copier le prompt pour Claude
+            </Button>
+          </div>
+
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-muted">
               {content.trim().length.toLocaleString()} caractères · Markdown

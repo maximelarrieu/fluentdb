@@ -210,6 +210,22 @@ describe('AI chat endpoint', () => {
     expect(captured).toContain('MAGIC_CONTEXT: prices are stored in cents.');
     await closeTestApp(app);
   });
+
+  it('generates a ready-to-paste context-extraction prompt with the schema', async () => {
+    const t3 = await makeTestApp({ ai: new FakeAiProvider(['ok']) });
+    const id = await createAndConnect(t3);
+    const res = await t3.app.inject({
+      method: 'GET',
+      url: `/api/connections/${id}/ai-context/prompt`,
+    });
+    expect(res.statusCode).toBe(200);
+    const { prompt } = res.json() as { prompt: string };
+    expect(prompt).toContain('document de contexte métier');
+    // includes the real schema digest of the connected fixture
+    expect(prompt).toContain('SCHÉMA DE LA BASE');
+    expect(prompt.toLowerCase()).toContain('albums');
+    await closeTestApp(t3);
+  });
 });
 
 describe('extractJson', () => {
