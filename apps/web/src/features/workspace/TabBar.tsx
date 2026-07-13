@@ -50,7 +50,7 @@ export function TabBar() {
             {tab.title}
           </span>
           {tab.kind === 'tasks' && unseenTasks > 0 && (
-            <span className="min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] flex items-center justify-center">
+            <span className="min-w-4 h-4 px-1 rounded-full bg-accent/20 text-accent text-[10px] font-semibold flex items-center justify-center">
               {unseenTasks}
             </span>
           )}

@@ -168,7 +168,7 @@ export function StructureView({
                       {c.name}
                     </span>
                   </td>
-                  <td className="py-1.5 px-2 mono text-[#f2a15a]">
+                  <td className="py-1.5 px-2 mono text-amber">
                     {c.dataType}
                     {c.isAutoIncrement && (
                       <Badge tone="accent">auto</Badge>

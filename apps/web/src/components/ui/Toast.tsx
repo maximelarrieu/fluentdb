@@ -37,7 +37,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={{ push }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-[380px] max-w-[90vw]">
+      <div
+        className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-[380px] max-w-[90vw]"
+        role="status"
+        aria-live="polite"
+      >
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -54,8 +58,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}
               className="text-muted hover:text-text shrink-0"
+              aria-label="Fermer la notification"
             >
-              <X size={14} />
+              <X size={14} aria-hidden="true" />
             </button>
           </div>
         ))}

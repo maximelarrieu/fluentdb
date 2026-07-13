@@ -147,7 +147,7 @@ export function MockDataDialog({
                 onClick={() => insert.mutate()}
                 disabled={insert.isPending || preview.rows.length === 0}
               >
-                {insert.isPending ? <Spinner className="text-white" /> : <Wand2 size={13} />}
+                {insert.isPending ? <Spinner className="text-current" /> : <Wand2 size={13} />}
                 Insérer {preview.rows.length} ligne(s)
               </Button>
             </div>

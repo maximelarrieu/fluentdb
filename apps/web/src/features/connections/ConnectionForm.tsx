@@ -232,7 +232,7 @@ export function ConnectionForm({ open, onOpenChange, editing, initial }: Props) 
               onClick={() => save.mutate()}
               disabled={save.isPending || !form.name}
             >
-              {save.isPending && <Spinner className="text-white" />}
+              {save.isPending && <Spinner className="text-current" />}
               {editing ? 'Enregistrer' : 'Créer'}
             </Button>
           </div>

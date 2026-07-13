@@ -14,6 +14,8 @@ import {
   PanelLeftOpen,
   Copy,
   FileCode2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import {
   engineLabels,
@@ -31,6 +33,7 @@ import {
 } from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { useTheme } from '../../stores/theme.js';
 import { ConnectionForm } from './ConnectionForm.js';
 import { DockerPanel } from './DockerPanel.js';
 
@@ -48,6 +51,7 @@ export function ConnectionSidebar() {
   const qc = useQueryClient();
   const { active, setActive, openQuery, sidebarCollapsed, toggleSidebar } =
     useWorkspace();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ConnectionSummary | null>(null);
   const [initial, setInitial] = useState<Partial<ConnectionInput> | undefined>();
@@ -105,8 +109,9 @@ export function ConnectionSidebar() {
           variant="ghost"
           onClick={() => toggleSidebar(false)}
           title="Afficher les connexions"
+          aria-label="Afficher le panneau des connexions"
         >
-          <PanelLeftOpen size={16} />
+          <PanelLeftOpen size={16} aria-hidden="true" />
         </Button>
       </div>
     );
@@ -119,16 +124,36 @@ export function ConnectionSidebar() {
           <Database size={15} className="text-accent" /> FluentDB
         </span>
         <div className="flex items-center">
-          <Button size="icon" variant="ghost" onClick={() => openNew()} title="Nouvelle connexion">
-            <Plus size={16} />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'}
+            aria-label={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
+          >
+            {theme === 'dark' ? (
+              <Sun size={15} aria-hidden="true" />
+            ) : (
+              <Moon size={15} aria-hidden="true" />
+            )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => openNew()}
+            title="Nouvelle connexion"
+            aria-label="Nouvelle connexion"
+          >
+            <Plus size={16} aria-hidden="true" />
           </Button>
           <Button
             size="icon"
             variant="ghost"
             onClick={() => toggleSidebar(true)}
             title="Masquer le panneau"
+            aria-label="Masquer le panneau des connexions"
           >
-            <PanelLeftClose size={16} />
+            <PanelLeftClose size={16} aria-hidden="true" />
           </Button>
         </div>
       </div>

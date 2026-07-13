@@ -101,7 +101,7 @@ export function TaskEditDialog({
             disabled={!name.trim() || !sql.trim() || save.isPending}
             onClick={() => save.mutate()}
           >
-            {save.isPending && <Spinner className="text-white" />} Enregistrer
+            {save.isPending && <Spinner className="text-current" />} Enregistrer
           </Button>
         </div>
       </div>

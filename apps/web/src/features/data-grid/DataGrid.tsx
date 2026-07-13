@@ -281,7 +281,7 @@ const Cell = forwardRef<
         className={cn(
           'truncate',
           kind === 'null' && 'text-muted/50 italic',
-          kind === 'number' && 'text-[#7fd6b0]',
+          kind === 'number' && 'text-num',
           kind === 'bool' && 'text-accent',
           kind === 'json' && 'text-amber/90',
           kind === 'blob' && 'text-muted/60',

@@ -9,6 +9,20 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Mode clair / sombre** : bascule dans l'en-tête de la barre latérale
+  (persistée), avec application sans flash au chargement. Les deux variantes
+  partagent les mêmes tokens sémantiques, contrastes vérifiés des deux côtés.
+
+### Modifié
+
+- **Refonte visuelle « Graphite »** : nouvelle identité plus sobre et
+  distinctive — surfaces graphite froides (au lieu du bleu-noir générique) et
+  accent teal unique utilisé avec parcimonie (états actifs, focus, sélection).
+  Boutons volontairement discrets : l'action principale devient une teinte
+  légère au lieu d'un aplat saturé ; barre latérale et pastilles de compteur
+  atténuées. Anneau de focus visible au clavier, `prefers-reduced-motion`
+  respecté, éditeur SQL et grille pilotés par les tokens de thème.
+
 - **Rôles & privilèges (DBA)** : un onglet « Rôles & privilèges » liste les
   rôles/utilisateurs du serveur avec leurs attributs (PostgreSQL `pg_roles` :
   `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, `BYPASSRLS`, capacité de

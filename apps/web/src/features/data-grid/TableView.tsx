@@ -485,7 +485,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               onClick={() => save.mutate()}
               disabled={save.isPending}
             >
-              {save.isPending ? <Spinner className="text-white" /> : <Save size={13} />}
+              {save.isPending ? <Spinner className="text-current" /> : <Save size={13} />}
               Enregistrer
             </Button>
           </div>

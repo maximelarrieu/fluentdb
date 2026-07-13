@@ -196,7 +196,7 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
           disabled={run.isPending || analyzing || !sql.trim()}
         >
           {run.isPending || analyzing ? (
-            <Spinner className="text-white" />
+            <Spinner className="text-current" />
           ) : (
             <Play size={13} />
           )}
