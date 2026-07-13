@@ -6,6 +6,7 @@ import type { QueryPlan } from '@fluentdb/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/misc.js';
 import { cn } from '../../lib/cn.js';
+import { useTheme } from '../../stores/theme.js';
 import { PlanNodeCard } from './PlanNodeCard.js';
 import { collectWarnings, costliestNode, layoutPlan } from './layout.js';
 
@@ -19,6 +20,17 @@ export function PlanView({
   onSuggestIndex?: () => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
+  const { theme } = useTheme();
+  const palette = useMemo(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const read = (name: string, fb: string) =>
+      cs.getPropertyValue(name).trim() || fb;
+    return {
+      border: read('--color-border', '#2b3038'),
+      panel2: read('--color-panel-2', '#1f232a'),
+      bg: read('--color-bg', '#101215'),
+    };
+  }, [theme]);
   const { nodes, edges } = useMemo(() => layoutPlan(plan.root), [plan.root]);
   const warnings = useMemo(
     () => [...new Set(collectWarnings(plan.root))],
@@ -81,13 +93,13 @@ export function PlanView({
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#262b38" gap={20} />
+          <Background color={palette.border} gap={20} />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
             zoomable
-            nodeColor="#1a1e28"
-            maskColor="#0d0f1466"
+            nodeColor={palette.panel2}
+            maskColor={`${palette.bg}66`}
             className="!bg-panel !border !border-border"
           />
         </ReactFlow>

@@ -22,6 +22,7 @@ import { Input } from '../../components/ui/Input.js';
 import { Spinner, EmptyState, Badge } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { useTheme } from '../../stores/theme.js';
 import { TableNode } from './TableNode.js';
 import { layoutErd, tableKey, type TableNodeData } from './layout.js';
 import { exportDbml, exportPng, exportSvg } from './export.js';
@@ -38,10 +39,26 @@ export function ErdView() {
 
 function ErdInner() {
   const { active, database, schema, schemaVersion } = useWorkspace();
+  const { theme } = useTheme();
   const toast = useToast();
   const connId = active!.id;
   const flowRef = useRef<HTMLDivElement>(null);
   const { fitView, setCenter } = useReactFlow();
+
+  // Resolve the theme's actual colors (the ReactFlow canvas/minimap need real
+  // color strings, not CSS vars). Recomputed when the theme toggles.
+  const palette = useMemo(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const read = (name: string, fallback: string) =>
+      cs.getPropertyValue(name).trim() || fallback;
+    return {
+      accent: read('--color-accent', '#3fa89b'),
+      green: read('--color-green', '#4bbe88'),
+      amber: read('--color-amber', '#e0a63a'),
+      border: read('--color-border', '#2b3038'),
+      bg: read('--color-bg', '#101215'),
+    };
+  }, [theme]);
 
   const erd = useQuery({
     queryKey: ['erd', connId, database, schema, schemaVersion],
@@ -49,8 +66,14 @@ function ErdInner() {
   });
 
   const layout = useMemo(
-    () => (erd.data ? layoutErd(erd.data) : { nodes: [], edges: [] }),
-    [erd.data],
+    () =>
+      erd.data
+        ? layoutErd(erd.data, {
+            fkColor: palette.accent,
+            lineageColor: palette.green,
+          })
+        : { nodes: [], edges: [] },
+    [erd.data, palette],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<TableNodeData>>([]);
@@ -103,11 +126,14 @@ function ErdInner() {
 
   const relayout = useCallback(() => {
     if (!erd.data) return;
-    const next = layoutErd(erd.data);
+    const next = layoutErd(erd.data, {
+      fkColor: palette.accent,
+      lineageColor: palette.green,
+    });
     setNodes(next.nodes);
     setEdges(next.edges);
     setTimeout(() => fitView({ duration: 300, padding: 0.15 }), 50);
-  }, [erd.data, setNodes, setEdges, fitView]);
+  }, [erd.data, palette, setNodes, setEdges, fitView]);
 
   const runSearch = (q: string) => {
     setSearch(q);
@@ -236,7 +262,7 @@ function ErdInner() {
           minZoom={0.1}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#262b38" gap={20} />
+          <Background color={palette.border} gap={20} />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
@@ -244,13 +270,13 @@ function ErdInner() {
             nodeColor={(n) => {
               const kind = (n.data as TableNodeData)?.table?.kind ?? 'table';
               return kind === 'view'
-                ? '#f0b429'
+                ? palette.amber
                 : kind === 'matview'
-                  ? '#3fb884'
-                  : '#6d8bff';
+                  ? palette.green
+                  : palette.accent;
             }}
-            nodeStrokeColor="#0d0f14"
-            maskColor="#0d0f14aa"
+            nodeStrokeColor={palette.bg}
+            maskColor={`${palette.bg}cc`}
             className="!bg-panel !border !border-border"
           />
         </ReactFlow>

@@ -23,16 +23,38 @@ function nodeHeight(t: ErdTable): number {
   return HEADER_H + t.columns.length * ROW_H + PADDING;
 }
 
+export interface ErdLayoutOptions {
+  /** Reading direction: 'LR' = left→right (default), 'TB' = top→bottom. */
+  direction?: 'LR' | 'TB';
+  /** Theme-resolved stroke colors for FK / lineage edges. */
+  fkColor?: string;
+  lineageColor?: string;
+}
+
 /**
- * Compute React Flow nodes + edges with a left→right dagre layout. Edges go
- * from the table carrying the FK to the referenced table, one per relation.
+ * Compute React Flow nodes + edges with a dagre layout. Edges go from the
+ * table carrying the FK to the referenced table, one per relation. Horizontal
+ * (LR) by default — wide, tall table cards read best flowing left→right.
  */
-export function layoutErd(schema: ErdSchema): {
+export function layoutErd(
+  schema: ErdSchema,
+  opts: ErdLayoutOptions = {},
+): {
   nodes: TableNode[];
   edges: Edge[];
 } {
+  const { direction = 'LR', fkColor = '#3fa89b', lineageColor = '#4bbe88' } =
+    opts;
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 90, marginx: 30, marginy: 30 });
+  // Generous rank separation so the flow direction is unmistakable; tight
+  // within-rank spacing keeps parallel tables compact.
+  g.setGraph({
+    rankdir: direction,
+    nodesep: 28,
+    ranksep: direction === 'LR' ? 150 : 90,
+    marginx: 30,
+    marginy: 30,
+  });
   g.setDefaultEdgeLabel(() => ({}));
 
   for (const t of schema.tables) {
@@ -69,7 +91,7 @@ export function layoutErd(schema: ErdSchema): {
     const lineage = rel.kind === 'lineage';
     // FK edges attach at the specific column rows; lineage edges (no columns)
     // attach at the node level and are drawn dashed in the matview accent.
-    const color = lineage ? '#3fb884' : '#6d8bff';
+    const color = lineage ? lineageColor : fkColor;
     return {
       id: `e${i}-${rel.name}`,
       source,
