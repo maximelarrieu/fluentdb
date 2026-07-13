@@ -141,7 +141,12 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       : driver.dialect.name;
     const scope = database ?? ctx.manager.getConfig(id)?.name ?? 'base';
     return {
-      prompt: buildContextExtractionPrompt(digest, dialectName, scope),
+      prompt: buildContextExtractionPrompt(
+        digest,
+        dialectName,
+        scope,
+        driver.dialect.name,
+      ),
     };
   });
 

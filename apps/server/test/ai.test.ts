@@ -224,6 +224,8 @@ describe('AI chat endpoint', () => {
     // includes the real schema digest of the connected fixture
     expect(prompt).toContain('SCHÉMA DE LA BASE');
     expect(prompt.toLowerCase()).toContain('albums');
+    // SQLite fixture → no COMMENT block (comments unsupported)
+    expect(prompt).not.toContain('COMMENT ON');
     await closeTestApp(t3);
   });
 });

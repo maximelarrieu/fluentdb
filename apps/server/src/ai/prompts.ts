@@ -139,7 +139,31 @@ export function buildContextExtractionPrompt(
   schemaDigest: string,
   dialectName: string,
   scope: string,
+  engine: 'PostgreSQL' | 'MySQL' | 'SQLite',
 ): string {
+  // Dialect-aware instructions for the optional COMMENT block. SQLite has no
+  // object comments; MySQL is restricted to table comments (column comments
+  // require MODIFY COLUMN, which could alter types — too risky to auto-apply).
+  const commentSection =
+    engine === 'SQLite'
+      ? ''
+      : engine === 'MySQL'
+        ? `
+## Commentaires SQL (bloc à appliquer)
+Termine par UN bloc \`\`\`sql de commentaires MySQL, **tables uniquement** (n'émets PAS de commentaires de colonnes) :
+\`\`\`sql
+ALTER TABLE \`table\` COMMENT = 'une ligne = …';
+\`\`\`
+Double les apostrophes dans le texte. Ce bloc pourra être appliqué tel quel à la base.`
+        : `
+## Commentaires SQL (bloc à appliquer)
+Termine par UN bloc \`\`\`sql de commentaires PostgreSQL documentant les objets (un par ligne) :
+\`\`\`sql
+COMMENT ON TABLE schema.table IS 'une ligne = …';
+COMMENT ON COLUMN schema.table.colonne IS '… (unité, sens du code)';
+\`\`\`
+Documente les tables et les colonnes non triviales. Double les apostrophes ('' ) dans le texte. Ce bloc pourra être appliqué tel quel à la base.`;
+
   return `Tu es un expert en modélisation de données. Je te fournis, en fin de message, le schéma réel d'une base **${dialectName}** (${scope}) qu'utilise mon projet — celui sur lequel tu travailles avec moi.
 
 Objectif : rédiger un **document de contexte métier** destiné à un assistant IA SQL intégré à mon client de base de données. Cet assistant connaît DÉJÀ la structure (tables, colonnes, types, clés) ci-dessous : n'la répète pas. Apporte le **SENS** que le schéma seul ne donne pas, pour qu'il écrive des requêtes correctes et interprète bien les résultats.
@@ -168,6 +192,7 @@ Colonnes dépréciées, doublons de sens, tables à éviter, champs dénormalis�
 
 ## Requêtes types
 2 à 4 requêtes fréquentes, commentées.
+${commentSection}
 
 Contraintes : reste sous ~400 lignes, va à l'essentiel, pas de bla-bla d'introduction ni de conclusion — juste le document, prêt à coller.
 

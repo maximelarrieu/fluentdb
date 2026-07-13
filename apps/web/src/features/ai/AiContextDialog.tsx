@@ -1,11 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Copy } from 'lucide-react';
+import { Sparkles, Copy, MessageSquareText } from 'lucide-react';
 import { Dialog } from '../../components/ui/Dialog.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { api, ApiError } from '../../api/client.js';
 import { useToast } from '../../components/ui/Toast.js';
+
+/**
+ * Pull only COMMENT ON / ALTER … COMMENT statements out of the ```sql blocks
+ * in the context. This deliberately ignores sample SELECTs (the "Requêtes
+ * types" section is also fenced sql) — we never apply arbitrary SQL.
+ */
+function extractCommentStatements(text: string): string[] {
+  const blocks = [...text.matchAll(/```sql\s*([\s\S]*?)```/gi)].map(
+    (m) => m[1] ?? '',
+  );
+  const out: string[] = [];
+  for (const block of blocks) {
+    for (const raw of block.split(';')) {
+      const s = raw.trim();
+      if (!s) continue;
+      if (
+        /^comment\s+on\s+(table|column)\b/i.test(s) ||
+        /^alter\s+table[\s\S]+\bcomment\s*=/i.test(s)
+      ) {
+        out.push(`${s};`);
+      }
+    }
+  }
+  return out;
+}
 
 const PLACEHOLDER = `Décris ici le métier de cette base pour l'assistant. Par exemple :
 
@@ -42,8 +67,11 @@ export function AiContextDialog({
 }) {
   const [content, setContent] = useState(initialContent);
   const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
+
+  const comments = useMemo(() => extractCommentStatements(content), [content]);
 
   // Always load the freshest stored value when opening.
   useEffect(() => {
@@ -68,6 +96,27 @@ export function AiContextDialog({
       qc.invalidateQueries({ queryKey: ['ai-context', connectionId, database] });
       toast.push('success', 'Contexte enregistré');
       onClose();
+    },
+    onError: (e) =>
+      toast.push('error', e instanceof ApiError ? e.message : String(e)),
+  });
+
+  const applyComments = useMutation({
+    mutationFn: () =>
+      api.query(connectionId, {
+        sql: comments.join('\n'),
+        database,
+        maxRows: 1,
+        queryId: `apply-comments-${connectionId}-${Date.now()}`,
+      }),
+    onSuccess: () => {
+      toast.push(
+        'success',
+        `${comments.length} commentaire(s) appliqué(s) à la base`,
+      );
+      // Structure views show comments — refresh them.
+      qc.invalidateQueries({ queryKey: ['structure'] });
+      setPreview(false);
     },
     onError: (e) =>
       toast.push('error', e instanceof ApiError ? e.message : String(e)),
@@ -137,6 +186,56 @@ export function AiContextDialog({
               Copier le prompt pour Claude
             </Button>
           </div>
+
+          {comments.length > 0 && (
+            <div className="rounded-lg border border-accent/25 bg-accent/5 p-2.5">
+              <div className="flex items-start gap-2.5">
+                <MessageSquareText
+                  size={15}
+                  className="text-accent shrink-0 mt-0.5"
+                />
+                <p className="flex-1 min-w-0 text-[12px] text-text">
+                  <span className="font-medium">
+                    {comments.length} commentaire(s) SQL détecté(s)
+                  </span>{' '}
+                  dans ce contexte. Tu peux les écrire dans la base
+                  (`COMMENT ON`) pour les rendre canoniques.
+                </p>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="shrink-0"
+                  onClick={() => setPreview((v) => !v)}
+                >
+                  {preview ? 'Masquer' : 'Prévisualiser & appliquer'}
+                </Button>
+              </div>
+              {preview && (
+                <div className="mt-2.5 flex flex-col gap-2">
+                  <pre className="text-[11px] mono whitespace-pre-wrap bg-bg border border-border rounded-md p-2.5 max-h-48 overflow-auto">
+                    {comments.join('\n')}
+                  </pre>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-[11px] text-muted mr-auto">
+                      Exécuté sur la base. Bloqué si la connexion est en lecture
+                      seule.
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => applyComments.mutate()}
+                      disabled={applyComments.isPending}
+                    >
+                      {applyComments.isPending && (
+                        <Spinner className="text-current" />
+                      )}
+                      Appliquer {comments.length} commentaire(s)
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-muted">
