@@ -265,7 +265,11 @@ export class PostgresDriver implements Driver {
 
     const colsRes = await db.query(
       `SELECT column_name, data_type, udt_name, is_nullable, column_default,
-              is_identity, ordinal_position
+              is_identity, ordinal_position,
+              col_description(
+                format('%I.%I', table_schema, table_name)::regclass,
+                ordinal_position::int
+              ) AS comment
        FROM information_schema.columns
        WHERE table_schema = $1 AND table_name = $2
        ORDER BY ordinal_position`,
@@ -282,7 +286,8 @@ export class PostgresDriver implements Driver {
                 CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
                 pg_get_expr(d.adbin, d.adrelid) AS column_default,
                 'NO' AS is_identity,
-                a.attnum AS ordinal_position
+                a.attnum AS ordinal_position,
+                col_description(c.oid, a.attnum) AS comment
          FROM pg_attribute a
          JOIN pg_class c ON c.oid = a.attrelid
          JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -325,6 +330,7 @@ export class PostgresDriver implements Driver {
         r.is_identity === 'YES' ||
         (typeof r.column_default === 'string' &&
           r.column_default.startsWith('nextval(')),
+      comment: (r.comment as string | null) ?? null,
       ordinal: i,
     }));
 

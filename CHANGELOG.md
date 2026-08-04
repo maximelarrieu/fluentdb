@@ -16,6 +16,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Commentaires affichés & éditables** : la structure d'une table/vue montre
+  désormais sa **description** (sous le titre) et une colonne **Commentaire**
+  par colonne. Sur PostgreSQL, description et commentaires de colonnes sont
+  **éditables** (crayon / menu contextuel → `COMMENT ON …`). Les commentaires de
+  colonnes sont désormais remontés par l'introspection.
 - **Édition d'une vue existante** : clic droit sur une vue → « Modifier la
   vue… » ouvre le même formulaire que la création, **pré-rempli** (nom, SELECT,
   description). Enregistré via `CREATE OR REPLACE VIEW` (ou drop + recreate pour
