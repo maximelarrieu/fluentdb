@@ -69,15 +69,49 @@ export function DataGrid({
   });
 
   const pkSet = useMemo(() => new Set(pkColumns), [pkColumns]);
-  const colWidths = useMemo(
+  const defaultWidths = useMemo(
     () => columns.map((c) => Math.min(360, Math.max(120, c.name.length * 9 + 60))),
     [columns],
   );
+  // User overrides (px) keyed by column name; reset when the column set changes
+  // (a different table/query), preserved across pagination of the same columns.
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const colKey = useMemo(() => columns.map((c) => c.name).join('|'), [columns]);
+  useEffect(() => {
+    setWidths({});
+  }, [colKey]);
+  const widthOf = (name: string, i: number) => widths[name] ?? defaultWidths[i]!;
   const gridTemplate = useMemo(
     () =>
-      `${onSelectRow ? '36px ' : ''}${colWidths.map((w) => `${w}px`).join(' ')} 1fr`,
-    [colWidths, onSelectRow],
+      `${onSelectRow ? '36px ' : ''}${columns
+        .map((c, i) => `${widthOf(c.name, i)}px`)
+        .join(' ')} 1fr`,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [columns, widths, defaultWidths, onSelectRow],
   );
+
+  const startResize = (name: string, i: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = widthOf(name, i);
+    const onMove = (ev: MouseEvent) => {
+      setWidths((prev) => ({
+        ...prev,
+        [name]: Math.max(60, startW + (ev.clientX - startX)),
+      }));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   return (
     <div className="h-full flex flex-col bg-bg">
@@ -89,16 +123,16 @@ export function DataGrid({
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {onSelectRow && <div className="border-r border-border-soft" />}
-            {columns.map((c) => {
+            {columns.map((c, i) => {
               const header = (
                 <button
                   onClick={() => onSort?.(c.name)}
                   disabled={!onSort}
                   className={cn(
-                    'group/h flex items-center gap-1 px-2.5 h-8 text-left border-r border-border-soft w-full',
+                    'group/h relative flex items-center gap-1 px-2.5 h-8 text-left border-r border-border-soft w-full',
                     'font-medium truncate hover:bg-panel-2 disabled:hover:bg-transparent',
                   )}
-                  title={onSort ? `${c.dataType} — cliquer pour trier` : c.dataType}
+                  title={onSort ? `${c.name} · ${c.dataType} — cliquer pour trier` : `${c.name} · ${c.dataType}`}
                 >
                   {pkSet.has(c.name) && (
                     <span className="text-amber text-[10px]" title="Clé primaire">
@@ -117,6 +151,13 @@ export function DataGrid({
                       </span>
                     )
                   )}
+                  {/* column resize handle */}
+                  <span
+                    onMouseDown={(e) => startResize(c.name, i, e)}
+                    onClick={(e) => e.stopPropagation()}
+                    title="Glisser pour redimensionner"
+                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-accent/40"
+                  />
                 </button>
               );
               return columnMenu ? (
