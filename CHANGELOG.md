@@ -16,6 +16,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Confort de navigation** : onglets **réordonnables** par glisser-déposer ;
+  **raccourcis clavier** globaux (nouvelle requête, fermer l'onglet, aller à
+  l'onglet N, onglet précédent/suivant, basculer connexions/assistant) avec un
+  dialogue d'aide ( touche **?** ou icône clavier) ; **palette de commandes**
+  (⌘/Ctrl K) enrichie d'**actions** (naviguer vers ERD, tâches, santé, activité,
+  rôles, tableaux de bord ; basculer le thème/assistant/connexions) en plus de
+  la recherche d'objets.
 - **Script de structure (migration)** : depuis la structure d'une table, un
   bouton **« Voir le SQL (CREATE) »** génère le `CREATE TABLE` complet (colonnes,
   clé primaire, clés étrangères, index) prêt à copier dans une migration —

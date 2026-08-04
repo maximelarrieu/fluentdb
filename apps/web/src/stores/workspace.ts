@@ -111,6 +111,12 @@ interface WorkspaceState {
   setTabSql: (id: string, sql: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
+  /** Reorder tabs: move `dragId` to the slot currently held by `overId`. */
+  moveTab: (dragId: string, overId: string) => void;
+  /** Activate the tab at 1-based position `n` (keyboard 1–9); no-op if absent. */
+  activateTabByIndex: (n: number) => void;
+  /** Cycle the active tab by `delta` (+1 next, −1 previous), wrapping. */
+  cycleTab: (delta: number) => void;
   toggleAi: (open?: boolean) => void;
   toggleSidebar: (collapsed?: boolean) => void;
   bumpSchema: () => void;
@@ -122,6 +128,9 @@ interface WorkspaceState {
   /** Skip the write/DDL confirmation dialog for the rest of the session */
   skipExecConfirm: boolean;
   setSkipExecConfirm: (skip: boolean) => void;
+  /** Keyboard-shortcuts help dialog. */
+  shortcutsOpen: boolean;
+  toggleShortcuts: (open?: boolean) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>()(
@@ -134,6 +143,7 @@ export const useWorkspace = create<WorkspaceState>()(
   activeTabId: null,
   aiOpen: false,
   sidebarCollapsed: false,
+  shortcutsOpen: false,
   schemaVersion: 0,
   focusTaskId: null,
   mockRequest: null,
@@ -293,6 +303,34 @@ export const useWorkspace = create<WorkspaceState>()(
     }),
 
   setActiveTab: (id) => set({ activeTabId: id }),
+
+  moveTab: (dragId, overId) =>
+    set((s) => {
+      if (dragId === overId) return s;
+      const from = s.tabs.findIndex((t) => t.id === dragId);
+      const to = s.tabs.findIndex((t) => t.id === overId);
+      if (from < 0 || to < 0) return s;
+      const tabs = [...s.tabs];
+      const [moved] = tabs.splice(from, 1);
+      tabs.splice(to, 0, moved!);
+      return { tabs };
+    }),
+
+  activateTabByIndex: (n) =>
+    set((s) => {
+      const tab = s.tabs[n - 1];
+      return tab ? { activeTabId: tab.id } : s;
+    }),
+
+  cycleTab: (delta) =>
+    set((s) => {
+      if (s.tabs.length === 0) return s;
+      const cur = s.tabs.findIndex((t) => t.id === s.activeTabId);
+      const base = cur < 0 ? 0 : cur;
+      const next = (base + delta + s.tabs.length) % s.tabs.length;
+      return { activeTabId: s.tabs[next]!.id };
+    }),
+
   toggleAi: (open) => set((s) => ({ aiOpen: open ?? !s.aiOpen })),
   toggleSidebar: (collapsed) =>
     set((s) => ({ sidebarCollapsed: collapsed ?? !s.sidebarCollapsed })),
@@ -300,6 +338,8 @@ export const useWorkspace = create<WorkspaceState>()(
   reconnectActive: (capabilities) =>
     set((s) => ({ active: s.active ? { ...s.active, capabilities } : null })),
   setSkipExecConfirm: (skip) => set({ skipExecConfirm: skip }),
+  toggleShortcuts: (open) =>
+    set((s) => ({ shortcutsOpen: open ?? !s.shortcutsOpen })),
     }),
     {
       name: 'fluentdb.workspace',
