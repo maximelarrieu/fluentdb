@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, KeyRound, Trash2, Pencil, Copy, FileCode } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Pencil, Copy, FileCode, MessageSquareText } from 'lucide-react';
 import type { ColumnInfo, DdlChange, TableStructure } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
@@ -16,6 +16,7 @@ import { useWorkspace } from '../../stores/workspace.js';
 import { DdlDialog } from './DdlDialog.js';
 import { TableDdlDialog } from './TableDdlDialog.js';
 import { ColumnDialog } from './ColumnDialog.js';
+import { CommentDialog, type CommentObject } from './CommentDialog.js';
 
 export function StructureView({
   table,
@@ -34,6 +35,12 @@ export function StructureView({
   const [columnDialog, setColumnDialog] = useState<{
     mode: 'add' | 'edit';
     column?: ColumnInfo;
+  } | null>(null);
+  // Comment editing target: the table/view itself, or a specific column.
+  const [commentTarget, setCommentTarget] = useState<{
+    object: CommentObject;
+    column?: string;
+    current?: string | null;
   } | null>(null);
 
   const structure = useQuery({
@@ -78,14 +85,54 @@ export function StructureView({
 
   const s = structure.data as TableStructure;
   const canAlter = active!.capabilities.alterColumn;
+  // COMMENT ON is generated for PostgreSQL only (MySQL views/columns and
+  // SQLite lack a portable comment mechanism). Comments are still displayed.
+  const canComment = active!.engine === 'postgres';
+  const objectKind: CommentObject =
+    s.table.kind === 'view'
+      ? 'view'
+      : s.table.kind === 'matview'
+        ? 'matview'
+        : 'table';
 
   return (
     <div className="h-full overflow-auto p-4">
       <div className="max-w-4xl mx-auto flex flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold mono">
-            {schema ? `${schema}.${table}` : table}
-          </h2>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold mono">
+              {schema ? `${schema}.${table}` : table}
+            </h2>
+            {/* Object description (COMMENT ON) — shown here, editable on pg. */}
+            {(s.table.comment || canComment) && (
+              <div className="mt-1 flex items-start gap-1.5 group">
+                {s.table.comment ? (
+                  <p className="text-[13px] text-muted max-w-2xl">
+                    {s.table.comment}
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-muted/50 italic">
+                    Aucune description
+                  </p>
+                )}
+                {canComment && (
+                  <button
+                    className="text-muted/60 hover:text-accent opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"
+                    title="Modifier la description"
+                    aria-label="Modifier la description de la table"
+                    onClick={() =>
+                      setCommentTarget({
+                        object: objectKind,
+                        current: s.table.comment ?? '',
+                      })
+                    }
+                  >
+                    <Pencil size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <Button size="sm" variant="ghost" onClick={() => setDdlOpen(true)}>
             <FileCode size={13} /> Voir le SQL (CREATE)
           </Button>
@@ -105,6 +152,7 @@ export function StructureView({
                 <th className="text-left font-medium py-1.5 px-2">Type</th>
                 <th className="text-left font-medium py-1.5 px-2">Null</th>
                 <th className="text-left font-medium py-1.5 px-2">Défaut</th>
+                <th className="text-left font-medium py-1.5 px-2">Commentaire</th>
                 <th className="w-16"></th>
               </tr>
             </thead>
@@ -132,6 +180,20 @@ export function StructureView({
                           }
                         >
                           Modifier…
+                        </CtxItem>
+                      )}
+                      {canComment && (
+                        <CtxItem
+                          icon={<MessageSquareText size={14} />}
+                          onSelect={() =>
+                            setCommentTarget({
+                              object: 'column',
+                              column: c.name,
+                              current: c.comment ?? '',
+                            })
+                          }
+                        >
+                          Modifier le commentaire…
                         </CtxItem>
                       )}
                       <CtxItem
@@ -190,8 +252,32 @@ export function StructureView({
                   <td className="py-1.5 px-2 text-muted mono truncate max-w-[160px]">
                     {c.defaultValue ?? '—'}
                   </td>
+                  <td
+                    className="py-1.5 px-2 text-muted truncate max-w-[220px]"
+                    title={c.comment ?? undefined}
+                  >
+                    {c.comment ?? (
+                      <span className="text-muted/40">—</span>
+                    )}
+                  </td>
                   <td className="py-1.5 px-2">
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                      {canComment && (
+                        <button
+                          className="text-muted hover:text-accent"
+                          title="Modifier le commentaire"
+                          aria-label={`Modifier le commentaire de ${c.name}`}
+                          onClick={() =>
+                            setCommentTarget({
+                              object: 'column',
+                              column: c.name,
+                              current: c.comment ?? '',
+                            })
+                          }
+                        >
+                          <MessageSquareText size={13} />
+                        </button>
+                      )}
                       {canAlter && (
                         <button
                           className="text-muted hover:text-text"
@@ -304,6 +390,22 @@ export function StructureView({
           table={table}
           schema={schema}
           onClose={() => setDdlOpen(false)}
+        />
+      )}
+
+      {commentTarget && (
+        <CommentDialog
+          object={commentTarget.object}
+          table={table}
+          schema={schema}
+          column={commentTarget.column}
+          current={commentTarget.current}
+          onClose={() => setCommentTarget(null)}
+          onApplied={() => {
+            setCommentTarget(null);
+            structure.refetch();
+            bumpSchema();
+          }}
         />
       )}
     </div>
