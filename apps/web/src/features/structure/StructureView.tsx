@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, KeyRound, Trash2, Pencil, Copy } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Pencil, Copy, FileCode } from 'lucide-react';
 import type { ColumnInfo, DdlChange, TableStructure } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
@@ -14,6 +14,7 @@ import {
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { DdlDialog } from './DdlDialog.js';
+import { TableDdlDialog } from './TableDdlDialog.js';
 import { ColumnDialog } from './ColumnDialog.js';
 
 export function StructureView({
@@ -29,6 +30,7 @@ export function StructureView({
   const connId = active!.id;
 
   const [pendingChange, setPendingChange] = useState<DdlChange | null>(null);
+  const [ddlOpen, setDdlOpen] = useState(false);
   const [columnDialog, setColumnDialog] = useState<{
     mode: 'add' | 'edit';
     column?: ColumnInfo;
@@ -80,6 +82,14 @@ export function StructureView({
   return (
     <div className="h-full overflow-auto p-4">
       <div className="max-w-4xl mx-auto flex flex-col gap-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold mono">
+            {schema ? `${schema}.${table}` : table}
+          </h2>
+          <Button size="sm" variant="ghost" onClick={() => setDdlOpen(true)}>
+            <FileCode size={13} /> Voir le SQL (CREATE)
+          </Button>
+        </div>
         <Section
           title="Colonnes"
           action={
@@ -216,7 +226,7 @@ export function StructureView({
               {s.indexes.map((ix) => (
                 <div
                   key={ix.name}
-                  className="flex items-center gap-2 text-[13px] py-1 px-2 rounded hover:bg-panel-2/40"
+                  className="group flex items-center gap-2 text-[13px] py-1 px-2 rounded hover:bg-panel-2/40"
                 >
                   <span className="mono">{ix.name}</span>
                   <span className="text-muted mono">
@@ -224,6 +234,24 @@ export function StructureView({
                   </span>
                   {ix.primary && <Badge tone="amber">PK</Badge>}
                   {ix.unique && !ix.primary && <Badge tone="accent">unique</Badge>}
+                  {/* Primary-key indexes can't be dropped on their own. */}
+                  {!ix.primary && (
+                    <button
+                      className="ml-auto text-muted hover:text-red opacity-0 group-hover:opacity-100"
+                      title="Supprimer l'index"
+                      aria-label={`Supprimer l'index ${ix.name}`}
+                      onClick={() =>
+                        setPendingChange({
+                          kind: 'dropIndex',
+                          table,
+                          schema,
+                          name: ix.name,
+                        })
+                      }
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -268,6 +296,14 @@ export function StructureView({
           schema={schema}
           onClose={() => setPendingChange(null)}
           onApplied={onApplied}
+        />
+      )}
+
+      {ddlOpen && (
+        <TableDdlDialog
+          table={table}
+          schema={schema}
+          onClose={() => setDdlOpen(false)}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import type { DdlChange } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Dialog } from '../../components/ui/Dialog.js';
 import { Button } from '../../components/ui/Button.js';
+import { CopyableSql } from '../../components/ui/CopyableSql.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
@@ -57,9 +58,7 @@ export function DdlDialog({
         )}
         {preview.data && (
           <>
-            <pre className="rounded-lg bg-bg border border-border p-3 text-[12px] mono text-green whitespace-pre-wrap overflow-auto max-h-64">
-              {preview.data.statements.join(';\n\n')};
-            </pre>
+            <CopyableSql sql={`${preview.data.statements.join(';\n\n')};`} />
             {preview.data.warnings.map((w, i) => (
               <div
                 key={i}

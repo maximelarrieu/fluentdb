@@ -170,6 +170,14 @@ export interface Driver {
   getViewDefinition?(ref: TableRef): Promise<string | null>;
 
   /**
+   * A `CREATE TABLE` script reconstructing a base table (columns, primary key,
+   * foreign keys, secondary indexes) — for viewing/copying as a migration.
+   * Uses the engine's native "show create" where available, else synthesizes
+   * from the introspected structure. Null when the object is not a base table.
+   */
+  getTableDdl?(ref: TableRef): Promise<string | null>;
+
+  /**
    * Rebuild a materialized view's stored data (`REFRESH MATERIALIZED VIEW`).
    * Uses CONCURRENTLY when the view is populated and has a unique index, so
    * reads are not blocked; `concurrent` in the result says which path ran.

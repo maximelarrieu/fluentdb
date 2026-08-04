@@ -779,6 +779,16 @@ export class MysqlDriver implements Driver {
     return def == null ? null : String(def);
   }
 
+  async getTableDdl(ref: TableRef): Promise<string | null> {
+    // MySQL exposes the exact CREATE statement natively.
+    const [rows] = await this.db().query(
+      `SHOW CREATE TABLE ${this.dialect.quoteIdent(ref.name)}`,
+    );
+    const row = (rows as Record<string, unknown>[])[0];
+    const ddl = row?.['Create Table'] ?? row?.['Create View'];
+    return ddl == null ? null : `${String(ddl)};`;
+  }
+
   async searchObjects(query: string, limit = 50): Promise<SearchHit[]> {
     const db = this.db();
     const database = this.dbName();

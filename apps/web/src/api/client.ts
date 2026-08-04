@@ -146,6 +146,11 @@ export const api = {
       'GET',
       `/api/connections/${id}/tables/${encodeURIComponent(table)}/definition${scope(database, schema)}`,
     ),
+  tableDdl: (id: string, table: string, database?: string, schema?: string) =>
+    request<{ ddl: string | null }>(
+      'GET',
+      `/api/connections/${id}/tables/${encodeURIComponent(table)}/ddl${scope(database, schema)}`,
+    ),
   refreshMatview: (
     id: string,
     name: string,
