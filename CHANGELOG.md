@@ -18,7 +18,9 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
   désormais « bibliothèque non préchargée » (nécessite
   `shared_preload_libraries` + **redémarrage** du serveur — un simple
   `CREATE EXTENSION` ne suffit pas) de « extension non créée » (un
-  `CREATE EXTENSION` suffit), avec les commandes exactes pour chaque cas.
+  `CREATE EXTENSION` suffit), avec les commandes exactes pour chaque cas. Dans
+  ce dernier cas (fréquent sur les Postgres managés, où la bibliothèque est déjà
+  préchargée), un bouton **« Activer maintenant »** crée l'extension en un clic.
 - **Résultats d'onglet conservés** : en passant d'un onglet de requête à un
   autre puis en revenant, le résultat précédemment obtenu est de nouveau
   affiché — plus besoin de ré-exécuter la requête. L'état (résultat, erreur,

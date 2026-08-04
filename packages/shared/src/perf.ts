@@ -36,5 +36,12 @@ export interface QueryStatsResult {
   reason?: string;
   /** SQL the user can run to enable the source (shown with the reason). */
   enableSql?: string;
+  /**
+   * True when a single client-side statement can enable it right now (the
+   * library is preloaded, only the extension is missing) — lets the UI offer a
+   * one-click "Enable". False/undefined when it requires server-side changes
+   * (preload + restart) the client can't perform.
+   */
+  canEnable?: boolean;
   rows: QueryStat[];
 }

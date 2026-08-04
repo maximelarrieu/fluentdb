@@ -790,6 +790,9 @@ export class PostgresDriver implements Driver {
             'La bibliothèque est préchargée mais l’extension n’est pas encore ' +
             'créée sur cette base.',
           enableSql: 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+          // Preloaded + only the extension missing → a single CREATE EXTENSION
+          // enables it, so the UI can offer a one-click button.
+          canEnable: true,
           rows: [],
         };
       }
