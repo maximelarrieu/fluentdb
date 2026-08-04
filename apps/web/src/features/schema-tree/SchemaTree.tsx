@@ -49,6 +49,8 @@ import {
 } from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { usePanels } from '../../stores/panels.js';
+import { ResizeHandle } from '../../components/ui/ResizeHandle.js';
 import { formatNumber } from '../../lib/format.js';
 import { RenameTableDialog } from './RenameTableDialog.js';
 
@@ -76,6 +78,7 @@ export function SchemaTree() {
     toggleAi,
   } = useWorkspace();
   const unseenCount = useUnseenTaskCount();
+  const width = usePanels((s) => s.sizes.tree);
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const [renameTarget, setRenameTarget] = useState<TableInfo | null>(null);
@@ -282,7 +285,11 @@ export function SchemaTree() {
   );
 
   return (
-    <div className="w-60 shrink-0 flex flex-col border-r border-border bg-panel h-full">
+    <div
+      className="relative shrink-0 flex flex-col border-r border-border bg-panel h-full"
+      style={{ width }}
+    >
+      <ResizeHandle panel="tree" side="right" />
       {/* Workspace tools — compact icon toolbar (was six full-height rows
           that pushed the object list out of view). */}
       <div className="px-2 pt-2 pb-1.5 flex items-center gap-0.5 border-b border-border-soft">
@@ -686,7 +693,7 @@ function TreeSection({
           const isActive = activeKey === key;
           const row = (
             <div
-              className={`group flex items-center gap-2 pl-6 pr-2 py-1 cursor-pointer border-l-2 ${
+              className={`group relative flex items-center gap-2 pl-6 pr-2 py-1 cursor-pointer border-l-2 ${
                 isActive
                   ? 'bg-panel-2 border-accent'
                   : 'border-transparent hover:bg-panel-2'
@@ -697,8 +704,11 @@ function TreeSection({
                 size={13}
                 className={`${isActive ? 'text-accent' : KIND_COLOR[kind]} shrink-0`}
               />
+              {/* Name keeps full width — actions overlay on hover instead of
+                  reserving space and truncating the name. */}
               <span
                 className={`text-[13px] truncate flex-1 ${isActive ? 'font-medium text-text' : ''}`}
+                title={t.name}
               >
                 {t.name}
               </span>
@@ -710,61 +720,64 @@ function TreeSection({
                   vide
                 </span>
               )}
-              {t.rowEstimate != null && (
-                <span className="text-[10px] text-muted/60 opacity-0 group-hover:opacity-100">
-                  {formatNumber(t.rowEstimate)}
-                </span>
-              )}
-              {onRefresh && (
+              <div className="absolute right-0 top-0 h-full hidden group-hover:flex items-center gap-1.5 pl-8 pr-2 bg-gradient-to-l from-panel-2 via-panel-2 to-transparent">
+                {t.rowEstimate != null && (
+                  <span className="text-[10px] text-muted/70" title="Lignes (estimation)">
+                    {formatNumber(t.rowEstimate)}
+                  </span>
+                )}
+                {onRefresh && (
+                  <button
+                    className="text-muted hover:text-text disabled:opacity-60"
+                    title="Rafraîchir (REFRESH MATERIALIZED VIEW)"
+                    aria-label="Rafraîchir la vue matérialisée"
+                    disabled={refreshing}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRefresh(t);
+                    }}
+                  >
+                    <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+                  </button>
+                )}
+                {onExplain && (
+                  <button
+                    className="text-muted hover:text-accent"
+                    title="Expliquer avec l'assistant IA"
+                    aria-label="Expliquer avec l'IA"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onExplain(t);
+                    }}
+                  >
+                    <WandSparkles size={13} />
+                  </button>
+                )}
+                {onDefinition && (
+                  <button
+                    className="text-muted hover:text-text"
+                    title="Voir la définition"
+                    aria-label="Voir la définition"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDefinition(t);
+                    }}
+                  >
+                    <FileCode size={13} />
+                  </button>
+                )}
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-text disabled:opacity-100"
-                  title="Rafraîchir (REFRESH MATERIALIZED VIEW)"
-                  disabled={refreshing}
+                  className="text-muted hover:text-text"
+                  title="Structure"
+                  aria-label="Voir la structure"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRefresh(t);
+                    onStructure(t);
                   }}
                 >
-                  <RefreshCw
-                    size={13}
-                    className={refreshing ? 'animate-spin' : ''}
-                  />
+                  <Columns3 size={13} />
                 </button>
-              )}
-              {onExplain && (
-                <button
-                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-accent"
-                  title="Expliquer avec l'assistant IA"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onExplain(t);
-                  }}
-                >
-                  <WandSparkles size={13} />
-                </button>
-              )}
-              {onDefinition && (
-                <button
-                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-text"
-                  title="Voir la définition"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDefinition(t);
-                  }}
-                >
-                  <FileCode size={13} />
-                </button>
-              )}
-              <button
-                className="opacity-0 group-hover:opacity-100 text-muted hover:text-text"
-                title="Structure"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStructure(t);
-                }}
-              >
-                <Columns3 size={13} />
-              </button>
+              </div>
             </div>
           );
           return menuItems ? (
