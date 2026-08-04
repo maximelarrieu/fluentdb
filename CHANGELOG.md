@@ -9,6 +9,16 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Sélecteur de schéma toujours présent** : il n'est plus masqué quand la liste
+  des schémas revient vide (chargement, erreur, ou base sans schéma explicite) —
+  il s'affiche dès que le moteur gère les schémas. Il devient un **champ de
+  recherche** (filtrer parmi de nombreux schémas) avec un bouton de
+  **rafraîchissement** de la liste.
+- **Activation de pg_stat_statements clarifiée** : l'onglet Requêtes distingue
+  désormais « bibliothèque non préchargée » (nécessite
+  `shared_preload_libraries` + **redémarrage** du serveur — un simple
+  `CREATE EXTENSION` ne suffit pas) de « extension non créée » (un
+  `CREATE EXTENSION` suffit), avec les commandes exactes pour chaque cas.
 - **Résultats d'onglet conservés** : en passant d'un onglet de requête à un
   autre puis en revenant, le résultat précédemment obtenu est de nouveau
   affiché — plus besoin de ré-exécuter la requête. L'état (résultat, erreur,
