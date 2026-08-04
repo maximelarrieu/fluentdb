@@ -16,6 +16,10 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Commentaires transmis à l'assistant IA** : les descriptions de tables et de
+  colonnes (COMMENT ON) sont désormais incluses dans le contexte de schéma
+  envoyé à l'assistant (digest et « Expliquer avec l'IA »), pour qu'il
+  comprenne le sens métier au-delà de la seule structure.
 - **Commentaires affichés & éditables** : la structure d'une table/vue montre
   désormais sa **description** (sous le titre) et une colonne **Commentaire**
   par colonne. Sur PostgreSQL, description et commentaires de colonnes sont

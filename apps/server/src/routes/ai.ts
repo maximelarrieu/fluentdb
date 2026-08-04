@@ -47,6 +47,7 @@ async function buildObjectDetail(
 
   try {
     const s = await driver.getTableStructure(ref);
+    if (s.table.comment) parts.push(`Description: ${s.table.comment}`);
     parts.push(
       'Columns: ' +
         s.columns
@@ -54,7 +55,7 @@ async function buildObjectDetail(
             (c) =>
               `${c.name} ${c.dataType}${c.isPrimaryKey ? ' PK' : ''}${
                 !c.nullable && !c.isPrimaryKey ? ' NOT NULL' : ''
-              }`,
+              }${c.comment ? ` ("${c.comment}")` : ''}`,
           )
           .join(', '),
     );
