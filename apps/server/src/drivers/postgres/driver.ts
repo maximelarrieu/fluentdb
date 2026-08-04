@@ -748,16 +748,53 @@ export class PostgresDriver implements Driver {
       return { available: true, rows };
     } catch (err) {
       const msg = (err as Error).message;
-      // Typically: relation "pg_stat_statements" does not exist.
-      return {
-        available: false,
-        reason:
-          /does not exist|not.*load/i.test(msg)
-            ? "L'extension pg_stat_statements n'est pas active sur cette base."
-            : msg,
-        enableSql: 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
-        rows: [],
-      };
+      // pg_stat_statements has two distinct failure modes with very different
+      // fixes. Distinguish them via shared_preload_libraries so we don't tell
+      // the user to run CREATE EXTENSION when the real problem is a missing
+      // preload (which no amount of CREATE EXTENSION will fix — it needs a
+      // config change + server restart).
+      const preloaded = await this.db()
+        .query('SHOW shared_preload_libraries')
+        .then((r) =>
+          /pg_stat_statements/.test(
+            String(
+              (r.rows[0] as Record<string, unknown>)?.shared_preload_libraries ??
+                '',
+            ),
+          ),
+        )
+        .catch(() => false);
+
+      if (!preloaded) {
+        return {
+          available: false,
+          reason:
+            'La bibliothèque pg_stat_statements n’est pas préchargée. ' +
+            'C’est requis AVANT de créer l’extension, et le paramètre ' +
+            'shared_preload_libraries ne prend effet qu’après un REDÉMARRAGE ' +
+            'du serveur PostgreSQL (un simple CREATE EXTENSION ne suffit pas).',
+          enableSql:
+            "-- 1) Activer le préchargement (nécessite les droits superuser) :\n" +
+            "ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';\n\n" +
+            '-- 2) REDÉMARRER PostgreSQL (obligatoire pour ce paramètre)\n\n' +
+            '-- 3) Puis, une seule fois, sur cette base :\n' +
+            'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+          rows: [],
+        };
+      }
+
+      if (/does not exist/i.test(msg)) {
+        return {
+          available: false,
+          reason:
+            'La bibliothèque est préchargée mais l’extension n’est pas encore ' +
+            'créée sur cette base.',
+          enableSql: 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+          rows: [],
+        };
+      }
+
+      return { available: false, reason: msg, rows: [] };
     }
   }
 

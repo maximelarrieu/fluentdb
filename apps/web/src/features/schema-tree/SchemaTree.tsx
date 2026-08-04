@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Table2,
@@ -36,6 +36,7 @@ import type {
   TableKind,
   RoutineInfo,
   TriggerInfo,
+  SchemaInfo,
 } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Input, Select } from '../../components/ui/Input.js';
@@ -354,9 +355,10 @@ export function SchemaTree() {
         />
       </div>
 
-      {/* Connection context: database + schema pickers. */}
-      {(active.capabilities.multipleDatabases ||
-        (active.capabilities.schemas && (schemas.data?.length ?? 0) > 0)) && (
+      {/* Connection context: database + schema pickers. The schema picker is
+          shown whenever the engine supports schemas — never hidden just because
+          the list came back empty (that used to make it silently disappear). */}
+      {(active.capabilities.multipleDatabases || active.capabilities.schemas) && (
         <div className="px-2.5 pt-2 flex flex-col gap-1.5">
           {active.capabilities.multipleDatabases && (
             <PickerSelect
@@ -371,19 +373,14 @@ export function SchemaTree() {
               ))}
             </PickerSelect>
           )}
-          {active.capabilities.schemas && (schemas.data?.length ?? 0) > 0 && (
-            <PickerSelect
-              icon={<Layers size={12} />}
-              value={schema ?? ''}
-              onChange={(v) => setSchema(v || undefined)}
-            >
-              <option value="">public (défaut)</option>
-              {schemas.data?.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </PickerSelect>
+          {active.capabilities.schemas && (
+            <SchemaPicker
+              value={schema}
+              schemas={schemas.data ?? []}
+              loading={schemas.isFetching}
+              onChange={(v) => setSchema(v)}
+              onRefresh={() => schemas.refetch()}
+            />
           )}
         </div>
       )}
@@ -653,6 +650,117 @@ function PickerSelect({
       >
         {children}
       </Select>
+    </div>
+  );
+}
+
+/**
+ * Searchable schema picker with a refresh action. Always shows the default
+ * `public` entry, so a schema-capable connection never loses its selector even
+ * when the schema list is empty, still loading, or failed to fetch.
+ */
+function SchemaPicker({
+  value,
+  schemas,
+  loading,
+  onChange,
+  onRefresh,
+}: {
+  value: string | undefined;
+  schemas: SchemaInfo[];
+  loading: boolean;
+  onChange: (value: string | undefined) => void;
+  onRefresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  // `public` is represented by the empty value (workspace default), so it isn't
+  // duplicated between the fixed default entry and the fetched list.
+  const items = [
+    { value: '', label: 'public (défaut)' },
+    ...schemas
+      .filter((s) => s.name !== 'public')
+      .map((s) => ({ value: s.name, label: s.name })),
+  ];
+  const needle = q.trim().toLowerCase();
+  const filtered = needle
+    ? items.filter((i) => i.label.toLowerCase().includes(needle))
+    : items;
+  const currentLabel = value ? value : 'public (défaut)';
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o);
+          setQ('');
+        }}
+        aria-label="Choisir un schéma"
+        className="flex items-center gap-2 h-7 w-full rounded-md bg-bg border border-border px-2 text-[12px] hover:border-accent/50"
+      >
+        <Layers size={12} className="text-muted shrink-0" />
+        <span className="truncate flex-1 text-left">{currentLabel}</span>
+        <ChevronDown size={12} className="text-muted shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 left-0 right-0 rounded-md border border-border bg-panel-2 shadow-xl overflow-hidden">
+          <div className="flex items-center gap-1 p-1 border-b border-border-soft">
+            <Search size={12} className="text-muted ml-1 shrink-0" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Chercher un schéma…"
+              className="flex-1 h-6 bg-transparent text-[12px] outline-none placeholder:text-muted/60"
+            />
+            <button
+              type="button"
+              onClick={onRefresh}
+              title="Rafraîchir la liste des schémas"
+              aria-label="Rafraîchir la liste des schémas"
+              className="text-muted hover:text-text p-1"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          <div className="max-h-56 overflow-auto py-1">
+            {filtered.map((i) => (
+              <button
+                key={i.value}
+                type="button"
+                onClick={() => {
+                  onChange(i.value || undefined);
+                  setOpen(false);
+                }}
+                className={`flex items-center w-full px-2.5 py-1 text-left text-[12px] ${
+                  (value ?? '') === i.value
+                    ? 'bg-accent/12 text-accent'
+                    : 'hover:bg-panel'
+                }`}
+              >
+                <span className="truncate">{i.label}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="px-2.5 py-2 text-[12px] text-muted">
+                Aucun schéma
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
