@@ -18,6 +18,7 @@ import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { useQueryResults, emptyTabResult } from '../../stores/queryResults.js';
 import { nanoid } from '../../lib/nanoid.js';
 import { CodeEditor } from './CodeEditor.js';
 import { ResultsPane } from './ResultsPane.js';
@@ -41,12 +42,11 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const aiStatus = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
   const aiConfigured = aiStatus.data?.configured ?? false;
 
-  const [result, setResult] = useState<QueryResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastSql, setLastSql] = useState('');
-  // bottom pane shows either query results or the execution plan
-  const [bottom, setBottom] = useState<'results' | 'plan'>('results');
-  const [plan, setPlan] = useState<QueryPlan | null>(null);
+  // Result state lives in a per-tab store so it survives switching tabs
+  // (the inactive editor is unmounted). `bottom` = which pane is shown.
+  const { result, error, lastSql, plan, bottom } =
+    useQueryResults((s) => s.byTab[tabId]) ?? emptyTabResult;
+  const patchResult = useQueryResults((s) => s.patch);
   // id of the query currently in flight, so the Cancel button can target it
   const runningQueryId = useRef<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -94,20 +94,20 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
 
   const run = useMutation({
     mutationFn: (query: string) => {
-      setLastSql(query);
+      patchResult(tabId, { lastSql: query });
       const queryId = nanoid(12);
       runningQueryId.current = queryId;
       return api.query(connId, { sql: query, database, maxRows: 1000, queryId });
     },
     onSuccess: (r) => {
-      setResult(r);
-      setError(null);
-      setBottom('results');
+      patchResult(tabId, { result: r, error: null, bottom: 'results' });
     },
     onError: (e: ApiError) => {
-      setError(e.detail ? `${e.message}\n${e.detail}` : e.message);
-      setResult(null);
-      setBottom('results');
+      patchResult(tabId, {
+        error: e.detail ? `${e.message}\n${e.detail}` : e.message,
+        result: null,
+        bottom: 'results',
+      });
     },
     onSettled: () => {
       runningQueryId.current = null;
@@ -119,13 +119,13 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
     mutationFn: (opts: { analyze: boolean }) =>
       api.explain(connId, sql, { database, analyze: opts.analyze }),
     onSuccess: (p) => {
-      setPlan(p);
-      setError(null);
-      setBottom('plan');
+      patchResult(tabId, { plan: p, error: null, bottom: 'plan' });
     },
     onError: (e: ApiError) => {
-      setError(e.detail ? `${e.message}\n${e.detail}` : e.message);
-      setBottom('results');
+      patchResult(tabId, {
+        error: e.detail ? `${e.message}\n${e.detail}` : e.message,
+        bottom: 'results',
+      });
     },
   });
 

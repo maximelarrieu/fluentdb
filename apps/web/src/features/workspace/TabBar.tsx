@@ -13,6 +13,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useWorkspace, type Tab } from '../../stores/workspace.js';
+import { useQueryResults } from '../../stores/queryResults.js';
 import { useUnseenTaskCount } from '../tasks/notifications.js';
 import { cn } from '../../lib/cn.js';
 
@@ -59,6 +60,7 @@ export function TabBar() {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              useQueryResults.getState().clear(tab.id);
               closeTab(tab.id);
             }}
             className="text-muted/50 hover:text-text opacity-0 group-hover:opacity-100"

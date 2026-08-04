@@ -7,6 +7,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Corrigé
+
+- **Résultats d'onglet conservés** : en passant d'un onglet de requête à un
+  autre puis en revenant, le résultat précédemment obtenu est de nouveau
+  affiché — plus besoin de ré-exécuter la requête. L'état (résultat, erreur,
+  plan) vit désormais dans un store par onglet, en mémoire de session.
+
 ### Ajouté
 
 - **Interface redimensionnable** : la plupart des zones s'ajustent à la souris.
