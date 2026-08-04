@@ -5,12 +5,20 @@ import type { Driver } from '../drivers/types.js';
 const CHAR_BUDGET = 32_000;
 const MAX_TABLES = 80;
 
+/** Collapse a comment to a single short line so it can't blow the budget. */
+function shortComment(comment: string): string {
+  const c = comment.replace(/\s+/g, ' ').trim();
+  return c.length > 120 ? `${c.slice(0, 117)}…` : c;
+}
+
 function tableLine(s: TableStructure): string {
   const cols = s.columns
     .map((c) => {
       let d = `${c.name} ${c.dataType}`;
       if (c.isPrimaryKey) d += ' PK';
       if (!c.nullable && !c.isPrimaryKey) d += ' NOT NULL';
+      // Column comment carries business meaning the model can't infer.
+      if (c.comment) d += ` ("${shortComment(c.comment)}")`;
       return d;
     })
     .join(', ');
@@ -23,7 +31,8 @@ function tableLine(s: TableStructure): string {
   const name = s.table.schema
     ? `${s.table.schema}.${s.table.name}`
     : s.table.name;
-  return `- ${name} (${cols})${fks ? ` [${fks}]` : ''}`;
+  const note = s.table.comment ? ` — ${shortComment(s.table.comment)}` : '';
+  return `- ${name} (${cols})${fks ? ` [${fks}]` : ''}${note}`;
 }
 
 /**
