@@ -53,6 +53,7 @@ import { usePanels } from '../../stores/panels.js';
 import { ResizeHandle } from '../../components/ui/ResizeHandle.js';
 import { formatNumber } from '../../lib/format.js';
 import { RenameTableDialog } from './RenameTableDialog.js';
+import { EditViewDialog } from '../sql-editor/EditViewDialog.js';
 
 export function SchemaTree() {
   const {
@@ -82,6 +83,7 @@ export function SchemaTree() {
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const [renameTarget, setRenameTarget] = useState<TableInfo | null>(null);
+  const [editViewTarget, setEditViewTarget] = useState<TableInfo | null>(null);
   const [codeView, setCodeView] = useState<{
     title: string;
     subtitle?: string;
@@ -219,6 +221,11 @@ export function SchemaTree() {
       {t.kind !== 'table' && (
         <CtxItem icon={<FileCode size={14} />} onSelect={() => setDefTarget(t)}>
           Voir la définition
+        </CtxItem>
+      )}
+      {t.kind !== 'table' && (
+        <CtxItem icon={<Pencil size={14} />} onSelect={() => setEditViewTarget(t)}>
+          Modifier la vue…
         </CtxItem>
       )}
       <CtxSeparator />
@@ -548,6 +555,13 @@ export function SchemaTree() {
           table={renameTarget.name}
           schema={renameTarget.schema}
           onClose={() => setRenameTarget(null)}
+        />
+      )}
+
+      {editViewTarget && (
+        <EditViewDialog
+          view={editViewTarget}
+          onClose={() => setEditViewTarget(null)}
         />
       )}
 

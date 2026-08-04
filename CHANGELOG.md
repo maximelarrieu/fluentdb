@@ -16,6 +16,11 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Édition d'une vue existante** : clic droit sur une vue → « Modifier la
+  vue… » ouvre le même formulaire que la création, **pré-rempli** (nom, SELECT,
+  description). Enregistré via `CREATE OR REPLACE VIEW` (ou drop + recreate pour
+  une vue matérialisée) plus la mise à jour du `COMMENT ON VIEW`, le tout dans
+  une seule transaction.
 - **Description d'une vue à l'enregistrement** : le formulaire « Enregistrer la
   requête en vue » propose un champ **Description** (PostgreSQL) appliqué comme
   `COMMENT ON VIEW` dans la même transaction que le `CREATE`. La description

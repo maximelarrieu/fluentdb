@@ -18,9 +18,12 @@ function quoteIdent(dialect: Dialect, name: string): string {
 }
 
 /**
- * Turn the current query into a (materialized) view. Builds the
- * `CREATE VIEW … AS <select>` statement and runs it through the DDL endpoint,
+ * Create or edit a (materialized) view. Builds the `CREATE [OR REPLACE] VIEW …`
+ * statement (plus an optional COMMENT) and runs it through the DDL endpoint,
  * which enforces the read-only guard server-side.
+ *
+ * In `edit` mode the name is fixed, the SQL body is editable (prefilled with the
+ * current definition), and the comment is synced (set or cleared).
  */
 export function SaveAsViewDialog({
   sql,
@@ -28,55 +31,81 @@ export function SaveAsViewDialog({
   canMaterialized,
   dialect,
   onClose,
+  mode = 'create',
+  initialName = '',
+  initialDescription = '',
+  viewSchema,
 }: {
   sql: string;
   materialized: boolean;
   canMaterialized: boolean;
   dialect: Dialect;
   onClose: () => void;
+  mode?: 'create' | 'edit';
+  initialName?: string;
+  initialDescription?: string;
+  /** In edit mode, the schema the view actually lives in. */
+  viewSchema?: string;
 }) {
   const { active, database, schema, bumpSchema } = useWorkspace();
   const toast = useToast();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const isEdit = mode === 'edit';
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
+  const [body, setBody] = useState(sql);
   const [materialized, setMaterialized] = useState(
-    initialMaterialized && canMaterialized,
+    isEdit ? initialMaterialized : initialMaterialized && canMaterialized,
   );
 
   // Only PostgreSQL can attach a comment to a view (COMMENT ON VIEW). MySQL
   // views and SQLite have no comment mechanism, so the field is hidden there.
   const supportsComment = dialect === 'postgres';
+  const effectiveSchema = isEdit ? viewSchema : schema;
 
   const target = useMemo(
     () =>
-      dialect === 'postgres' && schema
-        ? `${quoteIdent(dialect, schema)}.${quoteIdent(dialect, name || 'nom_de_la_vue')}`
+      dialect === 'postgres' && effectiveSchema
+        ? `${quoteIdent(dialect, effectiveSchema)}.${quoteIdent(dialect, name || 'nom_de_la_vue')}`
         : quoteIdent(dialect, name || 'nom_de_la_vue'),
-    [dialect, schema, name],
+    [dialect, effectiveSchema, name],
   );
 
   const statements = useMemo(() => {
-    const body = sql.trim().replace(/;\s*$/, '');
-    const kw = materialized ? 'CREATE MATERIALIZED VIEW' : 'CREATE VIEW';
-    const out = [`${kw} ${target} AS\n${body}`];
+    const b = body.trim().replace(/;\s*$/, '');
+    const kind = materialized ? 'MATERIALIZED VIEW' : 'VIEW';
+    const out: string[] = [];
+    if (isEdit && materialized) {
+      // Materialized views have no CREATE OR REPLACE — drop then recreate
+      // (atomic: applyDdl wraps every statement in one transaction).
+      out.push(`DROP MATERIALIZED VIEW ${target}`);
+      out.push(`CREATE MATERIALIZED VIEW ${target} AS\n${b}`);
+    } else if (isEdit) {
+      out.push(`CREATE OR REPLACE VIEW ${target} AS\n${b}`);
+    } else {
+      out.push(`CREATE ${kind} ${target} AS\n${b}`);
+    }
     const desc = description.trim();
-    if (supportsComment && desc) {
-      const kind = materialized ? 'MATERIALIZED VIEW' : 'VIEW';
-      out.push(`COMMENT ON ${kind} ${target} IS '${desc.replace(/'/g, "''")}'`);
+    if (supportsComment && (desc || isEdit)) {
+      // In edit mode always sync (set or clear); in create only when provided.
+      out.push(
+        `COMMENT ON ${kind} ${target} IS ${desc ? `'${desc.replace(/'/g, "''")}'` : 'NULL'}`,
+      );
     }
     return out;
-  }, [sql, target, materialized, description, supportsComment]);
+  }, [body, target, materialized, description, supportsComment, isEdit]);
 
   const previewSql = statements.map((s) => `${s};`).join('\n\n');
 
-  const create = useMutation({
-    // Both statements run in one transaction server-side, so the comment can't
-    // land without the view (or vice-versa).
+  const save = useMutation({
     mutationFn: () => api.ddlApply(active!.id, statements, database),
     onSuccess: () => {
       toast.push(
         'success',
-        materialized ? 'Vue matérialisée créée' : 'Vue créée',
+        isEdit
+          ? 'Vue mise à jour'
+          : materialized
+            ? 'Vue matérialisée créée'
+            : 'Vue créée',
       );
       bumpSchema();
       onClose();
@@ -86,23 +115,30 @@ export function SaveAsViewDialog({
   });
 
   const validName = /\S/.test(name);
+  const validBody = /\S/.test(body);
 
   return (
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title="Enregistrer la requête en vue"
-      description="La requête devient une vue réutilisable dans la base."
+      title={isEdit ? 'Modifier la vue' : 'Enregistrer la requête en vue'}
+      description={
+        isEdit
+          ? 'Modifie la définition et la description de la vue.'
+          : 'La requête devient une vue réutilisable dans la base.'
+      }
       className="w-[620px]"
     >
       <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-muted">Nom</span>
           <Input
-            autoFocus
+            autoFocus={!isEdit}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="ma_vue"
+            disabled={isEdit}
+            title={isEdit ? 'Pour renommer, utilise « Renommer » dans l’arbre.' : undefined}
           />
         </label>
 
@@ -125,7 +161,20 @@ export function SaveAsViewDialog({
           </label>
         )}
 
-        {canMaterialized && (
+        {isEdit && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted">Définition (SELECT)</span>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={8}
+              spellCheck={false}
+              className="w-full rounded-md bg-bg border border-border px-2.5 py-1.5 text-[12px] mono outline-none resize-y focus:border-accent focus:ring-1 focus:ring-accent/40"
+            />
+          </label>
+        )}
+
+        {canMaterialized && !isEdit && (
           <div className="flex gap-2 text-[13px]">
             <button
               type="button"
@@ -171,10 +220,11 @@ export function SaveAsViewDialog({
           </Button>
           <Button
             variant="primary"
-            disabled={!validName || create.isPending}
-            onClick={() => create.mutate()}
+            disabled={!validName || !validBody || save.isPending}
+            onClick={() => save.mutate()}
           >
-            {create.isPending && <Spinner className="text-current" />} Créer
+            {save.isPending && <Spinner className="text-current" />}{' '}
+            {isEdit ? 'Enregistrer' : 'Créer'}
           </Button>
         </div>
       </div>
