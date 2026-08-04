@@ -67,6 +67,53 @@ export function registerQueryRoutes(
     return driver.roles();
   });
 
+  /** Per-statement performance stats (pg_stat_statements explorer). */
+  app.get('/api/connections/:id/query-stats', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const q = z
+      .object({
+        database: z.string().optional(),
+        sort: z
+          .enum(['total', 'mean', 'calls', 'rows', 'stddev'])
+          .default('total'),
+        limit: z.coerce.number().int().min(1).max(500).default(50),
+        search: z.string().optional(),
+        hideSystem: z
+          .enum(['true', 'false'])
+          .default('true')
+          .transform((v) => v === 'true'),
+      })
+      .parse(req.query);
+    const driver = await ctx.manager.getDriver(id, q.database);
+    if (!driver.queryStats) {
+      return {
+        available: false,
+        reason: "Ce moteur n'expose pas de statistiques de requêtes.",
+        rows: [],
+      };
+    }
+    return driver.queryStats({
+      sort: q.sort,
+      limit: q.limit,
+      search: q.search,
+      hideSystem: q.hideSystem,
+    });
+  });
+
+  /** Reset the accumulated statement statistics. */
+  app.post('/api/connections/:id/query-stats/reset', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database } = healthQuery.parse(req.query);
+    const driver = await ctx.manager.getDriver(id, database);
+    if (!driver.resetQueryStats) {
+      throw Object.assign(new Error('Non supporté par ce moteur'), {
+        statusCode: 400,
+      });
+    }
+    await driver.resetQueryStats();
+    return { ok: true };
+  });
+
   /** Read-only diagnostic report over the engine's catalogs / stat views. */
   app.get('/api/connections/:id/health', async (req) => {
     const { id } = idParams.parse(req.params);

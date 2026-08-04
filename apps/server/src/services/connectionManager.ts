@@ -51,6 +51,7 @@ export class ConnectionManager {
       activityMonitor: driver.capabilities.activityMonitor,
       routines: driver.capabilities.routines,
       triggers: driver.capabilities.triggers,
+      queryStats: driver.capabilities.queryStats,
       serverVersion: version,
     };
   }

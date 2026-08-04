@@ -16,6 +16,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Performance des requêtes** : nouvel onglet (PostgreSQL, via
+  `pg_stat_statements`) classant les requêtes par temps cumulé, temps moyen,
+  appels, lignes ou instabilité. Colonnes utiles (part du temps total, cache,
+  écart-type), recherche, dépliage de la requête complète, **masquage des
+  requêtes système** par défaut, **réinitialisation** des compteurs, et actions
+  par requête : ouvrir dans l'éditeur, **optimiser avec l'IA**, copier. État
+  guidé quand l'extension n'est pas active.
 - **Commentaires transmis à l'assistant IA** : les descriptions de tables et de
   colonnes (COMMENT ON) sont désormais incluses dans le contexte de schéma
   envoyé à l'assistant (digest et « Expliquer avec l'IA »), pour qu'il

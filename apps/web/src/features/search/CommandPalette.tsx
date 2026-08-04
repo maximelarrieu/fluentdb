@@ -15,6 +15,7 @@ import {
   HeartPulse,
   Activity,
   Users,
+  Gauge,
   Sparkles,
   PanelLeft,
   SunMoon,
@@ -107,6 +108,9 @@ export function CommandPalette() {
         ? [{ id: 'activity', label: 'Activité & sessions', icon: Activity, keywords: 'activite sessions locks requetes', run: () => act(ws.openActivity) } as Action]
         : []),
       { id: 'roles', label: 'Rôles & privilèges', icon: Users, keywords: 'roles utilisateurs privileges droits', run: () => act(ws.openRoles) },
+      ...(caps?.queryStats
+        ? [{ id: 'queryperf', label: 'Performance des requêtes', icon: Gauge, keywords: 'performance requetes lentes pg_stat_statements slow', run: () => act(ws.openQueryPerf) } as Action]
+        : []),
       { id: 'ai', label: "Afficher / masquer l'assistant IA", icon: Sparkles, keywords: 'assistant ia ai chat', run: () => act(() => ws.toggleAi()) },
       { id: 'sidebar', label: 'Afficher / masquer les connexions', icon: PanelLeft, keywords: 'barre laterale connexions sidebar', run: () => act(() => ws.toggleSidebar()) },
       { id: 'theme', label: 'Basculer le thème clair / sombre', icon: SunMoon, keywords: 'theme clair sombre dark light', run: () => act(theme.toggle) },
