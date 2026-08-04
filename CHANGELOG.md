@@ -16,6 +16,10 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Description d'une vue à l'enregistrement** : le formulaire « Enregistrer la
+  requête en vue » propose un champ **Description** (PostgreSQL) appliqué comme
+  `COMMENT ON VIEW` dans la même transaction que le `CREATE`. La description
+  apparaît ensuite en infobulle de l'objet dans l'arbre.
 - **Confort de navigation** : onglets **réordonnables** par glisser-déposer ;
   **raccourcis clavier** globaux (nouvelle requête, fermer l'onglet, aller à
   l'onglet N, onglet précédent/suivant, basculer connexions/assistant) avec un
