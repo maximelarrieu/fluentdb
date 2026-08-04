@@ -572,6 +572,28 @@ export class SqliteDriver implements Driver {
     return row?.sql ?? null;
   }
 
+  async getTableDdl(ref: TableRef): Promise<string | null> {
+    // sqlite_master stores the original CREATE TABLE text verbatim; append the
+    // table's own index definitions for a self-contained script.
+    const db = this.conn();
+    const table = db
+      .prepare(
+        `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`,
+      )
+      .get(ref.name) as { sql: string | null } | undefined;
+    if (!table?.sql) return null;
+    const indexes = db
+      .prepare(
+        `SELECT sql FROM sqlite_master
+         WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL`,
+      )
+      .all(ref.name) as { sql: string }[];
+    return [
+      `${table.sql};`,
+      ...indexes.map((i) => `${i.sql};`),
+    ].join('\n\n');
+  }
+
   async searchObjects(query: string, limit = 50): Promise<SearchHit[]> {
     const like = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     const db = this.conn();

@@ -39,6 +39,7 @@ import {
 } from '../sqlBuilder.js';
 import { postgresDialect } from './dialect.js';
 import { buildPostgresDdl } from './ddl.js';
+import { synthesizeCreateTable } from '../../services/ddlGen.js';
 import { normalizePgPlan } from './explain.js';
 
 const DEFAULT_SCHEMA = 'public';
@@ -1008,6 +1009,13 @@ export class PostgresDriver implements Driver {
       [schema, ref.name],
     );
     return (res.rows[0]?.def as string | undefined) ?? null;
+  }
+
+  async getTableDdl(ref: TableRef): Promise<string | null> {
+    // Postgres has no native "show create table" — synthesize from catalog
+    // introspection using the same identifier quoting as the DDL builder.
+    const structure = await this.getTableStructure(ref);
+    return synthesizeCreateTable(structure, this.dialect.quoteIdent);
   }
 
   async refreshMaterializedView(

@@ -16,6 +16,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Script de structure (migration)** : depuis la structure d'une table, un
+  bouton **« Voir le SQL (CREATE) »** génère le `CREATE TABLE` complet (colonnes,
+  clé primaire, clés étrangères, index) prêt à copier dans une migration —
+  `SHOW CREATE TABLE` (MySQL), `sqlite_master` (SQLite) ou synthèse depuis le
+  catalogue (PostgreSQL). L'aperçu des modifications de structure (ALTER…) gagne
+  un bouton **« Copier »**, et la section Index permet de **supprimer un index**
+  (avec aperçu avant application).
 - **Export des résultats enrichi** : les résultats de requête et les tables
   s'exportent en **CSV, JSON, Markdown et SQL (INSERT)** via un menu « Exporter »
   unifié (streaming côté serveur, sans tout charger en mémoire). L'export d'une
