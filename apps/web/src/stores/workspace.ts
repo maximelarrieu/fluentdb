@@ -53,6 +53,11 @@ export interface RolesTab {
   id: string;
   title: string;
 }
+export interface QueryPerfTab {
+  kind: 'queryperf';
+  id: string;
+  title: string;
+}
 export interface BoardTab {
   kind: 'board';
   id: string;
@@ -68,6 +73,7 @@ export type Tab =
   | HealthTab
   | ActivityTab
   | RolesTab
+  | QueryPerfTab
   | BoardTab;
 
 interface ActiveConnection {
@@ -104,6 +110,7 @@ interface WorkspaceState {
   openHealth: () => void;
   openActivity: () => void;
   openRoles: () => void;
+  openQueryPerf: () => void;
   openBoard: () => void;
   /** Open a table's data view and flag it to pop the mock-data dialog. */
   requestMockData: (table: string, schema?: string) => void;
@@ -264,6 +271,17 @@ export const useWorkspace = create<WorkspaceState>()(
       kind: 'roles',
       id: nanoid(),
       title: 'Rôles & privilèges',
+    };
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+  },
+
+  openQueryPerf: () => {
+    const existing = get().tabs.find((t) => t.kind === 'queryperf');
+    if (existing) return set({ activeTabId: existing.id });
+    const tab: QueryPerfTab = {
+      kind: 'queryperf',
+      id: nanoid(),
+      title: 'Requêtes',
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
   },

@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   HeartPulse,
   Activity,
+  Gauge,
   Users,
   Sparkles,
   Copy,
@@ -73,6 +74,7 @@ export function SchemaTree() {
     openHealth,
     openActivity,
     openRoles,
+    openQueryPerf,
     openBoard,
     requestMockData,
     schemaVersion,
@@ -326,6 +328,14 @@ export function SchemaTree() {
             label="Rôles & privilèges"
             active={activeView === 'roles'}
             onClick={openRoles}
+          />
+        )}
+        {active.capabilities.queryStats && (
+          <ToolButton
+            icon={<Gauge size={15} />}
+            label="Performance des requêtes"
+            active={activeView === 'queryperf'}
+            onClick={openQueryPerf}
           />
         )}
         <ToolButton

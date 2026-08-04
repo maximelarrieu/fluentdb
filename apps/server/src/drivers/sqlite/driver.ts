@@ -68,6 +68,7 @@ export class SqliteDriver implements Driver {
     activityMonitor: false,
     routines: false,
     triggers: true,
+    queryStats: false,
   };
 
   private db: Database.Database | null = null;

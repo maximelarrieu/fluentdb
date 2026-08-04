@@ -14,6 +14,8 @@ import type {
   PageResult,
   QueryPlan,
   QueryResultSet,
+  QueryStatSort,
+  QueryStatsResult,
   RowChanges,
   RowQuery,
   SchemaInfo,
@@ -98,6 +100,7 @@ export class PostgresDriver implements Driver {
     routines: true,
     triggers: true,
     activityMonitor: true,
+    queryStats: true,
   };
 
   private pool: pg.Pool | null = null;
@@ -672,6 +675,94 @@ export class PostgresDriver implements Driver {
       tableBytes: Number(r.table_bytes),
       indexBytes: Number(r.index_bytes),
     }));
+  }
+
+  async queryStats(opts: {
+    sort: QueryStatSort;
+    limit: number;
+    search?: string;
+    hideSystem?: boolean;
+  }): Promise<QueryStatsResult> {
+    const sortCol: Record<QueryStatSort, string> = {
+      total: 'total_exec_time',
+      mean: 'mean_exec_time',
+      calls: 'calls',
+      rows: 'rows',
+      stddev: 'stddev_exec_time',
+    };
+    const params: (string | number)[] = [];
+    const conds: string[] = [];
+    if (opts.search && opts.search.trim()) {
+      params.push(`%${opts.search.trim()}%`);
+      conds.push(`query ILIKE $${params.length}`);
+    }
+    if (opts.hideSystem) {
+      // Hide FluentDB's own introspection and other catalog/monitoring traffic
+      // so the user sees their application queries by default.
+      conds.push(
+        `query !~* '(pg_catalog|information_schema|pg_stat_statements|pg_class|pg_namespace|pg_attribute|pg_index|pg_constraint|pg_proc|pg_trigger|pg_description|pg_roles|pg_database|pg_settings)'`,
+      );
+    }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    params.push(Math.min(500, Math.max(1, opts.limit)));
+    const limitPh = `$${params.length}`;
+    try {
+      const res = await this.db().query(
+        `WITH grand AS (SELECT NULLIF(sum(total_exec_time), 0) AS total FROM pg_stat_statements)
+         SELECT queryid::text AS query_id,
+                query,
+                calls,
+                total_exec_time AS total_ms,
+                mean_exec_time AS mean_ms,
+                min_exec_time AS min_ms,
+                max_exec_time AS max_ms,
+                stddev_exec_time AS stddev_ms,
+                rows,
+                shared_blks_hit AS hit,
+                shared_blks_read AS read,
+                (total_exec_time / (SELECT total FROM grand)) AS pct_total
+         FROM pg_stat_statements
+         ${where}
+         ORDER BY ${sortCol[opts.sort]} DESC NULLS LAST
+         LIMIT ${limitPh}`,
+        params,
+      );
+      const rows = res.rows.map((r) => {
+        const hit = Number(r.hit);
+        const read = Number(r.read);
+        const io = hit + read;
+        return {
+          queryId: (r.query_id as string | null) ?? null,
+          query: r.query as string,
+          calls: Number(r.calls),
+          totalMs: Number(r.total_ms),
+          meanMs: Number(r.mean_ms),
+          minMs: Number(r.min_ms),
+          maxMs: Number(r.max_ms),
+          stddevMs: Number(r.stddev_ms),
+          rows: Number(r.rows),
+          pctTotal: r.pct_total == null ? 0 : Number(r.pct_total),
+          cacheHitRatio: io > 0 ? hit / io : null,
+        };
+      });
+      return { available: true, rows };
+    } catch (err) {
+      const msg = (err as Error).message;
+      // Typically: relation "pg_stat_statements" does not exist.
+      return {
+        available: false,
+        reason:
+          /does not exist|not.*load/i.test(msg)
+            ? "L'extension pg_stat_statements n'est pas active sur cette base."
+            : msg,
+        enableSql: 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+        rows: [],
+      };
+    }
+  }
+
+  async resetQueryStats(): Promise<void> {
+    await this.db().query('SELECT pg_stat_statements_reset()');
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

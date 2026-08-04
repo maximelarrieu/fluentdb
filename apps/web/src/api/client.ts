@@ -16,6 +16,8 @@ import type {
   LockWait,
   ErdSchema,
   HealthReport,
+  QueryStatSort,
+  QueryStatsResult,
   TableSize,
   HistoryEntry,
   MutationResult,
@@ -261,6 +263,32 @@ export const api = {
     request<DbRole[]>(
       'GET',
       `/api/connections/${id}/roles${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+
+  // query performance (pg_stat_statements)
+  queryStats: (
+    id: string,
+    opts: {
+      sort: QueryStatSort;
+      limit: number;
+      search?: string;
+      hideSystem?: boolean;
+      database?: string;
+    },
+  ) => {
+    const p = new URLSearchParams({ sort: opts.sort, limit: String(opts.limit) });
+    if (opts.search) p.set('search', opts.search);
+    if (opts.hideSystem === false) p.set('hideSystem', 'false');
+    if (opts.database) p.set('database', opts.database);
+    return request<QueryStatsResult>(
+      'GET',
+      `/api/connections/${id}/query-stats?${p.toString()}`,
+    );
+  },
+  resetQueryStats: (id: string, database?: string) =>
+    request<{ ok: boolean }>(
+      'POST',
+      `/api/connections/${id}/query-stats/reset${database ? `?database=${encodeURIComponent(database)}` : ''}`,
     ),
 
   // activity monitor

@@ -12,4 +12,5 @@ export * from './docker.js';
 export * from './erd.js';
 export * from './widgets.js';
 export * from './plan.js';
+export * from './perf.js';
 export * from './api.js';

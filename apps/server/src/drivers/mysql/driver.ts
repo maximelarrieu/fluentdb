@@ -75,6 +75,7 @@ export class MysqlDriver implements Driver {
     activityMonitor: true,
     routines: true,
     triggers: true,
+    queryStats: false,
   };
 
   private pool: mysql.Pool | null = null;

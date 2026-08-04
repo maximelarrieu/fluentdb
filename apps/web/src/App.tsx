@@ -22,6 +22,7 @@ import { DashboardView } from './features/tasks/DashboardView.js';
 import { HealthView } from './features/health/HealthView.js';
 import { ActivityView } from './features/activity/ActivityView.js';
 import { RolesView } from './features/roles/RolesView.js';
+import { QueryPerfView } from './features/perf/QueryPerfView.js';
 import { DashboardHub } from './features/board/DashboardHub.js';
 import { TaskNotifier } from './features/tasks/TaskNotifier.js';
 
@@ -132,6 +133,8 @@ function Workspace() {
             <ActivityView key={activeTab.id} />
           ) : activeTab.kind === 'roles' ? (
             <RolesView key={activeTab.id} />
+          ) : activeTab.kind === 'queryperf' ? (
+            <QueryPerfView key={activeTab.id} />
           ) : activeTab.kind === 'board' ? (
             <DashboardHub key={activeTab.id} />
           ) : (

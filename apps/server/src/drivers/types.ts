@@ -16,6 +16,8 @@ import type {
   QueryPlan,
   QueryColumn,
   QueryResultSet,
+  QueryStatSort,
+  QueryStatsResult,
   RoutineInfo,
   RowChanges,
   RowQuery,
@@ -59,6 +61,8 @@ export interface DriverCapabilities {
   routines: boolean;
   /** Whether table triggers can be listed */
   triggers: boolean;
+  /** Whether per-statement performance stats are available (queryStats). */
+  queryStats: boolean;
 }
 
 export interface RunQueryOptions {
@@ -153,6 +157,21 @@ export interface Driver {
 
   /** Database roles/users and their attributes (empty when unsupported). */
   roles(): Promise<DbRole[]>;
+
+  /**
+   * Per-statement performance stats (e.g. PostgreSQL pg_stat_statements):
+   * ranked by the requested key, optionally filtered by query text. Returns
+   * `available: false` with a reason when the stats source isn't enabled.
+   */
+  queryStats?(opts: {
+    sort: QueryStatSort;
+    limit: number;
+    search?: string;
+    hideSystem?: boolean;
+  }): Promise<QueryStatsResult>;
+
+  /** Reset the accumulated statement statistics (admin action). */
+  resetQueryStats?(): Promise<void>;
 
   /**
    * Read-only diagnostic checks over the engine's catalogs / stat views:
