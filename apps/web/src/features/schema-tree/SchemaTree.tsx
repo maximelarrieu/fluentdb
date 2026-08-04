@@ -708,7 +708,7 @@ function TreeSection({
                   reserving space and truncating the name. */}
               <span
                 className={`text-[13px] truncate flex-1 ${isActive ? 'font-medium text-text' : ''}`}
-                title={t.name}
+                title={t.comment ? `${t.name} — ${t.comment}` : t.name}
               >
                 {t.name}
               </span>

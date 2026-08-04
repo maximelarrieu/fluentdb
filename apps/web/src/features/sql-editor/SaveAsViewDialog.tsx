@@ -38,22 +38,41 @@ export function SaveAsViewDialog({
   const { active, database, schema, bumpSchema } = useWorkspace();
   const toast = useToast();
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [materialized, setMaterialized] = useState(
     initialMaterialized && canMaterialized,
   );
 
-  const statement = useMemo(() => {
-    const body = sql.trim().replace(/;\s*$/, '');
-    const target =
+  // Only PostgreSQL can attach a comment to a view (COMMENT ON VIEW). MySQL
+  // views and SQLite have no comment mechanism, so the field is hidden there.
+  const supportsComment = dialect === 'postgres';
+
+  const target = useMemo(
+    () =>
       dialect === 'postgres' && schema
         ? `${quoteIdent(dialect, schema)}.${quoteIdent(dialect, name || 'nom_de_la_vue')}`
-        : quoteIdent(dialect, name || 'nom_de_la_vue');
+        : quoteIdent(dialect, name || 'nom_de_la_vue'),
+    [dialect, schema, name],
+  );
+
+  const statements = useMemo(() => {
+    const body = sql.trim().replace(/;\s*$/, '');
     const kw = materialized ? 'CREATE MATERIALIZED VIEW' : 'CREATE VIEW';
-    return `${kw} ${target} AS\n${body}`;
-  }, [sql, name, materialized, dialect, schema]);
+    const out = [`${kw} ${target} AS\n${body}`];
+    const desc = description.trim();
+    if (supportsComment && desc) {
+      const kind = materialized ? 'MATERIALIZED VIEW' : 'VIEW';
+      out.push(`COMMENT ON ${kind} ${target} IS '${desc.replace(/'/g, "''")}'`);
+    }
+    return out;
+  }, [sql, target, materialized, description, supportsComment]);
+
+  const previewSql = statements.map((s) => `${s};`).join('\n\n');
 
   const create = useMutation({
-    mutationFn: () => api.ddlApply(active!.id, [statement], database),
+    // Both statements run in one transaction server-side, so the comment can't
+    // land without the view (or vice-versa).
+    mutationFn: () => api.ddlApply(active!.id, statements, database),
     onSuccess: () => {
       toast.push(
         'success',
@@ -86,6 +105,25 @@ export function SaveAsViewDialog({
             placeholder="ma_vue"
           />
         </label>
+
+        {supportsComment && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted">
+              Description <span className="text-muted/60">(optionnelle)</span>
+            </span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder="À quoi sert cette vue, ce qu'elle contient…"
+              className="w-full rounded-md bg-bg border border-border px-2.5 py-1.5 text-[13px] placeholder:text-muted/60 outline-none resize-y focus:border-accent focus:ring-1 focus:ring-accent/40"
+            />
+            <span className="text-[11px] text-muted/70">
+              Enregistrée dans la base via COMMENT ON VIEW — visible dans
+              l'arbre et par l'assistant.
+            </span>
+          </label>
+        )}
 
         {canMaterialized && (
           <div className="flex gap-2 text-[13px]">
@@ -123,7 +161,7 @@ export function SaveAsViewDialog({
         <div>
           <span className="text-xs text-muted">SQL généré</span>
           <pre className="mt-1 text-[12px] mono whitespace-pre-wrap bg-panel-2 rounded-lg p-3 max-h-[38vh] overflow-auto">
-            {statement}
+            {previewSql}
           </pre>
         </div>
 
