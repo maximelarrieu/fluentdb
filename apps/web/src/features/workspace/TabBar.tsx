@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Table2,
   FileCode2,
@@ -31,21 +32,33 @@ const icons: Record<Tab['kind'], React.ReactNode> = {
 };
 
 export function TabBar() {
-  const { tabs, activeTabId, setActiveTab, closeTab, openQuery } =
+  const { tabs, activeTabId, setActiveTab, closeTab, openQuery, moveTab } =
     useWorkspace();
   const unseenTasks = useUnseenTaskCount();
+  const [dragId, setDragId] = useState<string | null>(null);
 
   return (
     <div className="flex items-stretch h-9 bg-panel border-b border-border overflow-x-auto">
       {tabs.map((tab) => (
         <div
           key={tab.id}
+          draggable
+          onDragStart={() => setDragId(tab.id)}
+          onDragEnd={() => setDragId(null)}
+          onDragOver={(e) => {
+            if (dragId && dragId !== tab.id) {
+              e.preventDefault();
+              moveTab(dragId, tab.id);
+            }
+          }}
           onClick={() => setActiveTab(tab.id)}
+          title={tab.title}
           className={cn(
             'group flex items-center gap-2 px-3 border-r border-border-soft cursor-pointer whitespace-nowrap',
             tab.id === activeTabId
               ? 'bg-bg text-text'
               : 'text-muted hover:text-text hover:bg-panel-2/50',
+            dragId === tab.id && 'opacity-50',
           )}
         >
           {icons[tab.kind]}

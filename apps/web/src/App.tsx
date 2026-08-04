@@ -15,6 +15,8 @@ import { StructureView } from './features/structure/StructureView.js';
 import { ErdView } from './features/erd/ErdView.js';
 import { AssistantPanel } from './features/ai/AssistantPanel.js';
 import { CommandPalette } from './features/search/CommandPalette.js';
+import { ShortcutsDialog } from './features/workspace/ShortcutsDialog.js';
+import { useGlobalHotkeys } from './features/workspace/shortcuts.js';
 import { TasksView } from './features/tasks/TasksView.js';
 import { DashboardView } from './features/tasks/DashboardView.js';
 import { HealthView } from './features/health/HealthView.js';
@@ -53,6 +55,7 @@ function useRestoreConnection() {
 
 export function App() {
   useRestoreConnection();
+  useGlobalHotkeys();
   return (
     <ToastProvider>
       <div className="h-full flex overflow-hidden">
@@ -60,6 +63,7 @@ export function App() {
         <Workspace />
         <AssistantPanel />
         <CommandPalette />
+        <ShortcutsDialog />
         <TaskNotifier />
       </div>
     </ToastProvider>

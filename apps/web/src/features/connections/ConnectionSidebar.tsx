@@ -16,6 +16,7 @@ import {
   FileCode2,
   Sun,
   Moon,
+  Keyboard,
 } from 'lucide-react';
 import {
   engineLabels,
@@ -51,7 +52,7 @@ const COLOR_HEX: Record<string, string> = {
 export function ConnectionSidebar() {
   const toast = useToast();
   const qc = useQueryClient();
-  const { active, setActive, openQuery, sidebarCollapsed, toggleSidebar } =
+  const { active, setActive, openQuery, sidebarCollapsed, toggleSidebar, toggleShortcuts } =
     useWorkspace();
   const { theme, toggle: toggleTheme } = useTheme();
   const width = usePanels((s) => s.sizes.connections);
@@ -143,6 +144,15 @@ export function ConnectionSidebar() {
             ) : (
               <Moon size={15} aria-hidden="true" />
             )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => toggleShortcuts(true)}
+            title="Raccourcis clavier ( ? )"
+            aria-label="Afficher les raccourcis clavier"
+          >
+            <Keyboard size={15} aria-hidden="true" />
           </Button>
           <Button
             size="icon"
