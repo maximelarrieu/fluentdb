@@ -378,6 +378,8 @@ export const api = {
     ),
 
   exportUrl: (id: string) => `/api/connections/${id}/export`,
+  tableExportUrl: (id: string, table: string) =>
+    `/api/connections/${id}/tables/${encodeURIComponent(table)}/export`,
 
   chat: (req: AiChatRequest, signal: AbortSignal) =>
     fetch('/api/ai/chat', {

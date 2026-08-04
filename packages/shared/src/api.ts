@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { filterSpecSchema, sortSpecSchema } from './query.js';
+
+/** File formats the exporter can stream a result set to. */
+export const exportFormats = ['csv', 'json', 'markdown', 'sql'] as const;
+export const exportFormatSchema = z.enum(exportFormats);
+export type ExportFormat = (typeof exportFormats)[number];
 
 export const queryRequestSchema = z.object({
   sql: z.string().min(1),
@@ -14,12 +20,26 @@ export const queryRequestSchema = z.object({
 export type QueryRequest = z.infer<typeof queryRequestSchema>;
 
 export const exportRequestSchema = z.object({
-  format: z.enum(['csv', 'json']),
+  format: exportFormatSchema,
   database: z.string().optional(),
   sql: z.string().min(1),
   fileName: z.string().max(200).optional(),
+  /** Target table name used by the `sql` (INSERT) format. */
+  tableName: z.string().max(200).optional(),
 });
 export type ExportRequest = z.infer<typeof exportRequestSchema>;
+
+/** Export a table's rows directly (server rebuilds the SELECT from the grid
+ * state), so the current filters/sort are honored without a raw SQL string. */
+export const tableExportRequestSchema = z.object({
+  format: exportFormatSchema,
+  database: z.string().optional(),
+  schema: z.string().optional(),
+  sorts: z.array(sortSpecSchema).default([]),
+  filters: z.array(filterSpecSchema).default([]),
+  fileName: z.string().max(200).optional(),
+});
+export type TableExportRequest = z.infer<typeof tableExportRequestSchema>;
 
 export const queryPlanRequestSchema = z.object({
   sql: z.string().min(1),

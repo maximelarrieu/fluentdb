@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Download,
   AlertTriangle,
   CheckCircle2,
   Wrench,
@@ -9,10 +8,13 @@ import {
   Table as TableIcon,
   BarChart3,
 } from 'lucide-react';
-import type { CellValue, QueryResponse } from '@fluentdb/shared';
+import type { CellValue, ExportFormat, QueryResponse } from '@fluentdb/shared';
 import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/misc.js';
+import { ExportMenu } from '../../components/ui/ExportMenu.js';
+import { useToast } from '../../components/ui/Toast.js';
 import { formatDuration, formatNumber } from '../../lib/format.js';
+import { rowsToMarkdown, rowsToTsv } from '../../lib/exportDownload.js';
 import { DataGrid } from '../data-grid/DataGrid.js';
 import { ResultChart } from './ResultChart.js';
 
@@ -33,10 +35,11 @@ export function ResultsPane({
 }: {
   result: QueryResponse | null;
   error: string | null;
-  onExport: (format: 'csv' | 'json') => void;
+  onExport: (format: ExportFormat) => void;
   /** Present when an AI provider is configured — offers a one-click fix. */
   onFix?: () => void;
 }) {
+  const toast = useToast();
   const [activeSet, setActiveSet] = useState(0);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'grid' | 'chart'>('grid');
@@ -72,6 +75,25 @@ export function ResultsPane({
     if (!needle) return current.rows;
     return current.rows.filter((r) => rowMatches(r, needle));
   }, [current, needle]);
+
+  const copyVisible = async (kind: 'markdown' | 'tsv') => {
+    if (!current) return;
+    const text =
+      kind === 'markdown'
+        ? rowsToMarkdown(current.columns, filteredRows)
+        : rowsToTsv(current.columns, filteredRows);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.push(
+        'info',
+        `${formatNumber(filteredRows.length)} ligne(s) copiée(s) en ${
+          kind === 'markdown' ? 'Markdown' : 'TSV'
+        }`,
+      );
+    } catch {
+      toast.push('error', 'Copie impossible');
+    }
+  };
 
   if (error) {
     return (
@@ -154,14 +176,7 @@ export function ResultsPane({
                   <BarChart3 size={12} aria-hidden="true" /> Graphique
                 </button>
               </div>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={() => onExport('csv')}>
-                  <Download size={12} /> CSV
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => onExport('json')}>
-                  <Download size={12} /> JSON
-                </Button>
-              </div>
+              <ExportMenu onExport={onExport} onCopy={copyVisible} />
             </>
           )}
         </div>
