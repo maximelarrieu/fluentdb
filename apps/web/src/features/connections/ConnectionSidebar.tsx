@@ -34,6 +34,8 @@ import {
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
 import { useTheme } from '../../stores/theme.js';
+import { usePanels } from '../../stores/panels.js';
+import { ResizeHandle } from '../../components/ui/ResizeHandle.js';
 import { ConnectionForm } from './ConnectionForm.js';
 import { DockerPanel } from './DockerPanel.js';
 
@@ -52,6 +54,7 @@ export function ConnectionSidebar() {
   const { active, setActive, openQuery, sidebarCollapsed, toggleSidebar } =
     useWorkspace();
   const { theme, toggle: toggleTheme } = useTheme();
+  const width = usePanels((s) => s.sizes.connections);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ConnectionSummary | null>(null);
   const [initial, setInitial] = useState<Partial<ConnectionInput> | undefined>();
@@ -118,7 +121,11 @@ export function ConnectionSidebar() {
   }
 
   return (
-    <div className="w-64 shrink-0 flex flex-col border-r border-border bg-panel h-full">
+    <div
+      className="relative shrink-0 flex flex-col border-r border-border bg-panel h-full"
+      style={{ width }}
+    >
+      <ResizeHandle panel="connections" side="right" />
       <div className="flex items-center justify-between px-3 h-11 border-b border-border">
         <span className="text-[13px] font-semibold flex items-center gap-2">
           <Database size={15} className="text-accent" /> FluentDB

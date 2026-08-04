@@ -62,6 +62,31 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [snippetsOpen, setSnippetsOpen] = useState(false);
 
+  // Editor/results split height, as a % of the available area. Draggable via
+  // the divider between the two; clamped so neither pane collapses.
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [editorPct, setEditorPct] = useState(42);
+  const startSplit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = splitRef.current;
+    if (!el) return;
+    const onMove = (ev: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      const pct = ((ev.clientY - rect.top) / rect.height) * 100;
+      setEditorPct(Math.min(85, Math.max(15, pct)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'row-resize';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   const meta = useQuery({
     queryKey: ['autocomplete', connId, database],
     queryFn: () => api.autocomplete(connId, database),
@@ -265,8 +290,11 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        <div className="h-[42%] min-h-[120px] border-b border-border overflow-hidden">
+      <div ref={splitRef} className="flex-1 min-h-0 flex flex-col">
+        <div
+          className="min-h-[80px] overflow-hidden"
+          style={{ height: `${editorPct}%` }}
+        >
           {meta.data && (
             <CodeEditor
               value={sql}
@@ -278,6 +306,15 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
             />
           )}
         </div>
+        {/* draggable divider between editor and results */}
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Redimensionner l'éditeur et les résultats"
+          title="Glisser pour redimensionner"
+          onMouseDown={startSplit}
+          className="h-1 shrink-0 border-b border-border cursor-row-resize hover:bg-accent/50 active:bg-accent transition-colors"
+        />
         <div className="flex-1 min-h-0">
           {bottom === 'plan' && plan && !error ? (
             <PlanView

@@ -9,6 +9,14 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Interface redimensionnable** : la plupart des zones s'ajustent à la souris.
+  Colonnes de la grille de résultats redimensionnables (poignée à droite de
+  chaque en-tête). Panneaux latéraux redimensionnables et persistés — barre des
+  connexions, arbre de schéma et panneau IA (glisser le bord, double-clic pour
+  réinitialiser). Séparation éditeur SQL / résultats ajustable. Infobulles
+  ajoutées sur les en-têtes et cellules pour lire une valeur tronquée. Dans
+  l'arbre, les icônes d'action s'affichent en superposition au survol : le nom
+  de la table garde toute sa largeur et n'est plus tronqué.
 - **Tableaux de bord personnalisés** : un module « Tableau de bord » où chaque
   widget = une requête en lecture seule + une visualisation (nombre, barres
   horizontales/verticales, lignes, camembert, table). **Grille en

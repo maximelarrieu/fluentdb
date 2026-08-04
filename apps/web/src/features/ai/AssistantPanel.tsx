@@ -15,6 +15,8 @@ import { api } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { usePanels } from '../../stores/panels.js';
+import { ResizeHandle } from '../../components/ui/ResizeHandle.js';
 import { AiContextDialog } from './AiContextDialog.js';
 
 interface Msg extends ChatMessage {
@@ -34,6 +36,7 @@ function detectMention(
 
 export function AssistantPanel() {
   const { active, database, aiOpen, toggleAi, openQuery } = useWorkspace();
+  const width = usePanels((s) => s.sizes.assistant);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -213,7 +216,11 @@ export function AssistantPanel() {
   if (!aiOpen) return null;
 
   return (
-    <div className="w-96 shrink-0 flex flex-col border-l border-border bg-panel h-full">
+    <div
+      className="relative shrink-0 flex flex-col border-l border-border bg-panel h-full"
+      style={{ width }}
+    >
+      <ResizeHandle panel="assistant" side="left" />
       <div className="flex items-center justify-between px-3 h-11 border-b border-border">
         <span className="text-[13px] font-semibold flex items-center gap-2">
           <Sparkles size={15} className="text-accent" /> Assistant IA

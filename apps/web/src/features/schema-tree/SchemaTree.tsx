@@ -49,6 +49,8 @@ import {
 } from '../../components/ui/ContextMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { useWorkspace } from '../../stores/workspace.js';
+import { usePanels } from '../../stores/panels.js';
+import { ResizeHandle } from '../../components/ui/ResizeHandle.js';
 import { formatNumber } from '../../lib/format.js';
 import { RenameTableDialog } from './RenameTableDialog.js';
 
@@ -76,6 +78,7 @@ export function SchemaTree() {
     toggleAi,
   } = useWorkspace();
   const unseenCount = useUnseenTaskCount();
+  const width = usePanels((s) => s.sizes.tree);
   const [filter, setFilter] = useState('');
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const [renameTarget, setRenameTarget] = useState<TableInfo | null>(null);
@@ -282,7 +285,11 @@ export function SchemaTree() {
   );
 
   return (
-    <div className="w-60 shrink-0 flex flex-col border-r border-border bg-panel h-full">
+    <div
+      className="relative shrink-0 flex flex-col border-r border-border bg-panel h-full"
+      style={{ width }}
+    >
+      <ResizeHandle panel="tree" side="right" />
       {/* Workspace tools — compact icon toolbar (was six full-height rows
           that pushed the object list out of view). */}
       <div className="px-2 pt-2 pb-1.5 flex items-center gap-0.5 border-b border-border-soft">
