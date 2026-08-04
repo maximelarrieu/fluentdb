@@ -20,6 +20,7 @@ import {
 import type {
   CellValue,
   DdlChange,
+  ExportFormat,
   FilterSpec,
   QueryColumn,
   RowChanges,
@@ -27,6 +28,12 @@ import type {
 } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
 import { Button } from '../../components/ui/Button.js';
+import { ExportMenu } from '../../components/ui/ExportMenu.js';
+import {
+  postDownload,
+  rowsToMarkdown,
+  rowsToTsv,
+} from '../../lib/exportDownload.js';
 import { Spinner } from '../../components/ui/misc.js';
 import {
   CtxItem,
@@ -255,6 +262,44 @@ export function TableView({ table, schema }: { table: string; schema?: string })
       'info',
       'Nouvelle ligne — édite-la puis Enregistrer (les valeurs par défaut/NULL sont utilisées si vides)',
     );
+  };
+
+  // Full-table export: server rebuilds the SELECT from the current
+  // filters/sort, so the download matches what's on screen (all rows, not
+  // just the visible page).
+  const exportTable = async (format: ExportFormat) => {
+    try {
+      await postDownload(
+        api.tableExportUrl(connId, table),
+        {
+          format,
+          database,
+          schema,
+          sorts: sort ? [sort] : [],
+          filters,
+          fileName: table,
+        },
+        table,
+        format,
+      );
+    } catch {
+      toast.push('error', "Échec de l'export");
+    }
+  };
+
+  // Copy just the loaded page to the clipboard (handy for a quick paste).
+  const copyPage = async (kind: 'markdown' | 'tsv') => {
+    if (!data) return;
+    const text =
+      kind === 'markdown'
+        ? rowsToMarkdown(data.columns, data.rows)
+        : rowsToTsv(data.columns, data.rows);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.push('info', `${data.rows.length} ligne(s) copiée(s)`);
+    } catch {
+      toast.push('error', 'Copie impossible');
+    }
   };
 
   // Right-click menu for a column header.
@@ -516,6 +561,7 @@ export function TableView({ table, schema }: { table: string; schema?: string })
               <Sparkles size={13} /> Données de test
             </Button>
           )}
+          <ExportMenu onExport={exportTable} onCopy={copyPage} />
         </div>
 
         <div className="flex items-center gap-3">

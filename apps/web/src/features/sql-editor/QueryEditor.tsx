@@ -12,8 +12,12 @@ import {
   Clock,
   Bookmark,
 } from 'lucide-react';
-import type { QueryPlan, QueryPlanResponse, QueryResponse } from '@fluentdb/shared';
+import type {
+  ExportFormat,
+  QueryPlanResponse,
+} from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
+import { postDownload } from '../../lib/exportDownload.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
@@ -173,23 +177,17 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const runSelection = (selection: string) =>
     void requestRun(selection.trim() || sql);
 
-  const exportData = async (format: 'csv' | 'json') => {
-    const res = await fetch(api.exportUrl(connId), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ format, sql: lastSql, database, fileName: 'query' }),
-    });
-    if (!res.ok) {
+  const exportData = async (format: ExportFormat) => {
+    try {
+      await postDownload(
+        api.exportUrl(connId),
+        { format, sql: lastSql, database, fileName: 'query', tableName: 'query' },
+        'query',
+        format,
+      );
+    } catch {
       toast.push('error', "Échec de l'export");
-      return;
     }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `query.${format}`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const explain = () => {

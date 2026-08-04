@@ -16,6 +16,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Export des résultats enrichi** : les résultats de requête et les tables
+  s'exportent en **CSV, JSON, Markdown et SQL (INSERT)** via un menu « Exporter »
+  unifié (streaming côté serveur, sans tout charger en mémoire). L'export d'une
+  table respecte les **filtres et le tri** en cours (le SELECT est reconstruit
+  côté serveur, paramétré). Un menu **« Copier »** met les lignes affichées dans
+  le presse-papiers en Markdown (Slack/Notion) ou TSV (tableur).
 - **Interface redimensionnable** : la plupart des zones s'ajustent à la souris.
   Colonnes de la grille de résultats redimensionnables (poignée à droite de
   chaque en-tête). Panneaux latéraux redimensionnables et persistés — barre des
