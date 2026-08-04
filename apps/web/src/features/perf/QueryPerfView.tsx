@@ -198,6 +198,22 @@ export function QueryPerfView() {
     onError: (e: Error) => toast.push('error', e.message),
   });
 
+  // One-click enable — only offered when the library is preloaded and just the
+  // extension is missing (the server sets canEnable in that case).
+  const enable = useMutation({
+    mutationFn: () =>
+      api.ddlApply(
+        active!.id,
+        ['CREATE EXTENSION IF NOT EXISTS pg_stat_statements'],
+        database,
+      ),
+    onSuccess: () => {
+      toast.push('success', 'pg_stat_statements activé');
+      stats.refetch();
+    },
+    onError: (e: Error) => toast.push('error', e.message),
+  });
+
   const rows = useMemo(() => stats.data?.rows ?? [], [stats.data]);
 
   if (!active) return <EmptyState title="Aucune connexion active" />;
@@ -309,11 +325,29 @@ export function QueryPerfView() {
                 {stats.data?.reason ??
                   "La source de statistiques n'est pas disponible."}
               </p>
+              {stats.data?.canEnable && (
+                <div className="mb-3">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => enable.mutate()}
+                    disabled={enable.isPending}
+                  >
+                    {enable.isPending ? <Spinner className="text-current" /> : <Gauge size={13} />}
+                    Activer maintenant
+                  </Button>
+                  <p className="text-[11px] text-muted/70 mt-1.5">
+                    Exécute <span className="mono">CREATE EXTENSION</span> sur
+                    cette base (nécessite les droits suffisants).
+                  </p>
+                </div>
+              )}
               {stats.data?.enableSql && (
                 <>
                   <p className="text-[12px] text-muted mb-1">
-                    Active l'extension (nécessite un rechargement du serveur si
-                    elle n'est pas préchargée) :
+                    {stats.data?.canEnable
+                      ? 'Ou manuellement :'
+                      : 'Étapes à réaliser côté serveur :'}
                   </p>
                   <CopyableSql sql={stats.data.enableSql} />
                 </>
