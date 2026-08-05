@@ -181,4 +181,26 @@ export class DockerClient {
       `/containers/${encodeURIComponent(id)}/json`,
     );
   }
+
+  /** Restart a container (POST /containers/{id}/restart). */
+  async restartContainer(id: string, timeoutSec = 10): Promise<void> {
+    const endpoint = await this.resolve();
+    if (!endpoint) throw new Error('Docker socket not reachable');
+    const client = this.makeClient(endpoint);
+    try {
+      const res = await client.request({
+        method: 'POST',
+        path: `/containers/${encodeURIComponent(id)}/restart?t=${timeoutSec}`,
+        headersTimeout: 3000,
+        // A restart can take a while (stop grace period + start).
+        bodyTimeout: (timeoutSec + 30) * 1000,
+      });
+      const body = await res.body.text();
+      if (res.statusCode >= 400) {
+        throw new Error(`Docker API ${res.statusCode}: ${body.slice(0, 300)}`);
+      }
+    } finally {
+      await client.close().catch(() => {});
+    }
+  }
 }

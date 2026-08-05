@@ -227,6 +227,26 @@ export function QueryPerfView() {
     onError: (e: Error) => toast.push('error', e.message),
   });
 
+  // How is the DB server reachable? (used to offer a real one-click restart when
+  // it runs in a local Docker container FluentDB can see).
+  const restartInfo = useQuery({
+    queryKey: ['restart-info', active?.id],
+    queryFn: () => api.restartInfo(active!.id),
+    enabled: !!active && stats.data?.preloadPending === true,
+  });
+
+  const restartContainer = useMutation({
+    mutationFn: () => api.restartContainer(active!.id),
+    onSuccess: async (r) => {
+      toast.push('success', `Conteneur « ${r.name} » redémarré`);
+      // The DB was briefly down during the restart — reconnect, then reload.
+      await new Promise((res) => setTimeout(res, 1500));
+      await api.connect(active!.id).catch(() => {});
+      stats.refetch();
+    },
+    onError: (e: Error) => toast.push('error', e.message),
+  });
+
   const rows = useMemo(() => stats.data?.rows ?? [], [stats.data]);
 
   if (!active) return <EmptyState title="Aucune connexion active" />;
@@ -380,31 +400,91 @@ export function QueryPerfView() {
 
               {/* Case 3: configured — only a restart is left. */}
               {stats.data?.preloadPending && (
-                <div className="mb-3">
-                  <p className="text-[12px] text-amber mb-2">
-                    Réglage prêt. Redémarre le serveur PostgreSQL, puis clique
-                    « Réessayer ».
+                <div className="mb-3 flex flex-col gap-2.5">
+                  <p className="text-[12px] text-muted">
+                    Il ne reste qu'à redémarrer le{' '}
+                    <strong className="text-text">serveur PostgreSQL</strong>
+                    {restartInfo.data && (
+                      <>
+                        {' '}(à{' '}
+                        <span className="mono text-text">
+                          {restartInfo.data.host}:{restartInfo.data.port}
+                        </span>)
+                      </>
+                    )}
+                    . C'est un processus <strong>séparé de ton application</strong>{' '}
+                    — redémarrer <span className="mono">npm run dev</span> ne le
+                    touche pas, et redémarrer la base n'interrompt pas ton app.
                   </p>
-                  <CopyableSql
-                    sql={
-                      '# Redémarre le serveur selon ton installation :\n' +
-                      'sudo systemctl restart postgresql        # systemd (Linux)\n' +
-                      'pg_ctl restart -D <répertoire_de_données> # binaire pg_ctl\n' +
-                      'brew services restart postgresql          # macOS / Homebrew\n' +
-                      'docker restart <conteneur>                # Docker\n' +
-                      '# Managé (RDS, Cloud SQL…) : redémarre l’instance depuis la console.'
-                    }
-                  />
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className="mt-2"
-                    onClick={() => stats.refetch()}
-                    disabled={stats.isFetching}
-                  >
-                    {stats.isFetching ? <Spinner className="text-current" /> : <RefreshCw size={13} />}
-                    J’ai redémarré — réessayer
-                  </Button>
+
+                  {restartInfo.isLoading ? (
+                    <Spinner />
+                  ) : restartInfo.data?.container ? (
+                    <div>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => restartContainer.mutate()}
+                        disabled={restartContainer.isPending}
+                      >
+                        {restartContainer.isPending ? (
+                          <Spinner className="text-current" />
+                        ) : (
+                          <RefreshCw size={13} />
+                        )}
+                        Redémarrer le conteneur «&nbsp;
+                        {restartInfo.data.container.name}&nbsp;»
+                      </Button>
+                      <p className="text-[11px] text-muted/70 mt-1.5">
+                        FluentDB a détecté ta base dans un conteneur Docker et
+                        peut le redémarrer pour toi.
+                      </p>
+                    </div>
+                  ) : restartInfo.data?.isLocal ? (
+                    <>
+                      <p className="text-[12px] text-muted">
+                        Ta base tourne sur cette machine. Redémarre le{' '}
+                        <em>service</em> PostgreSQL (selon ton installation) :
+                      </p>
+                      <CopyableSql
+                        sql={
+                          'sudo systemctl restart postgresql   # Linux (systemd)\n' +
+                          'brew services restart postgresql    # macOS (Homebrew)\n' +
+                          'pg_ctl restart -D <répertoire>       # installation manuelle\n' +
+                          'docker restart <conteneur>           # si lancée via Docker'
+                        }
+                      />
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-muted">
+                      Ta base est sur un serveur distant
+                      {restartInfo.data && (
+                        <>
+                          {' '}(<span className="mono">{restartInfo.data.host}</span>)
+                        </>
+                      )}
+                      . Redémarre l'instance depuis la console de ton hébergeur
+                      (RDS, Cloud SQL, Supabase…). Cela n'affecte pas ton app locale.
+                    </p>
+                  )}
+
+                  <div>
+                    <Button
+                      size="sm"
+                      variant={restartInfo.data?.container ? 'ghost' : 'primary'}
+                      onClick={() => stats.refetch()}
+                      disabled={stats.isFetching}
+                    >
+                      {stats.isFetching ? (
+                        <Spinner className="text-current" />
+                      ) : (
+                        <RefreshCw size={13} />
+                      )}
+                      {restartInfo.data?.container
+                        ? 'Vérifier'
+                        : 'J’ai redémarré — réessayer'}
+                    </Button>
+                  </div>
                 </div>
               )}
 

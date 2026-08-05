@@ -18,6 +18,7 @@ import type {
   HealthReport,
   QueryStatSort,
   QueryStatsResult,
+  ServerRestartInfo,
   TableSize,
   HistoryEntry,
   MutationResult,
@@ -294,6 +295,13 @@ export const api = {
     request<{ ok: boolean }>(
       'POST',
       `/api/connections/${id}/query-stats/enable-preload${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
+  restartInfo: (id: string) =>
+    request<ServerRestartInfo>('GET', `/api/connections/${id}/restart-info`),
+  restartContainer: (id: string) =>
+    request<{ restarted: boolean; name: string }>(
+      'POST',
+      `/api/connections/${id}/restart-container`,
     ),
 
   // activity monitor
