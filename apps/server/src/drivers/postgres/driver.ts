@@ -766,18 +766,40 @@ export class PostgresDriver implements Driver {
         .catch(() => false);
 
       if (!preloaded) {
+        // Distinguish "not configured yet" from "configured, awaiting restart"
+        // so we can guide precisely (and avoid re-asking to run ALTER SYSTEM).
+        const pending = await this.db()
+          .query(
+            `SELECT pending_restart FROM pg_settings WHERE name = 'shared_preload_libraries'`,
+          )
+          .then((r) => (r.rows[0] as { pending_restart?: boolean })?.pending_restart === true)
+          .catch(() => false);
+
+        if (pending) {
+          return {
+            available: false,
+            preloadPending: true,
+            reason:
+              'Le préchargement de pg_stat_statements est configuré : il ne ' +
+              'reste plus qu’à REDÉMARRER le serveur PostgreSQL pour l’activer ' +
+              '(ce paramètre ne s’applique qu’au démarrage).',
+            rows: [],
+          };
+        }
+
         return {
           available: false,
+          canConfigurePreload: true,
           reason:
             'La bibliothèque pg_stat_statements n’est pas préchargée. ' +
-            'C’est requis AVANT de créer l’extension, et le paramètre ' +
-            'shared_preload_libraries ne prend effet qu’après un REDÉMARRAGE ' +
-            'du serveur PostgreSQL (un simple CREATE EXTENSION ne suffit pas).',
+            'FluentDB peut écrire le réglage pour toi ; un REDÉMARRAGE du ' +
+            'serveur sera ensuite nécessaire (un client ne peut pas redémarrer ' +
+            'PostgreSQL). Sur une base managée, elle est en général déjà ' +
+            'préchargée.',
           enableSql:
-            "-- 1) Activer le préchargement (nécessite les droits superuser) :\n" +
-            "ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';\n\n" +
-            '-- 2) REDÉMARRER PostgreSQL (obligatoire pour ce paramètre)\n\n' +
-            '-- 3) Puis, une seule fois, sur cette base :\n' +
+            "-- Équivalent manuel (nécessite superuser) :\n" +
+            "ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';\n" +
+            '-- puis redémarre PostgreSQL, puis :\n' +
             'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
           rows: [],
         };
@@ -803,6 +825,31 @@ export class PostgresDriver implements Driver {
 
   async resetQueryStats(): Promise<void> {
     await this.db().query('SELECT pg_stat_statements_reset()');
+  }
+
+  /**
+   * Write `shared_preload_libraries` to include pg_stat_statements, preserving
+   * any libraries already configured. Requires superuser; a server restart is
+   * still needed afterwards (postmaster-level parameter). ALTER SYSTEM cannot
+   * run inside a transaction, so this uses a single auto-committed statement.
+   */
+  async enablePreloadForStats(): Promise<void> {
+    const row = await this.db()
+      .query(`SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries'`)
+      .then((r) => r.rows[0] as { setting?: string } | undefined);
+    const current = String(row?.setting ?? '').trim();
+    const libs = current
+      ? current.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+    if (!libs.includes('pg_stat_statements')) libs.push('pg_stat_statements');
+    const value = libs.join(',').replace(/'/g, "''");
+    await this.db().query(
+      `ALTER SYSTEM SET shared_preload_libraries = '${value}'`,
+    );
+    // Reload so the setting is picked up into pg_settings and flagged
+    // pending_restart — this is what lets us then report "just restart".
+    // (The library itself still only loads at server start.)
+    await this.db().query('SELECT pg_reload_conf()').catch(() => {});
   }
 
   async healthChecks(): Promise<HealthFinding[]> {

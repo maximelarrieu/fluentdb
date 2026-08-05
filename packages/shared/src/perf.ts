@@ -43,5 +43,16 @@ export interface QueryStatsResult {
    * (preload + restart) the client can't perform.
    */
   canEnable?: boolean;
+  /**
+   * The library isn't preloaded yet, but FluentDB can write the config in one
+   * click (`ALTER SYSTEM SET shared_preload_libraries …`, superuser required).
+   * A server restart is still needed afterwards.
+   */
+  canConfigurePreload?: boolean;
+  /**
+   * The preload is already configured (pending) — only a server RESTART is
+   * left. No further SQL will help; the UI shows restart guidance + retry.
+   */
+  preloadPending?: boolean;
   rows: QueryStat[];
 }
