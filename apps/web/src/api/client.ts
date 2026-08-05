@@ -290,6 +290,11 @@ export const api = {
       'POST',
       `/api/connections/${id}/query-stats/reset${database ? `?database=${encodeURIComponent(database)}` : ''}`,
     ),
+  enableStatsPreload: (id: string, database?: string) =>
+    request<{ ok: boolean }>(
+      'POST',
+      `/api/connections/${id}/query-stats/enable-preload${database ? `?database=${encodeURIComponent(database)}` : ''}`,
+    ),
 
   // activity monitor
   activity: (id: string, database?: string) =>

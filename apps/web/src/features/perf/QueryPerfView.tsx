@@ -214,6 +214,19 @@ export function QueryPerfView() {
     onError: (e: Error) => toast.push('error', e.message),
   });
 
+  // Write shared_preload_libraries in one click (still needs a restart).
+  const configurePreload = useMutation({
+    mutationFn: () => api.enableStatsPreload(active!.id, database),
+    onSuccess: () => {
+      toast.push(
+        'success',
+        'Réglage enregistré — redémarre PostgreSQL pour l’activer',
+      );
+      stats.refetch();
+    },
+    onError: (e: Error) => toast.push('error', e.message),
+  });
+
   const rows = useMemo(() => stats.data?.rows ?? [], [stats.data]);
 
   if (!active) return <EmptyState title="Aucune connexion active" />;
@@ -325,6 +338,8 @@ export function QueryPerfView() {
                 {stats.data?.reason ??
                   "La source de statistiques n'est pas disponible."}
               </p>
+
+              {/* Case 1: extension just needs to be created (preloaded). */}
               {stats.data?.canEnable && (
                 <div className="mb-3">
                   <Button
@@ -342,13 +357,60 @@ export function QueryPerfView() {
                   </p>
                 </div>
               )}
+
+              {/* Case 2: not preloaded — FluentDB can write the config. */}
+              {stats.data?.canConfigurePreload && (
+                <div className="mb-3">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => configurePreload.mutate()}
+                    disabled={configurePreload.isPending}
+                  >
+                    {configurePreload.isPending ? <Spinner className="text-current" /> : <Gauge size={13} />}
+                    Configurer le préchargement
+                  </Button>
+                  <p className="text-[11px] text-muted/70 mt-1.5">
+                    Écrit <span className="mono">shared_preload_libraries</span>{' '}
+                    (superuser requis). Un redémarrage du serveur restera
+                    nécessaire ensuite.
+                  </p>
+                </div>
+              )}
+
+              {/* Case 3: configured — only a restart is left. */}
+              {stats.data?.preloadPending && (
+                <div className="mb-3">
+                  <p className="text-[12px] text-amber mb-2">
+                    Réglage prêt. Redémarre le serveur PostgreSQL, puis clique
+                    « Réessayer ».
+                  </p>
+                  <CopyableSql
+                    sql={
+                      '# Redémarre le serveur selon ton installation :\n' +
+                      'sudo systemctl restart postgresql        # systemd (Linux)\n' +
+                      'pg_ctl restart -D <répertoire_de_données> # binaire pg_ctl\n' +
+                      'brew services restart postgresql          # macOS / Homebrew\n' +
+                      'docker restart <conteneur>                # Docker\n' +
+                      '# Managé (RDS, Cloud SQL…) : redémarre l’instance depuis la console.'
+                    }
+                  />
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="mt-2"
+                    onClick={() => stats.refetch()}
+                    disabled={stats.isFetching}
+                  >
+                    {stats.isFetching ? <Spinner className="text-current" /> : <RefreshCw size={13} />}
+                    J’ai redémarré — réessayer
+                  </Button>
+                </div>
+              )}
+
               {stats.data?.enableSql && (
                 <>
-                  <p className="text-[12px] text-muted mb-1">
-                    {stats.data?.canEnable
-                      ? 'Ou manuellement :'
-                      : 'Étapes à réaliser côté serveur :'}
-                  </p>
+                  <p className="text-[12px] text-muted mb-1">Équivalent manuel :</p>
                   <CopyableSql sql={stats.data.enableSql} />
                 </>
               )}

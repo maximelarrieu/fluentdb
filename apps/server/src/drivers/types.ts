@@ -174,6 +174,13 @@ export interface Driver {
   resetQueryStats?(): Promise<void>;
 
   /**
+   * Configure `shared_preload_libraries` to include the stats library,
+   * preserving existing entries. Superuser required; a server restart is still
+   * needed for it to take effect.
+   */
+  enablePreloadForStats?(): Promise<void>;
+
+  /**
    * Read-only diagnostic checks over the engine's catalogs / stat views:
    * unused indexes, missing-index candidates, maintenance debt, slow queries,
    * tables without a primary key, connection pressure… Each finding may carry

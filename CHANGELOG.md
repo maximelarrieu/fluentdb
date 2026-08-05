@@ -21,6 +21,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
   `CREATE EXTENSION` suffit), avec les commandes exactes pour chaque cas. Dans
   ce dernier cas (fréquent sur les Postgres managés, où la bibliothèque est déjà
   préchargée), un bouton **« Activer maintenant »** crée l'extension en un clic.
+  Quand la bibliothèque n'est **pas** préchargée, un bouton **« Configurer le
+  préchargement »** écrit `shared_preload_libraries` pour toi (en préservant les
+  libs existantes) ; l'app détecte ensuite l'état « il ne reste qu'à redémarrer »
+  et propose les commandes de redémarrage + un bouton « Réessayer ». Seul le
+  redémarrage du serveur reste manuel (un client ne peut pas redémarrer
+  PostgreSQL).
 - **Résultats d'onglet conservés** : en passant d'un onglet de requête à un
   autre puis en revenant, le résultat précédemment obtenu est de nouveau
   affiché — plus besoin de ré-exécuter la requête. L'état (résultat, erreur,

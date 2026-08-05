@@ -114,6 +114,26 @@ export function registerQueryRoutes(
     return { ok: true };
   });
 
+  /** Configure shared_preload_libraries for the stats extension (needs restart). */
+  app.post('/api/connections/:id/query-stats/enable-preload', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const { database } = healthQuery.parse(req.query);
+    const config = ctx.manager.getConfig(id);
+    if (config?.isReadOnly) {
+      throw Object.assign(new Error('Connection is marked read-only'), {
+        statusCode: 403,
+      });
+    }
+    const driver = await ctx.manager.getDriver(id, database);
+    if (!driver.enablePreloadForStats) {
+      throw Object.assign(new Error('Non supporté par ce moteur'), {
+        statusCode: 400,
+      });
+    }
+    await driver.enablePreloadForStats();
+    return { ok: true };
+  });
+
   /** Read-only diagnostic report over the engine's catalogs / stat views. */
   app.get('/api/connections/:id/health', async (req) => {
     const { id } = idParams.parse(req.params);
