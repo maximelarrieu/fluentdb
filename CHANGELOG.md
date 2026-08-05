@@ -24,9 +24,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
   Quand la bibliothèque n'est **pas** préchargée, un bouton **« Configurer le
   préchargement »** écrit `shared_preload_libraries` pour toi (en préservant les
   libs existantes) ; l'app détecte ensuite l'état « il ne reste qu'à redémarrer »
-  et propose les commandes de redémarrage + un bouton « Réessayer ». Seul le
-  redémarrage du serveur reste manuel (un client ne peut pas redémarrer
-  PostgreSQL).
+  et propose l'aide au redémarrage. L'aide est désormais **adaptée à
+  l'environnement** : si la base tourne dans un **conteneur Docker** détecté, un
+  bouton **redémarre le conteneur en un clic** (puis reconnecte) ; sinon elle
+  explique que le serveur PostgreSQL est **distinct de l'application** (adresse
+  affichée, `npm run dev` n'est pas concerné) et donne les commandes locales, ou
+  renvoie à la console de l'hébergeur pour une base distante.
 - **Résultats d'onglet conservés** : en passant d'un onglet de requête à un
   autre puis en revenant, le résultat précédemment obtenu est de nouveau
   affiché — plus besoin de ré-exécuter la requête. L'état (résultat, erreur,

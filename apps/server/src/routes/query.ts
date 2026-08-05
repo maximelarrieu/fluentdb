@@ -12,11 +12,39 @@ import {
   affectedCountQuery,
 } from '../sql/analyze.js';
 import { splitSqlStatements } from '../drivers/sqlSplit.js';
+import { detectDatabaseContainers } from '../docker/detect.js';
 import type { AppContext } from '../context.js';
 
 const idParams = z.object({ id: z.string() });
 const queryIdParams = z.object({ queryId: z.string() });
 const healthQuery = z.object({ database: z.string().optional() });
+
+const LOCAL_HOSTS = new Set(['', 'localhost', '127.0.0.1', '::1', '0.0.0.0']);
+
+/**
+ * Find the local Docker container (if any) whose published port matches a
+ * connection's host:port — so we can offer to restart the DB server in-app.
+ */
+async function findDbContainer(ctx: AppContext, connectionId: string) {
+  const config = ctx.manager.getConfig(connectionId);
+  const host = config?.host ?? '127.0.0.1';
+  const port = config?.port ?? undefined;
+  const isLocal = LOCAL_HOSTS.has(host.toLowerCase());
+  const dockerAvailable = isLocal ? await ctx.docker.ping() : false;
+  let container: { id: string; name: string; running: boolean } | undefined;
+  if (dockerAvailable && port != null) {
+    const found = (await detectDatabaseContainers(ctx.docker).catch(() => [])).find(
+      (c) => c.hostPort === port && c.engine === config?.engine,
+    );
+    if (found)
+      container = {
+        id: found.containerId,
+        name: found.containerName,
+        running: found.running,
+      };
+  }
+  return { host, port: port ?? 0, isLocal, dockerAvailable, container };
+}
 
 export function registerQueryRoutes(
   app: FastifyInstance,
@@ -132,6 +160,26 @@ export function registerQueryRoutes(
     }
     await driver.enablePreloadForStats();
     return { ok: true };
+  });
+
+  /** How to restart the connected DB server (Docker container detection). */
+  app.get('/api/connections/:id/restart-info', async (req) => {
+    const { id } = idParams.parse(req.params);
+    return findDbContainer(ctx, id);
+  });
+
+  /** Restart the DB server's Docker container, when one was detected. */
+  app.post('/api/connections/:id/restart-container', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const info = await findDbContainer(ctx, id);
+    if (!info.container) {
+      throw Object.assign(
+        new Error('Aucun conteneur Docker correspondant à cette connexion'),
+        { statusCode: 400 },
+      );
+    }
+    await ctx.docker.restartContainer(info.container.id);
+    return { restarted: true, name: info.container.name };
   });
 
   /** Read-only diagnostic report over the engine's catalogs / stat views. */

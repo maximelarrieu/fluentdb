@@ -20,6 +20,17 @@ export interface QueryStat {
   cacheHitRatio: number | null;
 }
 
+/** What FluentDB knows about how to restart the connected server. */
+export interface ServerRestartInfo {
+  host: string;
+  port: number;
+  /** True when the server runs on the same machine as FluentDB's backend. */
+  isLocal: boolean;
+  dockerAvailable: boolean;
+  /** Set when a local Docker container publishing this port was found. */
+  container?: { id: string; name: string; running: boolean };
+}
+
 export const queryStatSortKeys = [
   'total',
   'mean',
