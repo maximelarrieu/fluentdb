@@ -9,6 +9,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Export des résultats de requête fiabilisé** : l'export d'un résultat se fait
+  désormais **côté client, à partir des lignes déjà affichées**, au lieu de
+  ré-exécuter le SQL côté serveur. Corrige l'erreur `syntax error at or near
+  "create"` (et similaires) sur les **scripts multi-instructions** (vues
+  temporaires, plusieurs `SELECT`, instructions non-`SELECT`) : chaque onglet de
+  résultat s'exporte tel qu'affiché, en CSV/JSON/Markdown/SQL, sans relancer la
+  requête. (L'export du navigateur de table reste en streaming serveur.)
 - **Sélecteur de schéma toujours présent** : il n'est plus masqué quand la liste
   des schémas revient vide (chargement, erreur, ou base sans schéma explicite) —
   il s'affiche dès que le moteur gère les schémas. Il devient un **champ de

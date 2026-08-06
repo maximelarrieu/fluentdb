@@ -14,7 +14,11 @@ import { Badge } from '../../components/ui/misc.js';
 import { ExportMenu } from '../../components/ui/ExportMenu.js';
 import { useToast } from '../../components/ui/Toast.js';
 import { formatDuration, formatNumber } from '../../lib/format.js';
-import { rowsToMarkdown, rowsToTsv } from '../../lib/exportDownload.js';
+import {
+  exportRowsClient,
+  rowsToMarkdown,
+  rowsToTsv,
+} from '../../lib/exportDownload.js';
 import { DataGrid } from '../data-grid/DataGrid.js';
 import { ResultChart } from './ResultChart.js';
 
@@ -30,12 +34,10 @@ function rowMatches(row: CellValue[], needle: string): boolean {
 export function ResultsPane({
   result,
   error,
-  onExport,
   onFix,
 }: {
   result: QueryResponse | null;
   error: string | null;
-  onExport: (format: ExportFormat) => void;
   /** Present when an AI provider is configured — offers a one-click fix. */
   onFix?: () => void;
 }) {
@@ -75,6 +77,20 @@ export function ResultsPane({
     if (!needle) return current.rows;
     return current.rows.filter((r) => rowMatches(r, needle));
   }, [current, needle]);
+
+  // Export the active result set from the rows already in memory — no server
+  // round-trip, so multi-statement scripts / temp views / multiple result sets
+  // all export cleanly. Exports the full loaded set (not the search filter).
+  const exportSet = (format: ExportFormat) => {
+    if (!current) return;
+    exportRowsClient(format, current.columns, current.rows, 'resultat');
+    if (current.truncated) {
+      toast.push(
+        'info',
+        `Export limité aux ${formatNumber(current.rows.length)} lignes chargées (résultat tronqué).`,
+      );
+    }
+  };
 
   const copyVisible = async (kind: 'markdown' | 'tsv') => {
     if (!current) return;
@@ -176,7 +192,7 @@ export function ResultsPane({
                   <BarChart3 size={12} aria-hidden="true" /> Graphique
                 </button>
               </div>
-              <ExportMenu onExport={onExport} onCopy={copyVisible} />
+              <ExportMenu onExport={exportSet} onCopy={copyVisible} />
             </>
           )}
         </div>

@@ -12,12 +12,8 @@ import {
   Clock,
   Bookmark,
 } from 'lucide-react';
-import type {
-  ExportFormat,
-  QueryPlanResponse,
-} from '@fluentdb/shared';
+import type { QueryPlanResponse } from '@fluentdb/shared';
 import { api, ApiError } from '../../api/client.js';
-import { postDownload } from '../../lib/exportDownload.js';
 import { Button } from '../../components/ui/Button.js';
 import { Spinner } from '../../components/ui/misc.js';
 import { useToast } from '../../components/ui/Toast.js';
@@ -177,19 +173,6 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
   const runSelection = (selection: string) =>
     void requestRun(selection.trim() || sql);
 
-  const exportData = async (format: ExportFormat) => {
-    try {
-      await postDownload(
-        api.exportUrl(connId),
-        { format, sql: lastSql, database, fileName: 'query', tableName: 'query' },
-        'query',
-        format,
-      );
-    } catch {
-      toast.push('error', "Échec de l'export");
-    }
-  };
-
   const explain = () => {
     toggleAi(true);
     window.dispatchEvent(
@@ -334,7 +317,6 @@ export function QueryEditor({ tabId, sql }: { tabId: string; sql: string }) {
             <ResultsPane
               result={result}
               error={error}
-              onExport={exportData}
               onFix={aiConfigured ? fixWithAi : undefined}
             />
           )}
