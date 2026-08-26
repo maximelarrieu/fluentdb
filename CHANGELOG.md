@@ -9,6 +9,14 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Installation fiabilisée pour les nouveaux contributeurs** : la version de
+  Node est épinglée (`.nvmrc` / `.node-version` → 22 LTS) et `engine-strict`
+  refuse l'installation sur une version non supportée avec un message clair, au
+  lieu de laisser `better-sqlite3` (module natif) échouer à la compilation sur
+  une Node trop récente (ex. Node 24, sans binaire précompilé). `engines`
+  resserré à `^20.19 || ^22.12`. README : prérequis explicites + section
+  **Dépannage** couvrant les erreurs `node-gyp`/`better-sqlite3`, le message
+  `Unsupported engine` et le plantage en cascade de `npm run dev`.
 - **Export des résultats de requête fiabilisé** : l'export d'un résultat se fait
   désormais **côté client, à partir des lignes déjà affichées**, au lieu de
   ré-exécuter le SQL côté serveur. Corrige l'erreur `syntax error at or near
