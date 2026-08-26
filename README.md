@@ -29,11 +29,25 @@ Ollama à venir) qui génère, explique et corrige du SQL en langage naturel.
 
 ## Démarrage rapide
 
-Prérequis : Node.js ≥ 20.
+**Prérequis : Node.js LTS 20 ou 22** (pas 24 — voir plus bas). Le projet embarque
+`better-sqlite3`, un module natif : sur une version de Node LTS, `npm` télécharge
+un binaire précompilé, **aucun compilateur n'est requis**. Sur une version non
+LTS (ex. Node 24), aucun binaire précompilé n'existe encore → `npm install`
+essaie de compiler depuis les sources et échoue faute d'outils de build.
+
+Le dépôt épingle la version via `.nvmrc` / `.node-version`, et `npm` refuse
+l'installation sur une version non supportée (message clair) grâce à
+`engine-strict`. Avec [nvm](https://github.com/nvm-sh/nvm) :
+
+```bash
+nvm install   # lit .nvmrc → installe/active Node 22
+nvm use
+```
 
 ```bash
 npm install
-cp .env.example .env      # renseigne GEMINI_API_KEY pour activer l'assistant IA
+cp .env.example .env      # (Windows cmd : copy .env.example .env)
+                          # renseigne GEMINI_API_KEY pour activer l'assistant IA
 
 # Développement (serveur + UI avec rechargement à chaud)
 npm run dev
@@ -55,6 +69,36 @@ npm start
 | `GEMINI_API_KEY`    | Clé API Google Gemini pour l'assistant IA                    | —                       |
 | `GEMINI_MODEL`      | Modèle Gemini                                                | `gemini-2.5-flash`      |
 | `DOCKER_HOST`       | Surcharge du socket Docker                                   | `/var/run/docker.sock`  |
+
+## Dépannage (installation)
+
+La plupart des soucis d'installation viennent d'une **version de Node non
+supportée**. Vérifie d'abord : `node -v` doit renvoyer une version **20.x ou
+22.x**.
+
+- **`npm install` échoue sur `better-sqlite3`** (erreurs `node-gyp`, `gyp ERR!`,
+  `MSB…`, `Python`, `Visual Studio`, `prebuild-install`…) → tu es sur une
+  version de Node sans binaire précompilé (typiquement Node 24). Bascule sur une
+  LTS :
+
+  ```bash
+  nvm install 22 && nvm use 22
+  rm -rf node_modules package-lock.json   # optionnel, repart propre
+  npm install
+  ```
+
+- **`npm error … engine … Unsupported engine`** → c'est `engine-strict` qui te
+  prévient tôt : ton Node n'est pas dans la plage supportée. Même correctif que
+  ci-dessus (`nvm use`).
+
+- **`npm run dev` sort en erreur (code 1) juste après un `npm install` qui a
+  planté**, avec une pile `ModuleJob`/`ERR_MODULE_NOT_FOUND` → l'install a été
+  interrompue et `node_modules` est incomplet. Refais une install propre sur une
+  Node LTS (bloc ci-dessus).
+
+- **Windows** : `cp` n'existe pas dans `cmd.exe` (utilise `copy`, ou travaille
+  sous Git Bash / PowerShell). Aucun outil de build n'est nécessaire tant que tu
+  restes sur une Node LTS (binaire précompilé de `better-sqlite3`).
 
 ## Architecture
 
