@@ -7,6 +7,17 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+
+- **Import de descriptions (JSON) → commentaires** : depuis l'arbre, un fichier
+  JSON `{ tables: [{ name, description, columns: [{ name, description }] }] }`
+  peut être importé pour écrire les descriptions dans les **commentaires** des
+  tables et colonnes correspondantes (correspondance par nom exact). Aperçu du
+  SQL + rapport de correspondance (trouvées / ignorées) avant application, à la
+  demande et bloqué en lecture seule. PostgreSQL : tables + colonnes ; MySQL :
+  commentaires de table (les colonnes sont signalées comme non prises en charge,
+  MySQL exigeant de redéfinir la colonne).
+
 ### Corrigé
 
 - **Types de colonnes plus lisibles (PostgreSQL)** : les noms verbeux sont

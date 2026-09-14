@@ -24,6 +24,7 @@ import type {
   SchemaInfo,
   SearchHit,
   TableInfo,
+  TableKind,
   TableRef,
   TableStructure,
   TriggerInfo,
@@ -136,6 +137,19 @@ export interface Driver {
   /** Pure: DdlChange -> SQL statements + warnings. Never executes. */
   buildDdl(change: DdlChange): DdlPreview;
   applyDdl(statements: string[]): Promise<void>;
+
+  /**
+   * A single statement that sets the comment of a table/view (column=null) or a
+   * column, or null when the engine can't set that comment safely (e.g. MySQL
+   * column comments require redefining the column; SQLite has no comments).
+   * Pure: never executes.
+   */
+  commentStatement?(
+    ref: TableRef,
+    kind: TableKind,
+    column: string | null,
+    comment: string,
+  ): string | null;
 
   /**
    * Live server sessions for the activity monitor. Empty when unsupported
