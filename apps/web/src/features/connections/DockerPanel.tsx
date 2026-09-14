@@ -86,7 +86,7 @@ function DockerRow({
             {c.containerName}
           </span>
           <Badge tone={c.running ? 'green' : 'default'}>
-            {c.running ? 'running' : 'stopped'}
+            {c.running ? 'en cours' : 'arrêté'}
           </Badge>
         </div>
         <div className="text-[11px] text-muted truncate mono">

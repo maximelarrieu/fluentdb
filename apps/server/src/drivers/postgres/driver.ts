@@ -41,6 +41,7 @@ import {
 } from '../sqlBuilder.js';
 import { postgresDialect } from './dialect.js';
 import { buildPostgresDdl } from './ddl.js';
+import { shortenPgType } from './pgTypes.js';
 import { synthesizeCreateTable } from '../../services/ddlGen.js';
 import { normalizePgPlan } from './explain.js';
 
@@ -266,42 +267,26 @@ export class PostgresDriver implements Driver {
     const schema = ref.schema ?? DEFAULT_SCHEMA;
     const db = this.db();
 
+    // Single pg_catalog query (covers tables, views and materialized views):
+    // format_type gives the exact type with length/precision, which we shorten
+    // for display (varchar(n), timestamptz…); attidentity flags identity cols.
     const colsRes = await db.query(
-      `SELECT column_name, data_type, udt_name, is_nullable, column_default,
-              is_identity, ordinal_position,
-              col_description(
-                format('%I.%I', table_schema, table_name)::regclass,
-                ordinal_position::int
-              ) AS comment
-       FROM information_schema.columns
-       WHERE table_schema = $1 AND table_name = $2
-       ORDER BY ordinal_position`,
+      `SELECT a.attname AS column_name,
+              format_type(a.atttypid, a.atttypmod) AS data_type,
+              (NOT a.attnotnull) AS nullable,
+              pg_get_expr(d.adbin, d.adrelid) AS column_default,
+              a.attidentity AS identity,
+              col_description(c.oid, a.attnum) AS comment
+       FROM pg_attribute a
+       JOIN pg_class c ON c.oid = a.attrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+       WHERE n.nspname = $1 AND c.relname = $2
+         AND a.attnum > 0 AND NOT a.attisdropped
+       ORDER BY a.attnum`,
       [schema, ref.name],
     );
-    // Materialized views are absent from information_schema — fall back to
-    // pg_catalog so their columns (and data browsing) still work.
-    let colRows = colsRes.rows;
-    if (colRows.length === 0) {
-      const pgCat = await db.query(
-        `SELECT a.attname AS column_name,
-                format_type(a.atttypid, a.atttypmod) AS data_type,
-                NULL AS udt_name,
-                CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
-                pg_get_expr(d.adbin, d.adrelid) AS column_default,
-                'NO' AS is_identity,
-                a.attnum AS ordinal_position,
-                col_description(c.oid, a.attnum) AS comment
-         FROM pg_attribute a
-         JOIN pg_class c ON c.oid = a.attrelid
-         JOIN pg_namespace n ON n.oid = c.relnamespace
-         LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-         WHERE n.nspname = $1 AND c.relname = $2
-           AND a.attnum > 0 AND NOT a.attisdropped
-         ORDER BY a.attnum`,
-        [schema, ref.name],
-      );
-      colRows = pgCat.rows;
-    }
+    const colRows = colsRes.rows;
     if (colRows.length === 0) {
       throw new DriverError(`Table not found: ${schema}.${ref.name}`, 404);
     }
@@ -322,15 +307,12 @@ export class PostgresDriver implements Driver {
 
     const columns = colRows.map((r, i) => ({
       name: r.column_name as string,
-      dataType:
-        r.data_type === 'USER-DEFINED' || r.data_type === 'ARRAY'
-          ? (r.udt_name as string)
-          : (r.data_type as string),
-      nullable: r.is_nullable === 'YES',
-      defaultValue: r.column_default as string | null,
+      dataType: shortenPgType(r.data_type as string),
+      nullable: r.nullable as boolean,
+      defaultValue: (r.column_default as string | null) ?? null,
       isPrimaryKey: pkSet.has(r.column_name),
       isAutoIncrement:
-        r.is_identity === 'YES' ||
+        (typeof r.identity === 'string' && r.identity !== '') ||
         (typeof r.column_default === 'string' &&
           r.column_default.startsWith('nextval(')),
       comment: (r.comment as string | null) ?? null,
@@ -470,7 +452,7 @@ export class PostgresDriver implements Driver {
         schema: r.schema as string,
         table: r.table as string,
         tableKind: r.table_kind as SearchHit['tableKind'],
-        dataType: r.data_type as string,
+        dataType: shortenPgType(r.data_type as string),
       })),
     ];
     return hits.slice(0, limit);

@@ -9,6 +9,13 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Types de colonnes plus lisibles (PostgreSQL)** : les noms verbeux sont
+  abrégés à l'affichage — `character varying(255)` → `varchar(255)` (longueur
+  conservée), `timestamp with time zone` → `timestamptz`, `timestamp without
+  time zone` → `timestamp`, `character(n)` → `char(n)`, etc. Appliqué partout
+  (structure, grille de données, palette, DDL généré, contexte IA).
+- **Statut des conteneurs Docker en français** : « running » / « stopped »
+  deviennent « en cours » / « arrêté ».
 - **Installation fiabilisée pour les nouveaux contributeurs** : la version de
   Node est épinglée (`.nvmrc` / `.node-version` → 22 LTS) et `engine-strict`
   refuse l'installation sur une version non supportée avec un message clair, au
