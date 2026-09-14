@@ -27,7 +27,12 @@ function pgMock(): Driver {
       indexes: [],
       foreignKeys: [],
     }),
-    commentStatement: (ref, kind, column, comment) => {
+    commentStatement: (
+      ref: { name: string; schema?: string },
+      _kind: unknown,
+      column: string | null,
+      comment: string,
+    ) => {
       const t = ref.schema ? `"${ref.schema}"."${ref.name}"` : `"${ref.name}"`;
       const lit = `'${comment.replace(/'/g, "''")}'`;
       return column
@@ -69,15 +74,49 @@ describe('buildCommentImport (postgres)', () => {
     );
   });
 
-  it('reports column comments as unsupported on MySQL', async () => {
+  it('builds MODIFY COLUMN statements for column comments on MySQL', async () => {
     const mysql = { ...pgMock(), engine: 'mysql' } as unknown as Driver;
-    (mysql as unknown as { commentStatement: Driver['commentStatement'] }).commentStatement =
-      (ref, _kind, column, comment) =>
-        column ? null : `ALTER TABLE \`${ref.name}\` COMMENT = '${comment}'`;
+    const m = mysql as unknown as {
+      commentStatement: Driver['commentStatement'];
+      columnCommentStatements: Driver['columnCommentStatements'];
+    };
+    // Table comments: standalone ALTER (column=null).
+    m.commentStatement = (ref, _kind, column, comment) =>
+      column ? null : `ALTER TABLE \`${ref.name}\` COMMENT = '${comment}'`;
+    // Column comments: batched, using a live definition (mocked here).
+    m.columnCommentStatements = async (ref, comments) => ({
+      statements: comments.map(
+        (c) =>
+          `ALTER TABLE \`${ref.name}\` MODIFY COLUMN \`${c.column}\` int(11) NOT NULL COMMENT '${c.comment}'`,
+      ),
+      skipped: [],
+    });
     const plan = await buildCommentImport(mysql, descriptions, undefined);
-    expect(plan.tableComments).toBe(2);
+    expect(plan.tableComments).toBe(2); // users, aliments
+    expect(plan.columnComments).toBe(3); // users.ID, users.login, aliments.Nom
+    expect(plan.missingColumns).toEqual(['users.ghost']);
+    expect(plan.unsupported).toBe(0);
+    expect(plan.engineNote).toBeUndefined();
+    expect(plan.statements).toContain(
+      "ALTER TABLE `aliments` MODIFY COLUMN `Nom` int(11) NOT NULL COMMENT 'Nom'",
+    );
+  });
+
+  it('counts generated columns skipped by MySQL as unsupported', async () => {
+    const mysql = { ...pgMock(), engine: 'mysql' } as unknown as Driver;
+    const m = mysql as unknown as {
+      commentStatement: Driver['commentStatement'];
+      columnCommentStatements: Driver['columnCommentStatements'];
+    };
+    m.commentStatement = (_ref, _kind, column) => (column ? null : 'ALTER TABLE t COMMENT = ...');
+    // Simulate every requested column being a generated column (skipped).
+    m.columnCommentStatements = async (_ref, comments) => ({
+      statements: [],
+      skipped: comments.map((c) => c.column),
+    });
+    const plan = await buildCommentImport(mysql, descriptions, undefined);
     expect(plan.columnComments).toBe(0);
     expect(plan.unsupported).toBe(3);
-    expect(plan.engineNote).toMatch(/MySQL/);
+    expect(plan.engineNote).toMatch(/générée/);
   });
 });

@@ -48,6 +48,12 @@ interface MysqlEmitter {
 import { mysqlDialect } from './dialect.js';
 import { buildMysqlDdl } from './ddl.js';
 import { normalizeMysqlPlan } from './explain.js';
+import {
+  isGeneratedColumn,
+  parseCreateTableColumns,
+  splitColumnConstraints,
+  stripTrailingComment,
+} from './columnDefs.js';
 
 const SYSTEM_DBS = new Set([
   'mysql',
@@ -777,12 +783,47 @@ export class MysqlDriver implements Driver {
     column: string | null,
     comment: string,
   ): string | null {
-    // MySQL has no comment-only column alter (it requires redefining the whole
-    // column), which risks changing type/default/etc. — so we only set table
-    // comments here and report columns as unsupported.
+    // Column comments are handled by columnCommentStatements (async — they need
+    // the live column definition to MODIFY the column). This synchronous path
+    // only covers table comments, which are a standalone ALTER.
     if (column) return null;
     const lit = `'${comment.replace(/'/g, "''")}'`;
     return `ALTER TABLE ${this.dialect.quoteIdent(ref.name)} COMMENT = ${lit}`;
+  }
+
+  async columnCommentStatements(
+    ref: TableRef,
+    comments: { column: string; comment: string }[],
+  ): Promise<{ statements: string[]; skipped: string[] }> {
+    // MySQL has no comment-only column alter: a column comment is set by
+    // redefining the column. We reuse the server's own canonical definition
+    // (from SHOW CREATE TABLE) so the MODIFY changes nothing but the comment.
+    const statements: string[] = [];
+    const skipped: string[] = [];
+    const ddl = await this.getTableDdl(ref);
+    const defs = ddl ? parseCreateTableColumns(ddl) : new Map<string, string>();
+    const tbl = this.dialect.quoteIdent(ref.name);
+    for (const { column, comment } of comments) {
+      const def = defs.get(column);
+      // Skip when the definition is unknown or the column is generated (a
+      // generated column's expression can't be safely re-emitted here).
+      if (!def || isGeneratedColumn(def)) {
+        skipped.push(column);
+        continue;
+      }
+      // COMMENT must precede trailing CHECK/REFERENCES clauses, and replaces
+      // any existing comment in the definition's main part.
+      const { head, tail } = splitColumnConstraints(def);
+      const cleanedHead = stripTrailingComment(head);
+      const lit = `'${comment.replace(/'/g, "''")}'`;
+      const newDef = [cleanedHead, `COMMENT ${lit}`, tail]
+        .filter((p) => p)
+        .join(' ');
+      statements.push(
+        `ALTER TABLE ${tbl} MODIFY COLUMN ${this.dialect.quoteIdent(column)} ${newDef}`,
+      );
+    }
+    return { statements, skipped };
   }
 
   async getViewDefinition(ref: TableRef): Promise<string | null> {

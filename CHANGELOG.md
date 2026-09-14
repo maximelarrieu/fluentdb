@@ -14,9 +14,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
   peut être importé pour écrire les descriptions dans les **commentaires** des
   tables et colonnes correspondantes (correspondance par nom exact). Aperçu du
   SQL + rapport de correspondance (trouvées / ignorées) avant application, à la
-  demande et bloqué en lecture seule. PostgreSQL : tables + colonnes ; MySQL :
-  commentaires de table (les colonnes sont signalées comme non prises en charge,
-  MySQL exigeant de redéfinir la colonne).
+  demande et bloqué en lecture seule. **PostgreSQL et MySQL/MariaDB : tables +
+  colonnes.** Pour MySQL, où commenter une colonne impose de la redéfinir, la
+  définition exacte de la colonne est reprise depuis le serveur (`SHOW CREATE
+  TABLE`) et seul le `COMMENT` est ajouté — type, `NOT NULL`, `DEFAULT`,
+  `AUTO_INCREMENT`, `CHARACTER SET`/`COLLATE` et contraintes `CHECK` sont
+  préservés à l'identique. Les colonnes générées sont ignorées par sécurité.
 
 ### Corrigé
 

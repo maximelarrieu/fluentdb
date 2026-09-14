@@ -55,23 +55,36 @@ export async function buildCommentImport(
       } catch {
         colNames = new Set();
       }
+      const present: { column: string; comment: string }[] = [];
       for (const cd of cols) {
         if (!colNames.has(cd.name)) {
           missingColumns.push(`${td.name}.${cd.name}`);
           continue;
         }
-        const stmt = driver.commentStatement?.(
-          ref,
-          match.kind,
-          cd.name,
-          cd.description!.trim(),
-        );
-        if (stmt) {
-          statements.push(stmt);
-          columnComments += 1;
-        } else {
-          unsupported += 1;
+        present.push({ column: cd.name, comment: cd.description!.trim() });
+      }
+      if (present.length === 0) {
+        // nothing to do
+      } else if (driver.columnCommentStatements) {
+        // Engines that must redefine the column (MySQL) build the statements
+        // in one batch from the live column definitions.
+        const res = await driver.columnCommentStatements(ref, present);
+        statements.push(...res.statements);
+        columnComments += res.statements.length;
+        unsupported += res.skipped.length;
+      } else if (driver.commentStatement) {
+        // Engines with a standalone column-comment statement (PostgreSQL).
+        for (const p of present) {
+          const stmt = driver.commentStatement(ref, match.kind, p.column, p.comment);
+          if (stmt) {
+            statements.push(stmt);
+            columnComments += 1;
+          } else {
+            unsupported += 1;
+          }
         }
+      } else {
+        unsupported += present.length;
       }
     }
   }
@@ -80,7 +93,7 @@ export async function buildCommentImport(
   if (unsupported > 0) {
     engineNote =
       driver.engine === 'mysql'
-        ? `MySQL ne permet pas de commenter une colonne sans la redéfinir : ${unsupported} commentaire(s) de colonne ignoré(s) par sécurité (les commentaires de table sont pris en charge).`
+        ? `${unsupported} colonne(s) ignorée(s) : une colonne générée ne peut pas recevoir de commentaire sans être recalculée.`
         : driver.engine === 'sqlite'
           ? 'SQLite ne gère pas les commentaires : rien à importer.'
           : `${unsupported} commentaire(s) non pris en charge par ce moteur.`;
