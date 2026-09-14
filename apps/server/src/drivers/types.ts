@@ -152,6 +152,21 @@ export interface Driver {
   ): string | null;
 
   /**
+   * Build the statements that set column comments for a batch of columns of one
+   * table. Async because some engines (MySQL) must read the live column
+   * definition to redefine the column safely. Returns the statements plus the
+   * names of columns that couldn't be commented (e.g. generated columns).
+   *
+   * When absent, callers fall back to the synchronous `commentStatement` per
+   * column (used by engines whose column comments are a standalone statement,
+   * like PostgreSQL). Never executes.
+   */
+  columnCommentStatements?(
+    ref: TableRef,
+    comments: { column: string; comment: string }[],
+  ): Promise<{ statements: string[]; skipped: string[] }>;
+
+  /**
    * Live server sessions for the activity monitor. Empty when unsupported
    * (SQLite). Excludes nothing but flags FluentDB's own backend as `current`.
    */
