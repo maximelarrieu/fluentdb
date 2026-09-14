@@ -17,6 +17,7 @@ import {
   HeartPulse,
   Activity,
   Gauge,
+  Upload,
   Users,
   Sparkles,
   Copy,
@@ -55,6 +56,7 @@ import { usePanels } from '../../stores/panels.js';
 import { ResizeHandle } from '../../components/ui/ResizeHandle.js';
 import { formatNumber } from '../../lib/format.js';
 import { RenameTableDialog } from './RenameTableDialog.js';
+import { ImportDescriptionsDialog } from './ImportDescriptionsDialog.js';
 import { EditViewDialog } from '../sql-editor/EditViewDialog.js';
 
 export function SchemaTree() {
@@ -87,6 +89,7 @@ export function SchemaTree() {
   const [defTarget, setDefTarget] = useState<TableInfo | null>(null);
   const [renameTarget, setRenameTarget] = useState<TableInfo | null>(null);
   const [editViewTarget, setEditViewTarget] = useState<TableInfo | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [codeView, setCodeView] = useState<{
     title: string;
     subtitle?: string;
@@ -353,6 +356,12 @@ export function SchemaTree() {
           badge={unseenCount > 0}
           onClick={() => openTasks()}
         />
+        <ToolButton
+          icon={<Upload size={15} />}
+          label="Importer des descriptions (JSON)"
+          active={false}
+          onClick={() => setImportOpen(true)}
+        />
       </div>
 
       {/* Connection context: database + schema pickers. The schema picker is
@@ -570,6 +579,10 @@ export function SchemaTree() {
           view={editViewTarget}
           onClose={() => setEditViewTarget(null)}
         />
+      )}
+
+      {importOpen && (
+        <ImportDescriptionsDialog onClose={() => setImportOpen(false)} />
       )}
 
       {codeView && (

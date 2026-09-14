@@ -41,6 +41,46 @@ export const tableExportRequestSchema = z.object({
 });
 export type TableExportRequest = z.infer<typeof tableExportRequestSchema>;
 
+/** Bulk import of table/column descriptions written as comments in the DB. */
+export const columnDescriptionSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+export const tableDescriptionSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  columns: z.array(columnDescriptionSchema).optional(),
+});
+export const schemaDescriptionsSchema = z.object({
+  tables: z.array(tableDescriptionSchema),
+});
+export type SchemaDescriptions = z.infer<typeof schemaDescriptionsSchema>;
+
+export const commentImportRequestSchema = z.object({
+  database: z.string().optional(),
+  schema: z.string().optional(),
+  descriptions: schemaDescriptionsSchema,
+  /** false = dry-run (preview + match report), true = apply the statements. */
+  apply: z.boolean().default(false),
+});
+export type CommentImportRequest = z.infer<typeof commentImportRequestSchema>;
+
+export interface CommentImportResult {
+  /** The generated comment statements (preview or what was applied). */
+  statements: string[];
+  tableComments: number;
+  columnComments: number;
+  /** JSON tables with no matching DB table. */
+  missingTables: string[];
+  /** "table.column" entries whose column wasn't found. */
+  missingColumns: string[];
+  /** Comments skipped because the engine can't set them safely. */
+  unsupported: number;
+  applied: boolean;
+  /** Engine-specific caveat to surface to the user (e.g. MySQL columns). */
+  engineNote?: string;
+}
+
 export const queryPlanRequestSchema = z.object({
   sql: z.string().min(1),
   database: z.string().optional(),

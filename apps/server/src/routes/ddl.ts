@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { ddlChangeSchema } from '@fluentdb/shared';
+import { commentImportRequestSchema, ddlChangeSchema } from '@fluentdb/shared';
+import { buildCommentImport } from '../services/commentImport.js';
 import type { AppContext } from '../context.js';
 
 const idParams = z.object({ id: z.string() });
@@ -34,6 +35,29 @@ export function registerDdlRoutes(app: FastifyInstance, ctx: AppContext): void {
     const driver = await ctx.manager.getDriver(id, body.database);
     await driver.applyDdl(body.statements);
     return { ok: true };
+  });
+
+  /**
+   * Import table/column descriptions as DB comments. Dry-run by default
+   * (preview + match report); applies only when `apply` is true (guarded by the
+   * read-only flag, like any other write).
+   */
+  app.post('/api/connections/:id/comments/import', async (req) => {
+    const { id } = idParams.parse(req.params);
+    const body = commentImportRequestSchema.parse(req.body);
+    const driver = await ctx.manager.getDriver(id, body.database);
+    const plan = await buildCommentImport(driver, body.descriptions, body.schema);
+    if (body.apply && plan.statements.length > 0) {
+      const config = ctx.manager.getConfig(id);
+      if (config?.isReadOnly) {
+        throw Object.assign(new Error('Connection is marked read-only'), {
+          statusCode: 403,
+        });
+      }
+      await driver.applyDdl(plan.statements);
+      return { ...plan, applied: true };
+    }
+    return { ...plan, applied: false };
   });
 
   // Refresh rebuilds a materialized view's stored data — a write, so it is

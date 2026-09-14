@@ -23,6 +23,7 @@ import type {
   RoutineInfo,
   TriggerInfo,
   TableInfo,
+  TableKind,
   TableRef,
   TableStructure,
 } from '@fluentdb/shared';
@@ -1163,6 +1164,21 @@ export class PostgresDriver implements Driver {
     } finally {
       client.release();
     }
+  }
+
+  commentStatement(
+    ref: TableRef,
+    kind: TableKind,
+    column: string | null,
+    comment: string,
+  ): string | null {
+    const q = this.dialect.quoteIdent;
+    const target = ref.schema ? `${q(ref.schema)}.${q(ref.name)}` : q(ref.name);
+    const lit = `'${comment.replace(/'/g, "''")}'`;
+    if (column) return `COMMENT ON COLUMN ${target}.${q(column)} IS ${lit}`;
+    const obj =
+      kind === 'matview' ? 'MATERIALIZED VIEW' : kind === 'view' ? 'VIEW' : 'TABLE';
+    return `COMMENT ON ${obj} ${target} IS ${lit}`;
   }
 
   async getViewDefinition(ref: TableRef): Promise<string | null> {

@@ -18,6 +18,8 @@ import type {
   HealthReport,
   QueryStatSort,
   QueryStatsResult,
+  SchemaDescriptions,
+  CommentImportResult,
   ServerRestartInfo,
   TableSize,
   HistoryEntry,
@@ -244,6 +246,20 @@ export const api = {
       statements,
       database,
     }),
+  importComments: (
+    id: string,
+    body: {
+      descriptions: SchemaDescriptions;
+      database?: string;
+      schema?: string;
+      apply?: boolean;
+    },
+  ) =>
+    request<CommentImportResult>(
+      'POST',
+      `/api/connections/${id}/comments/import`,
+      body,
+    ),
 
   // erd
   erd: (id: string, database?: string, schema?: string) =>

@@ -21,6 +21,7 @@ import type {
   RoutineInfo,
   TriggerInfo,
   TableInfo,
+  TableKind,
   TableRef,
   TableStructure,
 } from '@fluentdb/shared';
@@ -768,6 +769,20 @@ export class MysqlDriver implements Driver {
     } finally {
       conn.release();
     }
+  }
+
+  commentStatement(
+    ref: TableRef,
+    _kind: TableKind,
+    column: string | null,
+    comment: string,
+  ): string | null {
+    // MySQL has no comment-only column alter (it requires redefining the whole
+    // column), which risks changing type/default/etc. — so we only set table
+    // comments here and report columns as unsupported.
+    if (column) return null;
+    const lit = `'${comment.replace(/'/g, "''")}'`;
+    return `ALTER TABLE ${this.dialect.quoteIdent(ref.name)} COMMENT = ${lit}`;
   }
 
   async getViewDefinition(ref: TableRef): Promise<string | null> {
