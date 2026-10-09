@@ -12,7 +12,7 @@ import { QueryRunner } from './services/queryRunner.js';
 import { TasksStore } from './store/tasksStore.js';
 import { Scheduler } from './services/scheduler.js';
 import { DockerClient } from './docker/dockerClient.js';
-import { geminiFromEnv } from './ai/providers/gemini.js';
+import { aiProviderFromEnv } from './ai/providers/index.js';
 import type { AiProvider } from './ai/types.js';
 import type { AppContext } from './context.js';
 import { registerConnectionRoutes } from './routes/connections.js';
@@ -51,7 +51,7 @@ export function buildApp(opts: BuildAppOptions): BuiltApp {
   const runner = new QueryRunner(history);
   const tasks = new TasksStore(opts.dataDir);
   const docker = opts.dockerClient ?? new DockerClient();
-  const ai = opts.aiProvider !== undefined ? opts.aiProvider : geminiFromEnv();
+  const ai = opts.aiProvider !== undefined ? opts.aiProvider : aiProviderFromEnv();
 
   const app = Fastify({
     logger: opts.logger ?? false,

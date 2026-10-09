@@ -23,6 +23,7 @@ import { extractSqlBlocks, extractJson, collectStream } from '../ai/types.js';
 import { analyzeScript } from '../sql/analyze.js';
 import type { Driver } from '../drivers/types.js';
 import type { AppContext } from '../context.js';
+import { AI_NOT_CONFIGURED } from '../ai/providers/index.js';
 
 function sse(event: AiStreamEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
@@ -158,8 +159,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     const body = monitorRequestSchema.parse(req.body);
     if (!ctx.ai) {
       return reply.code(503).send({
-        error:
-          'No AI provider configured — set GEMINI_API_KEY and restart the server',
+        error: AI_NOT_CONFIGURED,
       });
     }
 
@@ -206,8 +206,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     const body = aiWidgetRequestSchema.parse(req.body);
     if (!ctx.ai) {
       return reply.code(503).send({
-        error:
-          'No AI provider configured — set GEMINI_API_KEY and restart the server',
+        error: AI_NOT_CONFIGURED,
       });
     }
     let schemaDigest: string | null = null;
@@ -253,8 +252,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     const body = mockGenerateRequestSchema.parse(req.body);
     if (!ctx.ai) {
       return reply.code(503).send({
-        error:
-          'No AI provider configured — set GEMINI_API_KEY and restart the server',
+        error: AI_NOT_CONFIGURED,
       });
     }
     const driver = await ctx.manager.getDriver(body.connectionId, body.database);
@@ -352,8 +350,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     const body = aiChatRequestSchema.parse(req.body);
     if (!ctx.ai) {
       return reply.code(503).send({
-        error:
-          'No AI provider configured — set GEMINI_API_KEY and restart the server',
+        error: AI_NOT_CONFIGURED,
       });
     }
 

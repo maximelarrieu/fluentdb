@@ -70,7 +70,7 @@ FluentDB peut réellement innover, là où les concurrents desktop sont faibles.
   focus, **export PNG/SVG/DBML**. La fonctionnalité la plus réclamée partout.
 - **`EXPLAIN` visualisé + suggestion d'index par l'IA** applicable en un clic.
 - **Streaming des gros result sets** pour écraser le grief n°1 (performance).
-- **Provider Ollama** pour un assistant 100 % local (l'abstraction est prête).
+- ~~**Provider Ollama** pour un assistant 100 % local~~ — fait (`AI_PROVIDER=ollama`).
 
 ### Long terme (paris structurellement hors de portée du desktop)
 

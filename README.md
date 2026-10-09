@@ -5,8 +5,8 @@ TablePlus / pgAdmin / DBeaver — avec un **assistant IA intégré**, conscient 
 
 FluentDB tourne en local : un petit serveur Node que tu lances chez toi, avec une interface
 web soignée en mode sombre. Il parle **PostgreSQL**, **MySQL / MariaDB** et **SQLite**, détecte
-automatiquement les bases lancées dans **Docker**, et embarque un assistant IA (Google Gemini,
-Ollama à venir) qui génère, explique et corrige du SQL en langage naturel.
+automatiquement les bases lancées dans **Docker**, et embarque un assistant IA (modèle **local** via
+Ollama, ou Google Gemini) qui génère, explique et corrige du SQL en langage naturel.
 
 ![Aperçu](docs/screenshot.png)
 
@@ -47,7 +47,7 @@ nvm use
 ```bash
 npm install
 cp .env.example .env      # (Windows cmd : copy .env.example .env)
-                          # renseigne GEMINI_API_KEY pour activer l'assistant IA
+                          # active l'assistant IA : AI_PROVIDER=ollama (local) ou GEMINI_API_KEY
 
 # Développement (serveur + UI avec rechargement à chaud)
 npm run dev
@@ -66,6 +66,10 @@ npm start
 | `FLUENTDB_PORT`     | Port du serveur local                                        | `4983`                  |
 | `FLUENTDB_DATA_DIR` | Dossier des connexions et de l'historique                    | `~/.fluentdb`           |
 | `FLUENTDB_SECRET`   | Clé de chiffrement (hex, 32 octets) — sinon générée dans le dossier de données | —          |
+| `AI_PROVIDER`       | `ollama` (modèle local), `gemini` ou `none` — sans valeur : Gemini si une clé est définie | — |
+| `OLLAMA_MODEL`      | Modèle Ollama                                                | `qwen2.5-coder:3b`      |
+| `OLLAMA_BASE_URL`   | Adresse du serveur Ollama                                    | `http://127.0.0.1:11434` |
+| `OLLAMA_NUM_CTX`    | Fenêtre de contexte demandée à Ollama                        | `16384`                 |
 | `GEMINI_API_KEY`    | Clé API Google Gemini pour l'assistant IA                    | —                       |
 | `GEMINI_MODEL`      | Modèle Gemini                                                | `gemini-2.5-flash`      |
 | `DOCKER_HOST`       | Surcharge du socket Docker                                   | `/var/run/docker.sock`  |
@@ -110,8 +114,8 @@ Monorepo npm workspaces :
   annulation de requête). Ajouter un moteur = un dossier de driver.
 - **`apps/web`** — UI React + Vite + Tailwind, CodeMirror 6, TanStack Table/Query, Zustand.
 
-L'assistant IA est derrière une interface `AiProvider` : Gemini aujourd'hui, Ollama demain sans toucher
-au reste. **La couche IA n'a aucun accès aux drivers** — le SQL qu'elle propose n'atteint la base que
+L'assistant IA est derrière une interface `AiProvider` : Ollama (local) ou Gemini, interchangeables sans
+toucher au reste. **La couche IA n'a aucun accès aux drivers** — le SQL qu'elle propose n'atteint la base que
 par un clic de l'utilisateur.
 
 ## Sécurité

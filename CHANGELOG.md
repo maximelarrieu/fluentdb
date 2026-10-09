@@ -9,6 +9,12 @@ projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Assistant IA 100 % local avec Ollama** : avec `AI_PROVIDER=ollama`,
+  l'assistant utilise un modèle qui tourne sur ta machine — gratuit, hors-ligne,
+  et ni le schéma ni les questions ne quittent le poste. Modèle par défaut
+  `qwen2.5-coder:3b` (léger, tient sur un GPU de 4 Go), modifiable via
+  `OLLAMA_MODEL`. Gemini reste disponible : sans `AI_PROVIDER`, rien ne change
+  pour qui a déjà une clé `GEMINI_API_KEY`.
 - **Import de descriptions (JSON) → commentaires** : depuis l'arbre, un fichier
   JSON `{ tables: [{ name, description, columns: [{ name, description }] }] }`
   peut être importé pour écrire les descriptions dans les **commentaires** des
