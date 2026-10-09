@@ -267,9 +267,10 @@ export function AssistantPanel() {
       {!status.data?.configured ? (
         <div className="p-4 text-[13px] text-muted leading-relaxed">
           Aucun fournisseur IA configuré. Renseigne{' '}
-          <code className="mono text-accent">GEMINI_API_KEY</code> dans le
-          fichier <code className="mono">.env</code> puis redémarre le serveur
-          FluentDB.
+          <code className="mono text-accent">AI_PROVIDER=ollama</code> (modèle
+          local) ou <code className="mono text-accent">GEMINI_API_KEY</code>{' '}
+          dans le fichier <code className="mono">.env</code> puis redémarre le
+          serveur FluentDB.
         </div>
       ) : (
         <>

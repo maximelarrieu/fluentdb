@@ -136,8 +136,9 @@ visuel vivant de la base connectée.
 
 ## 7. Assistant IA
 
-Panneau latéral droit (bouton « Assistant »). Nécessite une clé Gemini
-configurée côté serveur (sinon, un message explique comment l'activer).
+Panneau latéral droit (bouton « Assistant »). Nécessite un fournisseur IA
+configuré côté serveur — un modèle **local** via Ollama (`AI_PROVIDER=ollama`,
+aucune donnée ne quitte la machine) ou une clé Gemini (sinon, un message explique comment l'activer).
 
 - **Chat en langage naturel** : « Montre les 10 dernières commandes avec le nom du
   client », « Combien d'utilisateurs par pays ? ».

@@ -22,7 +22,7 @@ CORS).
 └─────────────────────────────┘        │   ├─ docker/   (détection conteneurs) │──► MySQL/MariaDB
                                         │   ├─ ai/       (abstraction provider) │──► SQLite
               types + schémas Zod       │   └─ store/    (connexions, historique)│──► Docker socket
-              ◄── packages/shared ──►   └──────────────────────────────────────┘──► Gemini API
+              ◄── packages/shared ──►   └──────────────────────────────────────┘──► Ollama / Gemini
 ```
 
 ## 2. Monorepo (npm workspaces)
@@ -142,9 +142,11 @@ l'enregistrer dans `drivers/registry.ts`. Rien d'autre à toucher.
   table : colonnes, types, PK, FK), priorisé (tables sélectionnées + voisins FK),
   tronqué avec mention. **Structure seule — jamais les données des lignes.**
 
-Le provider Gemini (`ai/providers/gemini.ts`) est instancié depuis
-`GEMINI_API_KEY`. Ajouter Ollama = un fichier `ai/providers/ollama.ts`
-implémentant la même interface via `fetch`.
+`aiProviderFromEnv()` (`ai/providers/index.ts`) choisit le provider selon
+`AI_PROVIDER` : **Ollama** (`ollama.ts`, modèle local, `/api/chat` en NDJSON via
+`fetch`, défaut `qwen2.5-coder:3b`) ou **Gemini** (`gemini.ts`, SDK). Le provider
+Ollama fixe `num_ctx` (16k par défaut) : la valeur par défaut d'Ollama tronquerait
+silencieusement le digest de schéma.
 
 ## 7. Sécurité
 

@@ -42,7 +42,11 @@ En production : tout est servi sur `http://127.0.0.1:4983`.
 | `FLUENTDB_SECRET` | Clé de chiffrement (hex, 32 octets). Sinon générée dans le dossier de données. | — |
 | `FLUENTDB_UNSAFE_LISTEN` | `1` pour écouter sur `0.0.0.0` (déconseillé). | — |
 | `FLUENTDB_ALLOW_HOSTS` | Hôtes supplémentaires autorisés (liste séparée par des virgules). | — |
-| `GEMINI_API_KEY` | Active l'assistant IA. | — |
+| `AI_PROVIDER` | Fournisseur IA : `ollama` (modèle local), `gemini` ou `none`. Sans valeur : Gemini si `GEMINI_API_KEY` est défini. | — |
+| `OLLAMA_MODEL` | Modèle Ollama. | `qwen2.5-coder:3b` |
+| `OLLAMA_BASE_URL` | Adresse du serveur Ollama. | `http://127.0.0.1:11434` |
+| `OLLAMA_NUM_CTX` | Fenêtre de contexte (tokens) demandée à Ollama. | `16384` |
+| `GEMINI_API_KEY` | Active l'assistant IA via Gemini. | — |
 | `GEMINI_MODEL` | Modèle Gemini. | `gemini-2.5-flash` |
 | `DOCKER_HOST` | Surcharge du point d'accès Docker (`unix://…` ou `tcp://…`). | `/var/run/docker.sock` |
 
@@ -166,12 +170,12 @@ Filtres : `op` ∈ `eq, neq, gt, gte, lt, lte, contains, starts_with, is_null, n
 
 Le driver SQLite (`drivers/sqlite/driver.ts`) est l'implémentation de référence.
 
-### Ajouter un provider IA (ex. Ollama)
+### Ajouter un provider IA
 
-1. Créer `apps/server/src/ai/providers/ollama.ts` implémentant `AiProvider`
-   (`chatStream`) via `fetch` vers `http://localhost:11434/api/chat`.
-2. Le sélectionner dans `buildApp()` (aujourd'hui `geminiFromEnv()`), par exemple
-   selon une variable d'environnement.
+1. Créer `apps/server/src/ai/providers/<nom>.ts` implémentant `AiProvider`
+   (`chatStream`) — voir `ollama.ts` (NDJSON via `fetch`) ou `gemini.ts` (SDK).
+2. L'ajouter à `aiProviderFromEnv()` (`ai/providers/index.ts`), qui choisit le
+   provider selon `AI_PROVIDER`.
 
 Contrainte : un provider ne produit que du texte, il n'a jamais accès aux drivers.
 
